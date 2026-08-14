@@ -1,8 +1,10 @@
-/* =========================================================
-   GOMOKU
-   Canvas Game + AI Characters + AI OS + Statistics
-   No backend
-   ========================================================= */
+/*
+ * =========================================================
+ * GOMOKU 1.0
+ * Canvas Gomoku + Local PvP + AI Worker + AI OS
+ * Offline / PWA / i18n / Statistics / Resume
+ * =========================================================
+ */
 
 (() => {
   "use strict";
@@ -16,29 +18,50 @@
     WIN_LENGTH: 5,
 
     EMPTY: 0,
-    PLAYER: 1,
-    AI: 2,
+    BLACK: 1,
+    WHITE: 2,
 
-    STORAGE_KEY: "gomoku-game-data-v2",
-    SETTINGS_KEY: "gomoku-settings-v2",
+    STORAGE_KEY: "gomoku-stats-v3",
+    SETTINGS_KEY: "gomoku-settings-v3",
+    GAME_SAVE_KEY: "gomoku-current-game-v3",
 
     AI_WORKER: "./ai-worker.js",
 
-    THINKING_MIN: 420,
-    THINKING_MAX: 1200,
-
-    BOARD_PADDING: 0.075,
+    LANGUAGES: ["zh-TW", "zh-CN", "en", "ja", "ko"],
 
     COLORS: {
-      board: "#e8d5ad",
-      grid: "#765f43",
+      board: "#d7b77c",
+      grid: "rgba(54, 38, 20, .68)",
       star: "#5e4934",
       black: "#171717",
-      blackHighlight: "#444444",
+      blackHighlight: "#505050",
       white: "#f7f3e9",
       whiteShadow: "#c9c1b3",
       lastMove: "#b86f52",
       winning: "#d46d52"
+    }
+  };
+
+  const DIFFICULTIES = {
+    easy: {
+      depth: 1,
+      radius: 2,
+      randomTop: 4,
+      delay: 360
+    },
+
+    normal: {
+      depth: 2,
+      radius: 2,
+      randomTop: 2,
+      delay: 560
+    },
+
+    hard: {
+      depth: 3,
+      radius: 2,
+      randomTop: 0,
+      delay: 760
     }
   };
 
@@ -66,11 +89,7 @@
         ko: "차분한 수비형"
       },
 
-      worker: {
-        depth: 1,
-        radius: 2,
-        randomTop: 3
-      },
+      style: "defense",
 
       os: {
         thinking: [
@@ -130,11 +149,7 @@
         ko: "공격적인 타입"
       },
 
-      worker: {
-        depth: 2,
-        radius: 2,
-        randomTop: 2
-      },
+      style: "attack",
 
       os: {
         thinking: [
@@ -194,11 +209,7 @@
         ko: "차분한 밸런스형"
       },
 
-      worker: {
-        depth: 2,
-        radius: 2,
-        randomTop: 1
-      },
+      style: "balanced",
 
       os: {
         thinking: [
@@ -258,11 +269,7 @@
         ko: "신비로운 전략형"
       },
 
-      worker: {
-        depth: 2,
-        radius: 2,
-        randomTop: 2
-      },
+      style: "tricky",
 
       os: {
         thinking: [
@@ -322,11 +329,7 @@
         ko: "정밀한 반격형"
       },
 
-      worker: {
-        depth: 3,
-        radius: 2,
-        randomTop: 1
-      },
+      style: "counter",
 
       os: {
         thinking: [
@@ -386,11 +389,7 @@
         ko: "조용한 고수형"
       },
 
-      worker: {
-        depth: 3,
-        radius: 2,
-        randomTop: 0
-      },
+      style: "master",
 
       os: {
         thinking: [
@@ -433,39 +432,417 @@
   };
 
   /* =========================================================
+     I18N
+     ========================================================= */
+
+  const I18N = {
+    "zh-TW": {
+      title: "五子棋",
+      subtitle: "簡單的規則，沒有簡單的棋局。",
+      start: "開始遊戲",
+      records: "棋局記錄",
+      settings: "設定",
+      resume: "繼續",
+      unfinished: "未完成棋局",
+
+      setup: "開始遊戲",
+      mode: "對戰方式",
+      ai: "人機",
+      local: "雙人",
+      difficulty: "難度",
+      easy: "初級",
+      normal: "中級",
+      hard: "高級",
+      easyDesc: "適合第一次玩",
+      normalDesc: "開始認真下棋",
+      hardDesc: "需要真正思考",
+      side: "你的棋子",
+      black: "黑棋",
+      white: "白棋",
+      first: "先手",
+      second: "後手",
+      begin: "開始",
+
+      thinking: "思考中",
+      yourTurn: "你的回合",
+      player1Turn: "玩家 1 的回合",
+      player2Turn: "玩家 2 的回合",
+      aiTurn: "回合",
+      undo: "悔棋",
+      restart: "重新開始",
+      menu: "選單",
+
+      again: "再來一局",
+      home: "返回首頁",
+      win: "你贏了",
+      lose: "你輸了",
+      draw: "平局",
+      player1Win: "玩家 1 獲勝",
+      player2Win: "玩家 2 獲勝",
+
+      games: "對局",
+      wins: "勝利",
+      losses: "失敗",
+      draws: "平局",
+      clear: "清除記錄",
+      noRecords: "目前還沒有棋局記錄。",
+
+      language: "語言",
+      languageDesc: "選擇介面語言",
+      sound: "音效",
+      soundDesc: "落子與遊戲音效",
+      motion: "動畫",
+      motionDesc: "啟用遊戲動畫",
+      theme: "外觀",
+      themeDesc: "使用系統外觀",
+
+      playerWinDesc: "你成功擊敗了 {name}。",
+      playerLoseDesc: "{name} 贏下了這一局。",
+      localWinDesc: "{player} 完成了五連。",
+      drawDesc: "棋盤已經沒有可以落子的地方。",
+      resumedAI: "對戰 {name}",
+      resumedLocal: "雙人對戰",
+
+      os: "OS",
+      recordWin: "勝利",
+      recordLoss: "失敗",
+      recordDraw: "平局",
+      recordLocal: "雙人",
+
+      restarted: "棋局已重新開始",
+      cannotUndo: "現在不能悔棋",
+      aiThinking: "AI 正在思考",
+      saved: "棋局已保存",
+      recordsCleared: "記錄已清除"
+    },
+
+    "zh-CN": {
+      title: "五子棋",
+      subtitle: "简单的规则，没有简单的棋局。",
+      start: "开始游戏",
+      records: "棋局记录",
+      settings: "设置",
+      resume: "继续",
+      unfinished: "未完成棋局",
+      setup: "开始游戏",
+      mode: "对战方式",
+      ai: "人机",
+      local: "双人",
+      difficulty: "难度",
+      easy: "初级",
+      normal: "中级",
+      hard: "高级",
+      easyDesc: "适合第一次玩",
+      normalDesc: "开始认真下棋",
+      hardDesc: "需要真正思考",
+      side: "你的棋子",
+      black: "黑棋",
+      white: "白棋",
+      first: "先手",
+      second: "后手",
+      begin: "开始",
+      thinking: "思考中",
+      yourTurn: "你的回合",
+      player1Turn: "玩家 1 的回合",
+      player2Turn: "玩家 2 的回合",
+      aiTurn: "回合",
+      undo: "悔棋",
+      restart: "重新开始",
+      menu: "菜单",
+      again: "再来一局",
+      home: "返回首页",
+      win: "你赢了",
+      lose: "你输了",
+      draw: "平局",
+      player1Win: "玩家 1 获胜",
+      player2Win: "玩家 2 获胜",
+      games: "对局",
+      wins: "胜利",
+      losses: "失败",
+      draws: "平局",
+      clear: "清除记录",
+      noRecords: "目前还没有棋局记录。",
+      language: "语言",
+      languageDesc: "选择界面语言",
+      sound: "音效",
+      soundDesc: "落子与游戏音效",
+      motion: "动画",
+      motionDesc: "启用游戏动画",
+      theme: "外观",
+      themeDesc: "使用系统外观",
+      playerWinDesc: "你成功击败了 {name}。",
+      playerLoseDesc: "{name} 赢下了这一局。",
+      localWinDesc: "{player} 完成了五连。",
+      drawDesc: "棋盘已经没有可以落子的地方。",
+      resumedAI: "对战 {name}",
+      resumedLocal: "双人对战",
+      os: "OS",
+      recordWin: "胜利",
+      recordLoss: "失败",
+      recordDraw: "平局",
+      recordLocal: "双人",
+      restarted: "棋局已重新开始",
+      cannotUndo: "现在不能悔棋",
+      aiThinking: "AI 正在思考",
+      saved: "棋局已保存",
+      recordsCleared: "记录已清除"
+    },
+
+    en: {
+      title: "Gomoku",
+      subtitle: "Simple rules. Never simple games.",
+      start: "Start Game",
+      records: "Records",
+      settings: "Settings",
+      resume: "Resume",
+      unfinished: "Unfinished game",
+      setup: "New Game",
+      mode: "Game Mode",
+      ai: "VS AI",
+      local: "Two Players",
+      difficulty: "Difficulty",
+      easy: "Easy",
+      normal: "Normal",
+      hard: "Hard",
+      easyDesc: "Good for a first game",
+      normalDesc: "Time to think",
+      hardDesc: "A real challenge",
+      side: "Your Stone",
+      black: "Black",
+      white: "White",
+      first: "First",
+      second: "Second",
+      begin: "Begin",
+      thinking: "Thinking",
+      yourTurn: "Your turn",
+      player1Turn: "Player 1's turn",
+      player2Turn: "Player 2's turn",
+      aiTurn: "Turn",
+      undo: "Undo",
+      restart: "Restart",
+      menu: "Menu",
+      again: "Play Again",
+      home: "Home",
+      win: "You Win",
+      lose: "You Lose",
+      draw: "Draw",
+      player1Win: "Player 1 Wins",
+      player2Win: "Player 2 Wins",
+      games: "Games",
+      wins: "Wins",
+      losses: "Losses",
+      draws: "Draws",
+      clear: "Clear Records",
+      noRecords: "No games recorded yet.",
+      language: "Language",
+      languageDesc: "Choose interface language",
+      sound: "Sound",
+      soundDesc: "Stone and game sounds",
+      motion: "Motion",
+      motionDesc: "Enable game animations",
+      theme: "Appearance",
+      themeDesc: "Use system appearance",
+      playerWinDesc: "You defeated {name}.",
+      playerLoseDesc: "{name} won this game.",
+      localWinDesc: "{player} completed five in a row.",
+      drawDesc: "There are no empty intersections left.",
+      resumedAI: "VS {name}",
+      resumedLocal: "Two-player game",
+      os: "OS",
+      recordWin: "Win",
+      recordLoss: "Loss",
+      recordDraw: "Draw",
+      recordLocal: "Two Players",
+      restarted: "Game restarted",
+      cannotUndo: "Undo is not available now",
+      aiThinking: "AI is thinking",
+      saved: "Game saved",
+      recordsCleared: "Records cleared"
+    },
+
+    ja: {
+      title: "五目並べ",
+      subtitle: "ルールは簡単。でも、対局は簡単じゃない。",
+      start: "ゲーム開始",
+      records: "対局記録",
+      settings: "設定",
+      resume: "続ける",
+      unfinished: "途中の対局",
+      setup: "ゲーム開始",
+      mode: "対戦方式",
+      ai: "AI対戦",
+      local: "2人対戦",
+      difficulty: "難易度",
+      easy: "初級",
+      normal: "中級",
+      hard: "上級",
+      easyDesc: "はじめての人向け",
+      normalDesc: "少し本気で",
+      hardDesc: "本気の対戦",
+      side: "あなたの石",
+      black: "黒",
+      white: "白",
+      first: "先手",
+      second: "後手",
+      begin: "開始",
+      thinking: "考え中",
+      yourTurn: "あなたの番",
+      player1Turn: "プレイヤー1の番",
+      player2Turn: "プレイヤー2の番",
+      aiTurn: "番",
+      undo: "待った",
+      restart: "最初から",
+      menu: "メニュー",
+      again: "もう一度",
+      home: "ホーム",
+      win: "勝ち",
+      lose: "負け",
+      draw: "引き分け",
+      player1Win: "プレイヤー1の勝ち",
+      player2Win: "プレイヤー2の勝ち",
+      games: "対局",
+      wins: "勝ち",
+      losses: "負け",
+      draws: "引き分け",
+      clear: "記録を消去",
+      noRecords: "まだ対局記録がありません。",
+      language: "言語",
+      languageDesc: "表示言語を選択",
+      sound: "サウンド",
+      soundDesc: "石とゲームの音",
+      motion: "アニメーション",
+      motionDesc: "ゲームアニメーション",
+      theme: "外観",
+      themeDesc: "システム設定を使用",
+      playerWinDesc: "{name}に勝ちました。",
+      playerLoseDesc: "{name}の勝ちです。",
+      localWinDesc: "{player}が五連を完成しました。",
+      drawDesc: "置ける場所がなくなりました。",
+      resumedAI: "{name}と対戦",
+      resumedLocal: "2人対戦",
+      os: "OS",
+      recordWin: "勝ち",
+      recordLoss: "負け",
+      recordDraw: "引き分け",
+      recordLocal: "2人対戦",
+      restarted: "対局を再開しました",
+      cannotUndo: "今は待ったできません",
+      aiThinking: "AIが考えています",
+      saved: "対局を保存しました",
+      recordsCleared: "記録を消去しました"
+    },
+
+    ko: {
+      title: "오목",
+      subtitle: "규칙은 간단하지만, 승부는 간단하지 않습니다.",
+      start: "게임 시작",
+      records: "대국 기록",
+      settings: "설정",
+      resume: "계속하기",
+      unfinished: "진행 중인 대국",
+      setup: "게임 시작",
+      mode: "대전 방식",
+      ai: "AI 대전",
+      local: "2인 대전",
+      difficulty: "난이도",
+      easy: "초급",
+      normal: "중급",
+      hard: "고급",
+      easyDesc: "처음 플레이하기 좋음",
+      normalDesc: "진지하게 시작",
+      hardDesc: "진짜 도전",
+      side: "내 돌",
+      black: "흑",
+      white: "백",
+      first: "선공",
+      second: "후공",
+      begin: "시작",
+      thinking: "생각 중",
+      yourTurn: "내 차례",
+      player1Turn: "플레이어 1 차례",
+      player2Turn: "플레이어 2 차례",
+      aiTurn: "차례",
+      undo: "무르기",
+      restart: "다시 시작",
+      menu: "메뉴",
+      again: "다시 하기",
+      home: "홈",
+      win: "승리",
+      lose: "패배",
+      draw: "무승부",
+      player1Win: "플레이어 1 승리",
+      player2Win: "플레이어 2 승리",
+      games: "대국",
+      wins: "승리",
+      losses: "패배",
+      draws: "무승부",
+      clear: "기록 삭제",
+      noRecords: "아직 대국 기록이 없습니다.",
+      language: "언어",
+      languageDesc: "표시 언어 선택",
+      sound: "소리",
+      soundDesc: "돌과 게임 효과음",
+      motion: "애니메이션",
+      motionDesc: "게임 애니메이션 사용",
+      theme: "외관",
+      themeDesc: "시스템 설정 사용",
+      playerWinDesc: "{name}에게 승리했습니다.",
+      playerLoseDesc: "{name}이 승리했습니다.",
+      localWinDesc: "{player}가 오목을 완성했습니다.",
+      drawDesc: "놓을 수 있는 곳이 없습니다.",
+      resumedAI: "{name}와 대전",
+      resumedLocal: "2인 대전",
+      os: "OS",
+      recordWin: "승리",
+      recordLoss: "패배",
+      recordDraw: "무승부",
+      recordLocal: "2인 대전",
+      restarted: "대국을 다시 시작했습니다",
+      cannotUndo: "지금은 무를 수 없습니다",
+      aiThinking: "AI가 생각하고 있습니다",
+      saved: "대국을 저장했습니다",
+      recordsCleared: "기록을 삭제했습니다"
+    }
+  };
+
+  /* =========================================================
      STATE
      ========================================================= */
 
   let board = createBoard();
 
-  let currentPlayer = CONFIG.PLAYER;
+  let gameId = createId();
+  let boardVersion = 0;
+
+  let currentPlayer = CONFIG.BLACK;
+
   let gameOver = false;
   let aiThinking = false;
 
+  let selectedMode = "ai";
   let selectedAI = "sora";
   let selectedDifficulty = "normal";
-  let selectedMode = "ai";
   let playerSide = "black";
 
   let moveHistory = [];
   let winningLine = [];
-
   let lastMove = null;
+
+  let worker = null;
+  let activeWorkerRequest = null;
 
   let canvas = null;
   let ctx = null;
-
-  let boardRect = null;
+  let boardSizePx = 0;
   let cellSize = 0;
   let boardOrigin = 0;
+  let resizeFrame = 0;
 
-  let worker = null;
-  let workerRequestId = 0;
-
-  let stats = loadStats();
-  let settings = loadSettings();
-
+  let toastTimer = null;
   let audioContext = null;
+
+  let settings = loadSettings();
+  let stats = loadStats();
 
   /* =========================================================
      DOM
@@ -474,339 +851,69 @@
   const DOM = {};
 
   function cacheDOM() {
-    DOM.homeScreen = document.querySelector("#homeScreen");
-    DOM.setupScreen = document.querySelector("#setupScreen");
-    DOM.gameScreen = document.querySelector("#gameScreen");
-    DOM.resultScreen = document.querySelector("#resultScreen");
-    DOM.recordsScreen = document.querySelector("#recordsScreen");
-    DOM.settingsScreen = document.querySelector("#settingsScreen");
+    DOM.homeScreen = $("#homeScreen");
+    DOM.setupScreen = $("#setupScreen");
+    DOM.gameScreen = $("#gameScreen");
+    DOM.resultScreen = $("#resultScreen");
+    DOM.recordsScreen = $("#recordsScreen");
+    DOM.settingsScreen = $("#settingsScreen");
 
-    DOM.startButton = document.querySelector("#startButton");
-    DOM.recordsButton = document.querySelector("#recordsButton");
-    DOM.settingsButton = document.querySelector("#settingsButton");
+    DOM.startButton = $("#startButton");
+    DOM.recordsButton = $("#recordsButton");
+    DOM.settingsButton = $("#settingsButton");
+    DOM.beginGameButton = $("#beginGameButton");
 
-    DOM.beginGameButton = document.querySelector("#beginGameButton");
+    DOM.modeControl = $("#modeControl");
+    DOM.difficultyGroup = $("#difficultyGroup");
 
-    DOM.modeControl = document.querySelector("#modeControl");
-    DOM.difficultyGroup = document.querySelector("#difficultyGroup");
+    DOM.undoButton = $("#undoButton");
+    DOM.restartButton = $("#restartButton");
+    DOM.gameMenuButton = $("#gameMenuButton");
 
-    DOM.undoButton = document.querySelector("#undoButton");
-    DOM.restartButton = document.querySelector("#restartButton");
-    DOM.gameMenuButton = document.querySelector("#gameMenuButton");
+    DOM.playAgainButton = $("#playAgainButton");
+    DOM.resultHomeButton = $("#resultHomeButton");
 
-    DOM.playAgainButton = document.querySelector("#playAgainButton");
-    DOM.resultHomeButton = document.querySelector("#resultHomeButton");
+    DOM.clearRecordsButton = $("#clearRecordsButton");
 
-    DOM.clearRecordsButton =
-      document.querySelector("#clearRecordsButton");
+    DOM.languageSelect = $("#languageSelect");
+    DOM.soundToggle = $("#soundToggle");
+    DOM.motionToggle = $("#motionToggle");
+    DOM.themeSelect = $("#themeSelect");
 
-    DOM.languageSelect =
-      document.querySelector("#languageSelect");
+    DOM.turnStone = $("#turnStone");
+    DOM.turnLabel = $("#turnLabel");
+    DOM.turnPlayer = $("#turnPlayer");
+    DOM.thinkingIndicator = $("#thinkingIndicator");
 
-    DOM.soundToggle =
-      document.querySelector("#soundToggle");
+    DOM.resultMark = $("#resultMark");
+    DOM.resultKicker = $("#resultKicker");
+    DOM.resultTitle = $("#resultTitle");
+    DOM.resultDescription = $("#resultDescription");
 
-    DOM.motionToggle =
-      document.querySelector("#motionToggle");
+    DOM.statGames = $("#statGames");
+    DOM.statWins = $("#statWins");
+    DOM.statLosses = $("#statLosses");
+    DOM.statDraws = $("#statDraws");
+    DOM.recordList = $("#recordList");
 
-    DOM.themeSelect =
-      document.querySelector("#themeSelect");
+    DOM.resumeCard = $("#resumeCard");
+    DOM.resumeText = $("#resumeText");
+    DOM.resumeButton = $("#resumeButton");
 
-    DOM.turnStone =
-      document.querySelector("#turnStone");
+    DOM.backButton = $("#backButton");
+    DOM.menuButton = $("#menuButton");
 
-    DOM.turnLabel =
-      document.querySelector("#turnLabel");
+    canvas = $("#boardCanvas");
 
-    DOM.turnPlayer =
-      document.querySelector("#turnPlayer");
-
-    DOM.thinkingIndicator =
-      document.querySelector("#thinkingIndicator");
-
-    DOM.resultMark =
-      document.querySelector("#resultMark");
-
-    DOM.resultKicker =
-      document.querySelector("#resultKicker");
-
-    DOM.resultTitle =
-      document.querySelector("#resultTitle");
-
-    DOM.resultDescription =
-      document.querySelector("#resultDescription");
-
-    DOM.statGames =
-      document.querySelector("#statGames");
-
-    DOM.statWins =
-      document.querySelector("#statWins");
-
-    DOM.statLosses =
-      document.querySelector("#statLosses");
-
-    DOM.statDraws =
-      document.querySelector("#statDraws");
-
-    DOM.recordList =
-      document.querySelector("#recordList");
-
-    DOM.resumeCard =
-      document.querySelector("#resumeCard");
-
-    DOM.resumeText =
-      document.querySelector("#resumeText");
-
-    DOM.resumeButton =
-      document.querySelector("#resumeButton");
-
-    DOM.toast =
-      document.querySelector("#toast");
-
-    canvas =
-      document.querySelector("#boardCanvas");
-
-    ctx =
-      canvas?.getContext("2d");
-
-    createGamePanel();
+    if (canvas) {
+      ctx = canvas.getContext("2d", {
+        alpha: false
+      });
+    }
   }
 
-  /* =========================================================
-     AI PANEL
-     ========================================================= */
-
-  function createGamePanel() {
-    if (!DOM.gameScreen) return;
-
-    const existing =
-      document.querySelector("#aiGamePanel");
-
-    if (existing) {
-      existing.remove();
-    }
-
-    const panel =
-      document.createElement("aside");
-
-    panel.id = "aiGamePanel";
-    panel.className = "ai-game-panel";
-
-    panel.innerHTML = `
-      <div class="ai-panel-header">
-        <div>
-          <span class="ai-panel-kicker">AI</span>
-          <strong id="aiName">Sora</strong>
-        </div>
-
-        <select id="aiSelect" aria-label="AI">
-          ${Object.values(AI_CHARACTERS)
-            .map(
-              ai =>
-                `<option value="${ai.id}">
-                  ${ai.name["zh-TW"]}
-                </option>`
-            )
-            .join("")}
-        </select>
-      </div>
-
-      <div class="ai-panel-description" id="aiDescription"></div>
-
-      <div class="ai-os">
-        <span class="ai-os-label">OS</span>
-        <p id="aiOS" aria-live="polite"></p>
-      </div>
-
-      <div class="ai-stats">
-        <div>
-          <span>勝</span>
-          <strong id="aiWins">0</strong>
-        </div>
-        <div>
-          <span>負</span>
-          <strong id="aiLosses">0</strong>
-        </div>
-      </div>
-    `;
-
-    const layout =
-      DOM.gameScreen.querySelector(".game-layout");
-
-    if (layout) {
-      layout.appendChild(panel);
-    }
-
-    DOM.aiPanel = panel;
-    DOM.aiName =
-      panel.querySelector("#aiName");
-    DOM.aiSelect =
-      panel.querySelector("#aiSelect");
-    DOM.aiDescription =
-      panel.querySelector("#aiDescription");
-    DOM.aiOS =
-      panel.querySelector("#aiOS");
-    DOM.aiWins =
-      panel.querySelector("#aiWins");
-    DOM.aiLosses =
-      panel.querySelector("#aiLosses");
-
-    injectPanelStyles();
-  }
-
-  function injectPanelStyles() {
-    if (document.querySelector("#gomoku-app-runtime-style")) {
-      return;
-    }
-
-    const style =
-      document.createElement("style");
-
-    style.id =
-      "gomoku-app-runtime-style";
-
-    style.textContent = `
-      .ai-game-panel {
-        width: min(100%, 430px);
-        margin: 0 auto;
-        padding: 16px 18px;
-        border: 1px solid rgba(80, 60, 40, .12);
-        border-radius: 18px;
-        background: rgba(255,255,255,.42);
-        box-sizing: border-box;
-        backdrop-filter: blur(12px);
-      }
-
-      .ai-panel-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-      }
-
-      .ai-panel-kicker {
-        display: block;
-        font-size: 10px;
-        letter-spacing: .18em;
-        opacity: .55;
-        margin-bottom: 2px;
-      }
-
-      .ai-panel-header strong {
-        font-size: 20px;
-      }
-
-      .ai-panel-header select {
-        border: 1px solid rgba(80,60,40,.15);
-        border-radius: 10px;
-        padding: 7px 10px;
-        background: rgba(255,255,255,.65);
-        font: inherit;
-      }
-
-      .ai-panel-description {
-        margin-top: 4px;
-        font-size: 12px;
-        opacity: .58;
-      }
-
-      .ai-os {
-        margin-top: 14px;
-        padding: 11px 13px;
-        border-radius: 13px;
-        background: rgba(60,45,30,.055);
-      }
-
-      .ai-os-label {
-        display: block;
-        font-size: 9px;
-        letter-spacing: .18em;
-        opacity: .45;
-        margin-bottom: 3px;
-      }
-
-      .ai-os p {
-        min-height: 20px;
-        margin: 0;
-        font-size: 13px;
-        line-height: 1.5;
-        opacity: .78;
-        transition: opacity .18s ease, transform .18s ease;
-      }
-
-      .ai-os p.is-changing {
-        opacity: 0;
-        transform: translateY(3px);
-      }
-
-      .ai-stats {
-        display: flex;
-        gap: 22px;
-        margin-top: 12px;
-      }
-
-      .ai-stats div {
-        display: flex;
-        align-items: baseline;
-        gap: 6px;
-      }
-
-      .ai-stats span {
-        font-size: 11px;
-        opacity: .5;
-      }
-
-      .ai-stats strong {
-        font-size: 15px;
-      }
-
-      .board-wrapper {
-        position: relative;
-      }
-
-      #boardCanvas {
-        display: block;
-        width: 100%;
-        max-width: 680px;
-        aspect-ratio: 1;
-        touch-action: none;
-        cursor: pointer;
-        outline: none;
-      }
-
-      #boardCanvas:focus-visible {
-        outline: 2px solid rgba(90,120,130,.7);
-        outline-offset: 4px;
-        border-radius: 8px;
-      }
-
-      .game-screen .game-layout {
-        gap: 16px;
-      }
-
-      @media (min-width: 900px) {
-        .game-screen .game-layout {
-          display: grid;
-          grid-template-columns: minmax(0, 1fr) minmax(270px, 360px);
-          align-items: start;
-        }
-
-        .game-screen .game-status,
-        .game-screen .board-wrapper,
-        .game-screen .game-actions {
-          grid-column: 1;
-        }
-
-        .game-screen .ai-game-panel {
-          grid-column: 2;
-          grid-row: 1 / span 3;
-          position: sticky;
-          top: 20px;
-        }
-      }
-    `;
-
-    document.head.appendChild(style);
+  function $(selector) {
+    return document.querySelector(selector);
   }
 
   /* =========================================================
@@ -816,42 +923,238 @@
   function init() {
     cacheDOM();
 
-    applySettings();
-
+    injectRuntimeStyles();
     setupNavigation();
     setupSetupControls();
     setupGameControls();
     setupSettingsControls();
     setupCanvas();
 
+    applySettings();
     createWorker();
 
     renderStats();
-    updateAIUI();
+    updateSetupUI();
     updateTurnUI();
-
     checkResumeGame();
+
+    registerServiceWorker();
 
     window.addEventListener(
       "resize",
-      resizeCanvas,
+      scheduleResize,
+      { passive: true }
+    );
+
+    window.addEventListener(
+      "orientationchange",
+      scheduleResize,
       { passive: true }
     );
 
     document.addEventListener(
       "visibilitychange",
       () => {
-        if (!document.hidden && DOM.gameScreen?.classList.contains("active")) {
-          resizeCanvas();
-          drawBoard();
+        if (
+          !document.hidden &&
+          isScreenActive("game")
+        ) {
+          scheduleResize();
         }
       }
     );
 
     showScreen("home");
 
-    resizeCanvas();
-    drawBoard();
+    scheduleResize();
+  }
+
+  /* =========================================================
+     RUNTIME CSS
+     ========================================================= */
+
+  function injectRuntimeStyles() {
+    const style = document.createElement("style");
+
+    style.textContent = `
+      .gomoku-ai-panel {
+        width: min(100%, 340px);
+        padding: 18px;
+        border-radius: 20px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        box-shadow: var(--shadow-soft);
+      }
+
+      .gomoku-ai-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .gomoku-ai-name {
+        font-size: 18px;
+        font-weight: 750;
+      }
+
+      .gomoku-ai-description {
+        margin-top: 3px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .gomoku-ai-status {
+        margin-top: 16px;
+        padding: 12px 13px;
+        border-radius: 14px;
+        background: color-mix(
+          in srgb,
+          var(--accent) 8%,
+          var(--surface-solid)
+        );
+      }
+
+      .gomoku-ai-status-label {
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+      }
+
+      .gomoku-ai-os {
+        min-height: 22px;
+        margin-top: 5px;
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      .gomoku-ai-select {
+        width: 100%;
+        margin-top: 14px;
+        padding: 10px 12px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--surface-solid);
+        color: var(--text);
+      }
+
+      .gomoku-ai-stats {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+        margin-top: 12px;
+      }
+
+      .gomoku-ai-stat {
+        padding: 11px;
+        border-radius: 12px;
+        background: color-mix(
+          in srgb,
+          var(--text) 4%,
+          transparent
+        );
+      }
+
+      .gomoku-ai-stat span {
+        display: block;
+        color: var(--muted);
+        font-size: 10px;
+      }
+
+      .gomoku-ai-stat strong {
+        display: block;
+        margin-top: 3px;
+        font-size: 18px;
+      }
+
+      .gomoku-mode-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 5px;
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .gomoku-mode-badge::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--accent);
+      }
+
+      .gomoku-local-info {
+        width: min(100%, 340px);
+        padding: 18px;
+        border-radius: 20px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        box-shadow: var(--shadow-soft);
+      }
+
+      .gomoku-local-title {
+        font-weight: 750;
+      }
+
+      .gomoku-local-subtitle {
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .gomoku-local-turn {
+        margin-top: 14px;
+        padding: 12px;
+        border-radius: 14px;
+        background: color-mix(
+          in srgb,
+          var(--accent) 8%,
+          var(--surface-solid)
+        );
+        font-size: 13px;
+      }
+
+      .gomoku-result-score {
+        margin: 18px auto 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      @media (max-width: 899px) {
+        .gomoku-ai-panel,
+        .gomoku-local-info {
+          width: min(100%, 680px);
+          margin: 0 auto;
+        }
+      }
+
+      @media (max-height: 650px) and (orientation: landscape) {
+        .game-screen {
+          padding-top: calc(
+            68px + env(safe-area-inset-top)
+          );
+        }
+
+        .game-layout {
+          min-height: calc(100dvh - 82px);
+          grid-template-rows: auto 1fr auto;
+          gap: 6px;
+        }
+
+        .game-status {
+          min-height: 38px;
+        }
+
+        .game-actions {
+          min-height: 42px;
+        }
+      }
+    `;
+
+    document.head.appendChild(style);
   }
 
   /* =========================================================
@@ -882,22 +1185,40 @@
       beginGame
     );
 
-    DOM.resultHomeButton?.addEventListener(
-      "click",
-      () => showScreen("home")
-    );
-
     DOM.playAgainButton?.addEventListener(
       "click",
       () => {
-        resetGame();
-        showScreen("game");
+        showScreen("setup");
       }
+    );
+
+    DOM.resultHomeButton?.addEventListener(
+      "click",
+      () => {
+        clearSavedGame();
+        showScreen("home");
+      }
+    );
+
+    DOM.backButton?.addEventListener(
+      "click",
+      goBack
+    );
+
+    DOM.menuButton?.addEventListener(
+      "click",
+      () => showScreen("settings")
     );
 
     DOM.gameMenuButton?.addEventListener(
       "click",
-      () => showScreen("setup")
+      () => {
+        if (!gameOver) {
+          saveCurrentGame();
+        }
+
+        showScreen("home");
+      }
     );
 
     DOM.resumeButton?.addEventListener(
@@ -905,47 +1226,59 @@
       resumeGame
     );
 
-    const back =
-      document.querySelector("#backButton");
-
-    back?.addEventListener(
-      "click",
-      () => {
-        const active =
-          document.querySelector(".screen.active");
-
-        if (active === DOM.homeScreen) {
-          return;
-        }
-
-        if (active === DOM.setupScreen ||
-            active === DOM.recordsScreen ||
-            active === DOM.settingsScreen) {
-          showScreen("home");
-          return;
-        }
-
-        if (active === DOM.gameScreen) {
-          showScreen("home");
-          return;
-        }
-
-        if (active === DOM.resultScreen) {
-          showScreen("home");
-        }
-      }
-    );
-
-    const menu =
-      document.querySelector("#menuButton");
-
-    menu?.addEventListener(
-      "click",
-      () => showScreen("settings")
+    window.addEventListener(
+      "popstate",
+      () => {}
     );
   }
 
   function showScreen(name) {
+    const screens = {
+      home: DOM.homeScreen,
+      setup: DOM.setupScreen,
+      game: DOM.gameScreen,
+      result: DOM.resultScreen,
+      records: DOM.recordsScreen,
+      settings: DOM.settingsScreen
+    };
+
+    Object.entries(screens).forEach(
+      ([key, element]) => {
+        element?.classList.toggle(
+          "active",
+          key === name
+        );
+      }
+    );
+
+    if (name === "game") {
+      requestAnimationFrame(() => {
+        resizeCanvas();
+        drawBoard();
+      });
+    }
+
+    if (name === "home") {
+      checkResumeGame();
+    }
+
+    if (name === "records") {
+      renderStats();
+    }
+
+    updateTopbar(name);
+  }
+
+  function updateTopbar(screen) {
+    const isHome = screen === "home";
+
+    if (DOM.backButton) {
+      DOM.backButton.style.visibility =
+        isHome ? "hidden" : "visible";
+    }
+  }
+
+  function isScreenActive(name) {
     const map = {
       home: DOM.homeScreen,
       setup: DOM.setupScreen,
@@ -955,24 +1288,28 @@
       settings: DOM.settingsScreen
     };
 
-    Object.values(map).forEach(
-      screen => {
-        screen?.classList.remove("active");
-      }
+    return Boolean(
+      map[name]?.classList.contains("active")
     );
+  }
 
-    map[name]?.classList.add("active");
-
-    if (name === "game") {
-      requestAnimationFrame(() => {
-        resizeCanvas();
-        drawBoard();
-      });
+  function goBack() {
+    if (isScreenActive("home")) {
+      return;
     }
 
-    if (name === "records") {
-      renderStats();
+    if (isScreenActive("game")) {
+      saveCurrentGame();
+      showScreen("home");
+      return;
     }
+
+    if (isScreenActive("result")) {
+      showScreen("home");
+      return;
+    }
+
+    showScreen("home");
   }
 
   /* =========================================================
@@ -980,32 +1317,34 @@
      ========================================================= */
 
   function setupSetupControls() {
-    DOM.modeControl
-      ?.querySelectorAll("[data-mode]")
-      .forEach(button => {
-        button.addEventListener(
-          "click",
-          () => {
-            selectedMode =
-              button.dataset.mode;
+    DOM.modeControl?.addEventListener(
+      "click",
+      event => {
+        const button =
+          event.target.closest("[data-mode]");
 
-            DOM.modeControl
-              .querySelectorAll("[data-mode]")
-              .forEach(
-                b =>
-                  b.classList.toggle(
-                    "selected",
-                    b === button
-                  )
-              );
+        if (!button) {
+          return;
+        }
 
-            if (DOM.difficultyGroup) {
-              DOM.difficultyGroup.hidden =
-                selectedMode !== "ai";
-            }
-          }
-        );
-      });
+        selectedMode =
+          button.dataset.mode === "local"
+            ? "local"
+            : "ai";
+
+        DOM.modeControl
+          .querySelectorAll("[data-mode]")
+          .forEach(
+            item =>
+              item.classList.toggle(
+                "selected",
+                item === button
+              )
+          );
+
+        updateSetupUI();
+      }
+    );
 
     document
       .querySelectorAll("[data-difficulty]")
@@ -1019,10 +1358,10 @@
             document
               .querySelectorAll("[data-difficulty]")
               .forEach(
-                b =>
-                  b.classList.toggle(
+                item =>
+                  item.classList.toggle(
                     "selected",
-                    b === button
+                    item === button
                   )
               );
           }
@@ -1036,15 +1375,17 @@
           "click",
           () => {
             playerSide =
-              button.dataset.side;
+              button.dataset.side === "white"
+                ? "white"
+                : "black";
 
             document
               .querySelectorAll("[data-side]")
               .forEach(
-                b =>
-                  b.classList.toggle(
+                item =>
+                  item.classList.toggle(
                     "selected",
-                    b === button
+                    item === button
                   )
               );
           }
@@ -1052,23 +1393,104 @@
       });
   }
 
-  function beginGame() {
-    saveSettings();
+  function updateSetupUI() {
+    if (DOM.difficultyGroup) {
+      DOM.difficultyGroup.hidden =
+        selectedMode !== "ai";
+    }
 
-    resetGame();
+    const sideLabel =
+      DOM.setupScreen?.querySelector(
+        ".settings-group:nth-of-type(3) h3"
+      );
+
+    if (sideLabel) {
+      sideLabel.textContent =
+        selectedMode === "ai"
+          ? text("side")
+          : text("side");
+    }
+  }
+
+  function beginGame() {
+    if (selectedMode === "local") {
+      startLocalGame();
+    } else {
+      startAIGame();
+    }
+  }
+
+  /* =========================================================
+     GAME START
+     ========================================================= */
+
+  function startLocalGame() {
+    invalidateWorker();
+
+    selectedMode = "local";
+    currentPlayer = CONFIG.BLACK;
+
+    resetGameState();
 
     showScreen("game");
+    updateTurnUI();
+    renderGameSidePanel();
 
-    if (
-      selectedMode === "ai" &&
+    saveCurrentGame();
+  }
+
+  function startAIGame() {
+    invalidateWorker();
+
+    selectedMode = "ai";
+
+    currentPlayer =
       playerSide === "white"
-    ) {
-      currentPlayer = CONFIG.AI;
+        ? CONFIG.WHITE
+        : CONFIG.BLACK;
 
-      updateTurnUI();
+    resetGameState();
 
+    showScreen("game");
+    updateTurnUI();
+    renderGameSidePanel();
+
+    saveCurrentGame();
+
+    if (isAITurn()) {
       runAITurn();
     }
+  }
+
+  function resetGameState() {
+    board = createBoard();
+
+    gameId = createId();
+    boardVersion = 0;
+
+    gameOver = false;
+    aiThinking = false;
+
+    moveHistory = [];
+    winningLine = [];
+    lastMove = null;
+
+    invalidateWorker();
+
+    updateTurnUI();
+    renderGameSidePanel();
+
+    scheduleResize();
+  }
+
+  function restartGame() {
+    if (selectedMode === "local") {
+      startLocalGame();
+    } else {
+      startAIGame();
+    }
+
+    showToast(text("restarted"));
   }
 
   /* =========================================================
@@ -1078,10 +1500,7 @@
   function setupGameControls() {
     DOM.restartButton?.addEventListener(
       "click",
-      () => {
-        resetGame();
-        showToast("棋局已重新開始");
-      }
+      restartGame
     );
 
     DOM.undoButton?.addEventListener(
@@ -1091,639 +1510,187 @@
   }
 
   /* =========================================================
-     CANVAS
+     CANVAS INPUT
      ========================================================= */
 
   function setupCanvas() {
-    if (!canvas) return;
+    if (!canvas) {
+      return;
+    }
 
     canvas.addEventListener(
       "pointerdown",
       event => {
-        if (
-          gameOver ||
-          aiThinking
-        ) {
+        event.preventDefault();
+
+        if (gameOver || aiThinking) {
           return;
         }
 
         if (
           selectedMode === "ai" &&
-          currentPlayer !== CONFIG.PLAYER
+          !isHumanTurn()
         ) {
           return;
         }
 
-        const point =
+        const position =
           canvasToBoard(event);
 
-        if (!point) return;
+        if (!position) {
+          return;
+        }
 
-        placePlayerMove(
-          point.row,
-          point.col
+        if (
+          board[position.row][position.col] !==
+          CONFIG.EMPTY
+        ) {
+          return;
+        }
+
+        placeMove(
+          position.row,
+          position.col,
+          currentPlayer
         );
-      }
+      },
+      { passive: false }
     );
 
     canvas.addEventListener(
       "keydown",
       event => {
         if (
-          event.key === "Enter" ||
-          event.key === " "
+          gameOver ||
+          aiThinking ||
+          event.key !== "Enter" &&
+          event.key !== " "
         ) {
-          event.preventDefault();
-        }
-      }
-    );
-  }
-
-  function resizeCanvas() {
-    if (!canvas || !ctx) return;
-
-    const rect =
-      canvas.getBoundingClientRect();
-
-    const size =
-      Math.max(
-        280,
-        Math.floor(rect.width || 600)
-      );
-
-    const dpr =
-      Math.min(
-        window.devicePixelRatio || 1,
-        2
-      );
-
-    canvas.width =
-      Math.floor(size * dpr);
-
-    canvas.height =
-      Math.floor(size * dpr);
-
-    ctx.setTransform(
-      dpr,
-      0,
-      0,
-      dpr,
-      0,
-      0
-    );
-
-    boardRect = {
-      width: size,
-      height: size
-    };
-
-    boardOrigin =
-      size * CONFIG.BOARD_PADDING;
-
-    cellSize =
-      (size - boardOrigin * 2) /
-      (CONFIG.BOARD_SIZE - 1);
-
-    drawBoard();
-  }
-
-  function drawBoard() {
-    if (
-      !canvas ||
-      !ctx ||
-      !boardRect
-    ) {
-      return;
-    }
-
-    const size =
-      boardRect.width;
-
-    ctx.clearRect(
-      0,
-      0,
-      size,
-      size
-    );
-
-    drawBoardBackground(
-      size
-    );
-
-    drawGrid();
-
-    drawStars();
-
-    drawStones();
-
-    drawLastMove();
-
-    drawWinningLine();
-  }
-
-  function drawBoardBackground(size) {
-    const gradient =
-      ctx.createLinearGradient(
-        0,
-        0,
-        size,
-        size
-      );
-
-    gradient.addColorStop(
-      0,
-      "#f0dfb9"
-    );
-
-    gradient.addColorStop(
-      1,
-      CONFIG.COLORS.board
-    );
-
-    ctx.fillStyle =
-      gradient;
-
-    ctx.fillRect(
-      0,
-      0,
-      size,
-      size
-    );
-  }
-
-  function drawGrid() {
-    ctx.save();
-
-    ctx.strokeStyle =
-      CONFIG.COLORS.grid;
-
-    ctx.globalAlpha = 0.72;
-
-    ctx.lineWidth = 1;
-
-    for (
-      let i = 0;
-      i < CONFIG.BOARD_SIZE;
-      i++
-    ) {
-      const p =
-        boardOrigin +
-        i * cellSize;
-
-      ctx.beginPath();
-      ctx.moveTo(
-        boardOrigin,
-        p
-      );
-      ctx.lineTo(
-        boardOrigin +
-          (CONFIG.BOARD_SIZE - 1) *
-            cellSize,
-        p
-      );
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.moveTo(
-        p,
-        boardOrigin
-      );
-      ctx.lineTo(
-        p,
-        boardOrigin +
-          (CONFIG.BOARD_SIZE - 1) *
-            cellSize
-      );
-      ctx.stroke();
-    }
-
-    ctx.restore();
-  }
-
-  function drawStars() {
-    const stars = [
-      [3, 3],
-      [3, 11],
-      [7, 7],
-      [11, 3],
-      [11, 11]
-    ];
-
-    ctx.save();
-
-    ctx.fillStyle =
-      CONFIG.COLORS.star;
-
-    for (const [row, col] of stars) {
-      const {
-        x,
-        y
-      } =
-        boardToCanvas(
-          row,
-          col
-        );
-
-      ctx.beginPath();
-
-      ctx.arc(
-        x,
-        y,
-        Math.max(
-          2.5,
-          cellSize * 0.08
-        ),
-        0,
-        Math.PI * 2
-      );
-
-      ctx.fill();
-    }
-
-    ctx.restore();
-  }
-
-  function drawStones() {
-    for (
-      let row = 0;
-      row < CONFIG.BOARD_SIZE;
-      row++
-    ) {
-      for (
-        let col = 0;
-        col < CONFIG.BOARD_SIZE;
-        col++
-      ) {
-        const value =
-          board[row][col];
-
-        if (
-          value === CONFIG.EMPTY
-        ) {
-          continue;
+          return;
         }
 
-        drawStone(
-          row,
-          col,
-          value
-        );
+        event.preventDefault();
       }
-    }
-  }
-
-  function drawStone(
-    row,
-    col,
-    player
-  ) {
-    const {
-      x,
-      y
-    } =
-      boardToCanvas(
-        row,
-        col
-      );
-
-    const radius =
-      cellSize * 0.43;
-
-    ctx.save();
-
-    ctx.shadowBlur =
-      radius * 0.18;
-
-    ctx.shadowOffsetY =
-      radius * 0.08;
-
-    if (
-      player === CONFIG.PLAYER
-    ) {
-      ctx.shadowColor =
-        "rgba(0,0,0,.32)";
-
-      const gradient =
-        ctx.createRadialGradient(
-          x - radius * 0.35,
-          y - radius * 0.4,
-          radius * 0.05,
-          x,
-          y,
-          radius
-        );
-
-      gradient.addColorStop(
-        0,
-        CONFIG.COLORS.blackHighlight
-      );
-
-      gradient.addColorStop(
-        1,
-        CONFIG.COLORS.black
-      );
-
-      ctx.fillStyle =
-        gradient;
-    } else {
-      ctx.shadowColor =
-        "rgba(0,0,0,.2)";
-
-      const gradient =
-        ctx.createRadialGradient(
-          x - radius * 0.32,
-          y - radius * 0.35,
-          radius * 0.05,
-          x,
-          y,
-          radius
-        );
-
-      gradient.addColorStop(
-        0,
-        "#ffffff"
-      );
-
-      gradient.addColorStop(
-        0.72,
-        CONFIG.COLORS.white
-      );
-
-      gradient.addColorStop(
-        1,
-        CONFIG.COLORS.whiteShadow
-      );
-
-      ctx.fillStyle =
-        gradient;
-    }
-
-    ctx.beginPath();
-
-    ctx.arc(
-      x,
-      y,
-      radius,
-      0,
-      Math.PI * 2
     );
-
-    ctx.fill();
-
-    ctx.restore();
-  }
-
-  function drawLastMove() {
-    if (!lastMove) return;
-
-    const {
-      x,
-      y
-    } =
-      boardToCanvas(
-        lastMove.row,
-        lastMove.col
-      );
-
-    ctx.save();
-
-    ctx.strokeStyle =
-      CONFIG.COLORS.lastMove;
-
-    ctx.lineWidth =
-      Math.max(
-        1.5,
-        cellSize * 0.06
-      );
-
-    const size =
-      cellSize * 0.18;
-
-    ctx.beginPath();
-
-    ctx.moveTo(
-      x - size,
-      y
-    );
-
-    ctx.lineTo(
-      x + size,
-      y
-    );
-
-    ctx.moveTo(
-      x,
-      y - size
-    );
-
-    ctx.lineTo(
-      x,
-      y + size
-    );
-
-    ctx.stroke();
-
-    ctx.restore();
-  }
-
-  function drawWinningLine() {
-    if (
-      winningLine.length <
-      CONFIG.WIN_LENGTH
-    ) {
-      return;
-    }
-
-    const first =
-      boardToCanvas(
-        winningLine[0].row,
-        winningLine[0].col
-      );
-
-    const last =
-      boardToCanvas(
-        winningLine[
-          winningLine.length - 1
-        ].row,
-        winningLine[
-          winningLine.length - 1
-        ].col
-      );
-
-    ctx.save();
-
-    ctx.strokeStyle =
-      CONFIG.COLORS.winning;
-
-    ctx.lineWidth =
-      Math.max(
-        3,
-        cellSize * 0.13
-      );
-
-    ctx.lineCap =
-      "round";
-
-    ctx.globalAlpha =
-      0.88;
-
-    ctx.beginPath();
-
-    ctx.moveTo(
-      first.x,
-      first.y
-    );
-
-    ctx.lineTo(
-      last.x,
-      last.y
-    );
-
-    ctx.stroke();
-
-    ctx.restore();
-  }
-
-  function boardToCanvas(
-    row,
-    col
-  ) {
-    return {
-      x:
-        boardOrigin +
-        col * cellSize,
-
-      y:
-        boardOrigin +
-        row * cellSize
-    };
-  }
-
-  function canvasToBoard(event) {
-    if (
-      !canvas ||
-      !boardRect
-    ) {
-      return null;
-    }
-
-    const rect =
-      canvas.getBoundingClientRect();
-
-    const x =
-      event.clientX -
-      rect.left;
-
-    const y =
-      event.clientY -
-      rect.top;
-
-    const col =
-      Math.round(
-        (x - boardOrigin) /
-          cellSize
-      );
-
-    const row =
-      Math.round(
-        (y - boardOrigin) /
-          cellSize
-      );
-
-    if (
-      !isInside(row, col)
-    ) {
-      return null;
-    }
-
-    const target =
-      boardToCanvas(
-        row,
-        col
-      );
-
-    const distance =
-      Math.hypot(
-        x - target.x,
-        y - target.y
-      );
-
-    if (
-      distance >
-      cellSize * 0.48
-    ) {
-      return null;
-    }
-
-    return {
-      row,
-      col
-    };
   }
 
   /* =========================================================
-     PLAYER MOVE
+     MOVE ENGINE
      ========================================================= */
 
-  function placePlayerMove(
-    row,
-    col
-  ) {
-    if (
-      board[row][col] !==
-      CONFIG.EMPTY
-    ) {
-      return;
+  function placeMove(row, col, player) {
+    if (gameOver) {
+      return false;
     }
 
-    if (
-      !makeMove(
-        row,
-        col,
-        CONFIG.PLAYER
-      )
-    ) {
-      return;
+    if (!isInside(row, col)) {
+      return false;
     }
 
-    playStoneSound();
+    if (board[row][col] !== CONFIG.EMPTY) {
+      return false;
+    }
 
+    board[row][col] = player;
+
+    const move = {
+      row,
+      col,
+      player,
+      time: Date.now()
+    };
+
+    moveHistory.push(move);
+
+    lastMove = {
+      row,
+      col,
+      player
+    };
+
+    boardVersion += 1;
+
+    playStoneSound(player);
     drawBoard();
 
-    saveCurrentGame();
-
-    if (
-      checkWin(
+    const line =
+      findWinningLine(
         board,
         row,
         col,
-        CONFIG.PLAYER
-      )
-    ) {
-      finishGame("win");
-      return;
+        player
+      );
+
+    if (line) {
+      winningLine = line;
+      drawBoard();
+      finishGame({
+        type: "win",
+        winner: player,
+        line
+      });
+
+      return true;
     }
 
     if (isBoardFull()) {
-      finishGame("draw");
-      return;
+      finishGame({
+        type: "draw",
+        winner: CONFIG.EMPTY,
+        line: []
+      });
+
+      return true;
     }
 
     currentPlayer =
-      selectedMode === "local"
-        ? CONFIG.AI
-        : CONFIG.AI;
+      opponent(player);
 
     updateTurnUI();
+    renderGameSidePanel();
+    saveCurrentGame();
 
     if (
-      selectedMode === "ai"
+      selectedMode === "ai" &&
+      isAITurn()
     ) {
       runAITurn();
-    } else {
-      aiThinking = false;
-      updateTurnUI();
     }
+
+    return true;
+  }
+
+  function opponent(player) {
+    return player === CONFIG.BLACK
+      ? CONFIG.WHITE
+      : CONFIG.BLACK;
+  }
+
+  function isHumanTurn() {
+    if (selectedMode === "local") {
+      return true;
+    }
+
+    return currentPlayer === getHumanSide();
+  }
+
+  function isAITurn() {
+    return (
+      selectedMode === "ai" &&
+      currentPlayer === getAISide()
+    );
+  }
+
+  function getHumanSide() {
+    return playerSide === "white"
+      ? CONFIG.WHITE
+      : CONFIG.BLACK;
+  }
+
+  function getAISide() {
+    return opponent(
+      getHumanSide()
+    );
   }
 
   /* =========================================================
@@ -1733,146 +1700,213 @@
   async function runAITurn() {
     if (
       gameOver ||
-      currentPlayer !== CONFIG.AI
+      !isAITurn() ||
+      aiThinking
     ) {
       return;
     }
 
     aiThinking = true;
 
+    const request = {
+      gameId,
+      boardVersion,
+      player: getAISide(),
+      board: cloneBoard(board),
+      config: {
+        ...DIFFICULTIES[selectedDifficulty],
+        style:
+          AI_CHARACTERS[selectedAI]?.style ||
+          "balanced"
+      }
+    };
+
+    activeWorkerRequest = request;
+
     updateTurnUI();
+    renderGameSidePanel();
 
     const ai =
       getSelectedAI();
 
-    showOS(
+    showAIOS(
       "thinking",
       ai
     );
 
-    const threatBefore =
-      getThreatState();
+    const startTime =
+      performance.now();
 
-    const thinkingTime =
-      getThinkingTime(ai);
+    try {
+      const result =
+        await askWorker(request);
 
-    await delay(
-      thinkingTime
-    );
+      const elapsed =
+        performance.now() -
+        startTime;
 
-    if (
-      gameOver ||
-      currentPlayer !== CONFIG.AI
-    ) {
-      return;
-    }
+      const delay =
+        Math.max(
+          120,
+          request.config.delay -
+            elapsed
+        );
 
-    let move =
-      await askWorker(ai);
+      await wait(delay);
 
-    if (
-      !move ||
-      !isInside(
-        move.row,
-        move.col
-      ) ||
-      board[move.row][move.col] !==
-        CONFIG.EMPTY
-    ) {
-      move =
-        fallbackAIMove(ai);
-    }
+      if (
+        !isCurrentWorkerRequest(
+          request
+        )
+      ) {
+        return;
+      }
 
-    if (!move) {
-      finishGame("draw");
-      return;
-    }
+      if (
+        !result ||
+        !Number.isInteger(result.row) ||
+        !Number.isInteger(result.col)
+      ) {
+        aiThinking = false;
+        updateTurnUI();
+        return;
+      }
 
-    const threatAfter =
-      classifyAIMove(
-        move,
-        threatBefore
+      const row = result.row;
+      const col = result.col;
+
+      if (
+        !isInside(row, col) ||
+        board[row][col] !== CONFIG.EMPTY
+      ) {
+        aiThinking = false;
+        updateTurnUI();
+
+        /*
+         * Worker result is invalid.
+         * Recalculate from the CURRENT board instead
+         * of trusting the old prediction.
+         */
+        if (
+          isAITurn() &&
+          !gameOver
+        ) {
+          runAITurn();
+        }
+
+        return;
+      }
+
+      aiThinking = false;
+      activeWorkerRequest = null;
+
+      const category =
+        classifyAIMove(
+          row,
+          col,
+          request.board,
+          getAISide()
+        );
+
+      showAIOS(
+        category,
+        ai
       );
 
-    showOS(
-      threatAfter,
-      ai
-    );
+      placeMove(
+        row,
+        col,
+        getAISide()
+      );
+    } catch {
+      if (
+        !isCurrentWorkerRequest(
+          request
+        )
+      ) {
+        return;
+      }
 
-    await delay(
-      settings.motion
-        ? 180
-        : 0
-    );
+      aiThinking = false;
+      activeWorkerRequest = null;
 
-    if (gameOver) return;
+      const fallback =
+        findFallbackMove();
 
-    makeMove(
-      move.row,
-      move.col,
-      CONFIG.AI
-    );
-
-    playStoneSound();
-
-    drawBoard();
-
-    saveCurrentGame();
-
-    if (
-      checkWin(
-        board,
-        move.row,
-        move.col,
-        CONFIG.AI
-      )
-    ) {
-      finishGame("loss");
-      return;
+      if (fallback) {
+        placeMove(
+          fallback.row,
+          fallback.col,
+          getAISide()
+        );
+      } else {
+        updateTurnUI();
+      }
     }
-
-    if (isBoardFull()) {
-      finishGame("draw");
-      return;
-    }
-
-    currentPlayer =
-      CONFIG.PLAYER;
-
-    aiThinking = false;
-
-    updateTurnUI();
-
-    showOS(
-      "thinking",
-      ai
-    );
   }
 
-  function getThinkingTime(ai) {
-    const difficulty =
-      getDifficultyConfig();
+  function askWorker(request) {
+    return new Promise(
+      (resolve, reject) => {
+        if (!worker) {
+          resolve(
+            fallbackAIMove(
+              request.board,
+              request.player
+            )
+          );
 
-    const base =
-      CONFIG.THINKING_MIN +
-      difficulty.delay;
+          return;
+        }
 
-    const depth =
-      ai.worker.depth * 90;
+        const listener =
+          event => {
+            worker.removeEventListener(
+              "message",
+              listener
+            );
 
-    const random =
-      Math.random() *
-      280;
+            resolve(event.data);
+          };
 
-    return Math.min(
-      CONFIG.THINKING_MAX,
-      base + depth + random
+        const errorListener =
+          () => {
+            worker.removeEventListener(
+              "message",
+              listener
+            );
+
+            worker.removeEventListener(
+              "error",
+              errorListener
+            );
+
+            reject(
+              new Error(
+                "AI Worker failed"
+              )
+            );
+          };
+
+        worker.addEventListener(
+          "message",
+          listener
+        );
+
+        worker.addEventListener(
+          "error",
+          errorListener,
+          { once: true }
+        );
+
+        worker.postMessage({
+          board: request.board,
+          player: request.player,
+          config: request.config
+        });
+      }
     );
   }
-
-  /* =========================================================
-     WORKER
-     ========================================================= */
 
   function createWorker() {
     if (
@@ -1892,388 +1926,97 @@
     }
   }
 
-  function askWorker(ai) {
-    return new Promise(
-      resolve => {
-        if (!worker) {
-          resolve(
-            fallbackAIMove(ai)
-          );
-          return;
-        }
+  function invalidateWorker() {
+    boardVersion += 1;
 
-        const request =
-          ++workerRequestId;
+    activeWorkerRequest = null;
+    aiThinking = false;
 
-        const timeout =
-          setTimeout(
-            () => {
-              resolve(
-                fallbackAIMove(ai)
-              );
-            },
-            5000
-          );
+    workerRequestToken();
+  }
 
-        const handler =
-          event => {
-            clearTimeout(
-              timeout
-            );
+  function workerRequestToken() {
+    return createId();
+  }
 
-            worker.removeEventListener(
-              "message",
-              handler
-            );
-
-            if (
-              request !==
-              workerRequestId
-            ) {
-              resolve(
-                fallbackAIMove(ai)
-              );
-              return;
-            }
-
-            const data =
-              event.data;
-
-            if (
-              Number.isInteger(
-                data?.row
-              ) &&
-              Number.isInteger(
-                data?.col
-              )
-            ) {
-              resolve({
-                row: data.row,
-                col: data.col
-              });
-            } else {
-              resolve(
-                fallbackAIMove(ai)
-              );
-            }
-          };
-
-        worker.addEventListener(
-          "message",
-          handler
-        );
-
-        const difficulty =
-          getDifficultyConfig();
-
-        worker.postMessage({
-          board: cloneBoard(board),
-          player: CONFIG.AI,
-
-          config: {
-            depth:
-              Math.max(
-                1,
-                Math.min(
-                  4,
-                  ai.worker.depth +
-                    difficulty.depthBonus
-                )
-              ),
-
-            radius:
-              difficulty.radius,
-
-            randomTop:
-              Math.max(
-                0,
-                ai.worker.randomTop +
-                  difficulty.randomTop
-              )
-          },
-
-          thinkTime:
-            Date.now()
-        });
-      }
+  function isCurrentWorkerRequest(request) {
+    return (
+      activeWorkerRequest === request &&
+      request.gameId === gameId &&
+      request.boardVersion === boardVersion &&
+      !gameOver &&
+      isAITurn()
     );
   }
 
-  function fallbackAIMove(ai) {
+  /* =========================================================
+     FALLBACK AI
+     ========================================================= */
+
+  function fallbackAIMove(
+    currentBoard,
+    player
+  ) {
     const candidates =
       getCandidateMoves(
-        difficultyRadius()
+        currentBoard,
+        2
       );
 
     if (!candidates.length) {
       return null;
     }
 
-    const immediateWin =
+    const winning =
       findImmediateMove(
-        CONFIG.AI,
+        currentBoard,
+        player,
         candidates
       );
 
-    if (immediateWin) {
-      return immediateWin;
+    if (winning) {
+      return winning;
     }
 
-    const block =
+    const blocking =
       findImmediateMove(
-        CONFIG.PLAYER,
+        currentBoard,
+        opponent(player),
         candidates
       );
 
-    if (block) {
-      return block;
+    if (blocking) {
+      return blocking;
     }
 
-    let bestScore =
-      -Infinity;
+    return candidates[0];
+  }
 
-    let best = [];
-
-    for (const move of candidates) {
-      board[move.row][move.col] =
-        CONFIG.AI;
-
-      const own =
-        localScore(
-          move.row,
-          move.col,
-          CONFIG.AI
-        );
-
-      const enemy =
-        localScore(
-          move.row,
-          move.col,
-          CONFIG.PLAYER
-        );
-
-      const center =
-        centerValue(
-          move.row,
-          move.col
-        );
-
-      const score =
-        own * 1.1 +
-        enemy * 0.95 +
-        center * 1.2 +
-        Math.random() * 10;
-
-      board[move.row][move.col] =
-        CONFIG.EMPTY;
-
-      if (
-        score >
-        bestScore
-      ) {
-        bestScore =
-          score;
-
-        best = [
-          move
-        ];
-      } else if (
-        score ===
-        bestScore
-      ) {
-        best.push(
-          move
-        );
-      }
-    }
-
-    return (
-      best[
-        Math.floor(
-          Math.random() *
-            best.length
-        )
-      ] ||
-      candidates[0]
+  function findFallbackMove() {
+    return fallbackAIMove(
+      board,
+      getAISide()
     );
   }
-
-  function getDifficultyConfig() {
-    const configs = {
-      easy: {
-        depthBonus: -1,
-        radius: 2,
-        randomTop: 3,
-        delay: 0
-      },
-
-      normal: {
-        depthBonus: 0,
-        radius: 2,
-        randomTop: 1,
-        delay: 120
-      },
-
-      hard: {
-        depthBonus: 1,
-        radius: 2,
-        randomTop: 0,
-        delay: 260
-      }
-    };
-
-    return (
-      configs[
-        selectedDifficulty
-      ] ||
-      configs.normal
-    );
-  }
-
-  function difficultyRadius() {
-    return getDifficultyConfig()
-      .radius;
-  }
-
-  /* =========================================================
-     AI MOVE ANALYSIS
-     ========================================================= */
-
-  function classifyAIMove(
-    move,
-    before
-  ) {
-    board[move.row][move.col] =
-      CONFIG.AI;
-
-    const aiThreat =
-      countImmediateWins(
-        CONFIG.AI
-      );
-
-    const playerThreat =
-      countImmediateWins(
-        CONFIG.PLAYER
-      );
-
-    board[move.row][move.col] =
-      CONFIG.EMPTY;
-
-    if (
-      aiThreat >= 2
-    ) {
-      return "winning";
-    }
-
-    if (
-      before.playerThreat >= 1 &&
-      playerThreat === 0
-    ) {
-      return "defend";
-    }
-
-    if (
-      before.aiThreat <
-        aiThreat
-    ) {
-      return "attack";
-    }
-
-    if (
-      playerThreat >= 1
-    ) {
-      return "danger";
-    }
-
-    if (
-      Math.random() <
-      0.08
-    ) {
-      return "surprise";
-    }
-
-    return "thinking";
-  }
-
-  function getThreatState() {
-    return {
-      playerThreat:
-        countImmediateWins(
-          CONFIG.PLAYER
-        ),
-
-      aiThreat:
-        countImmediateWins(
-          CONFIG.AI
-        )
-    };
-  }
-
-  function countImmediateWins(
-    player
-  ) {
-    const candidates =
-      getCandidateMoves(2);
-
-    let count = 0;
-
-    for (
-      const move of candidates
-    ) {
-      board[
-        move.row
-      ][
-        move.col
-      ] = player;
-
-      if (
-        checkWin(
-          board,
-          move.row,
-          move.col,
-          player
-        )
-      ) {
-        count++;
-      }
-
-      board[
-        move.row
-      ][
-        move.col
-      ] = CONFIG.EMPTY;
-
-      if (
-        count >= 2
-      ) {
-        break;
-      }
-    }
-
-    return count;
-  }
-
-  /* =========================================================
-     CANDIDATES
-     ========================================================= */
 
   function getCandidateMoves(
-    radius = 2
+    currentBoard,
+    radius
   ) {
     const occupied = [];
 
     for (
       let row = 0;
       row < CONFIG.BOARD_SIZE;
-      row++
+      row += 1
     ) {
       for (
         let col = 0;
         col < CONFIG.BOARD_SIZE;
-        col++
+        col += 1
       ) {
         if (
-          board[row][col] !==
+          currentBoard[row][col] !==
           CONFIG.EMPTY
         ) {
           occupied.push({
@@ -2298,7 +2041,7 @@
       ];
     }
 
-    const set =
+    const map =
       new Map();
 
     for (
@@ -2307,12 +2050,12 @@
       for (
         let dr = -radius;
         dr <= radius;
-        dr++
+        dr += 1
       ) {
         for (
           let dc = -radius;
           dc <= radius;
-          dc++
+          dc += 1
         ) {
           const row =
             stone.row + dr;
@@ -2321,22 +2064,19 @@
             stone.col + dc;
 
           if (
-            !isInside(
-              row,
-              col
-            )
+            !isInside(row, col)
           ) {
             continue;
           }
 
           if (
-            board[row][col] !==
+            currentBoard[row][col] !==
             CONFIG.EMPTY
           ) {
             continue;
           }
 
-          set.set(
+          map.set(
             `${row},${col}`,
             {
               row,
@@ -2347,46 +2087,48 @@
       }
     }
 
-    const moves =
-      [...set.values()];
-
-    moves.sort(
+    return [
+      ...map.values()
+    ].sort(
       (a, b) =>
         localMovePotential(
+          currentBoard,
           b.row,
           b.col
         ) -
         localMovePotential(
+          currentBoard,
           a.row,
           a.col
         )
     );
-
-    return moves;
   }
 
   function findImmediateMove(
+    currentBoard,
     player,
     candidates
   ) {
     for (
       const move of candidates
     ) {
-      board[
+      currentBoard[
         move.row
       ][
         move.col
       ] = player;
 
       const win =
-        checkWin(
-          board,
-          move.row,
-          move.col,
-          player
+        Boolean(
+          findWinningLine(
+            currentBoard,
+            move.row,
+            move.col,
+            player
+          )
         );
 
-      board[
+      currentBoard[
         move.row
       ][
         move.col
@@ -2400,26 +2142,24 @@
     return null;
   }
 
-  /* =========================================================
-     SIMPLE EVALUATION
-     ========================================================= */
-
   function localMovePotential(
+    currentBoard,
     row,
     col
   ) {
     return (
       localScore(
+        currentBoard,
         row,
         col,
-        CONFIG.AI
+        CONFIG.BLACK
       ) +
       localScore(
+        currentBoard,
         row,
         col,
-        CONFIG.PLAYER
-      ) *
-        0.92 +
+        CONFIG.WHITE
+      ) +
       centerValue(
         row,
         col
@@ -2428,10 +2168,13 @@
   }
 
   function localScore(
+    currentBoard,
     row,
     col,
     player
   ) {
+    let score = 0;
+
     const directions = [
       [1, 0],
       [0, 1],
@@ -2439,15 +2182,12 @@
       [1, -1]
     ];
 
-    let score = 0;
-
     for (
-      const [
-        dr,
-        dc
-      ] of directions
+      const [dr, dc]
+      of directions
     ) {
       score += linePotential(
+        currentBoard,
         row,
         col,
         dr,
@@ -2460,6 +2200,7 @@
   }
 
   function linePotential(
+    currentBoard,
     row,
     col,
     dr,
@@ -2467,95 +2208,80 @@
     player
   ) {
     let count = 1;
-
     let open = 0;
 
     for (
-      const sign of [
-        1,
-        -1
-      ]
+      const direction of [1, -1]
     ) {
-      let r =
-        row +
-        dr *
-          sign;
-
-      let c =
-        col +
-        dc *
-          sign;
-
-      while (
-        isInside(
-          r,
-          c
-        ) &&
-        board[r][c] ===
-          player
+      for (
+        let distance = 1;
+        distance <= 4;
+        distance += 1
       ) {
-        count++;
-
-        r +=
+        const r =
+          row +
           dr *
-          sign;
+            distance *
+            direction;
 
-        c +=
+        const c =
+          col +
           dc *
-          sign;
-      }
+            distance *
+            direction;
 
-      if (
-        isInside(
-          r,
-          c
-        ) &&
-        board[r][c] ===
+        if (
+          !isInside(r, c)
+        ) {
+          break;
+        }
+
+        if (
+          currentBoard[r][c] ===
+          player
+        ) {
+          count += 1;
+          continue;
+        }
+
+        if (
+          currentBoard[r][c] ===
           CONFIG.EMPTY
-      ) {
-        open++;
+        ) {
+          open += 1;
+        }
+
+        break;
       }
     }
 
-    if (
-      count >= 5
-    ) {
-      return 1000000;
+    if (count >= 5) {
+      return 100000;
     }
 
-    if (
-      count === 4
-    ) {
+    if (count === 4) {
       return open === 2
-        ? 100000
+        ? 5000
         : open === 1
-          ? 12000
+          ? 1200
           : 0;
     }
 
-    if (
-      count === 3
-    ) {
+    if (count === 3) {
       return open === 2
-        ? 6000
+        ? 700
         : open === 1
-          ? 700
+          ? 150
           : 0;
     }
 
-    if (
-      count === 2
-    ) {
+    if (count === 2) {
       return open === 2
-        ? 350
-        : open === 1
-          ? 60
-          : 0;
+        ? 80
+        : 20;
     }
 
-    return open === 2
-      ? 8
-      : 2;
+    return open * 4;
   }
 
   function centerValue(
@@ -2563,164 +2289,679 @@
     col
   ) {
     const center =
-      (CONFIG.BOARD_SIZE - 1) /
-      2;
-
-    const distance =
-      Math.abs(
-        row - center
-      ) +
-      Math.abs(
-        col - center
+      Math.floor(
+        CONFIG.BOARD_SIZE / 2
       );
 
-    return Math.max(
-      0,
-      30 -
-        distance * 3
+    return (
+      14 -
+      Math.abs(
+        row - center
+      ) -
+      Math.abs(
+        col - center
+      )
     );
   }
 
   /* =========================================================
-     MOVE / UNDO
+     AI OS
      ========================================================= */
 
-  function makeMove(
-    row,
-    col,
-    player
-  ) {
-    if (
-      !isInside(
-        row,
-        col
-      )
-    ) {
-      return false;
+  function renderGameSidePanel() {
+    const layout =
+      DOM.gameScreen?.querySelector(
+        ".game-layout"
+      );
+
+    if (!layout) {
+      return;
     }
 
-    if (
-      board[row][col] !==
-      CONFIG.EMPTY
-    ) {
-      return false;
+    let panel =
+      layout.querySelector(
+        ".gomoku-side-panel"
+      );
+
+    if (!panel) {
+      panel =
+        document.createElement(
+          "aside"
+        );
+
+      panel.className =
+        "gomoku-side-panel";
+
+      layout.appendChild(panel);
     }
 
-    board[row][col] =
-      player;
+    panel.innerHTML = "";
 
-    moveHistory.push({
-      row,
-      col,
-      player
-    });
-
-    lastMove = {
-      row,
-      col,
-      player
-    };
-
-    winningLine = [];
-
-    return true;
+    if (
+      selectedMode === "local"
+    ) {
+      panel.appendChild(
+        createLocalPanel()
+      );
+    } else {
+      panel.appendChild(
+        createAIPanel()
+      );
+    }
   }
 
-  function undoMove() {
+  function createAIPanel() {
+    const ai =
+      getSelectedAI();
+
+    const panel =
+      document.createElement(
+        "div"
+      );
+
+    panel.className =
+      "gomoku-ai-panel";
+
+    const head =
+      document.createElement(
+        "div"
+      );
+
+    head.className =
+      "gomoku-ai-head";
+
+    const info =
+      document.createElement(
+        "div"
+      );
+
+    const name =
+      document.createElement(
+        "div"
+      );
+
+    name.className =
+      "gomoku-ai-name";
+
+    name.textContent =
+      getLocalized(
+        ai.name
+      );
+
+    const description =
+      document.createElement(
+        "div"
+      );
+
+    description.className =
+      "gomoku-ai-description";
+
+    description.textContent =
+      getLocalized(
+        ai.description
+      );
+
+    info.append(
+      name,
+      description
+    );
+
+    head.appendChild(
+      info
+    );
+
+    const badge =
+      document.createElement(
+        "span"
+      );
+
+    badge.className =
+      "gomoku-mode-badge";
+
+    badge.textContent =
+      text("ai");
+
+    head.appendChild(
+      badge
+    );
+
+    panel.appendChild(
+      head
+    );
+
+    const status =
+      document.createElement(
+        "div"
+      );
+
+    status.className =
+      "gomoku-ai-status";
+
+    const label =
+      document.createElement(
+        "div"
+      );
+
+    label.className =
+      "gomoku-ai-status-label";
+
+    label.textContent =
+      text("os");
+
+    const os =
+      document.createElement(
+        "div"
+      );
+
+    os.className =
+      "gomoku-ai-os";
+
+    os.dataset.aiOs =
+      "true";
+
+    os.textContent =
+      getLastAIOS(ai);
+
+    status.append(
+      label,
+      os
+    );
+
+    panel.appendChild(
+      status
+    );
+
+    const select =
+      document.createElement(
+        "select"
+      );
+
+    select.className =
+      "gomoku-ai-select";
+
+    select.setAttribute(
+      "aria-label",
+      "AI"
+    );
+
+    Object.values(
+      AI_CHARACTERS
+    ).forEach(
+      character => {
+        const option =
+          document.createElement(
+            "option"
+          );
+
+        option.value =
+          character.id;
+
+        option.textContent =
+          getLocalized(
+            character.name
+          );
+
+        option.selected =
+          character.id ===
+          selectedAI;
+
+        select.appendChild(
+          option
+        );
+      }
+    );
+
+    select.addEventListener(
+      "change",
+      () => {
+        if (
+          selectedAI ===
+          select.value
+        ) {
+          return;
+        }
+
+        selectedAI =
+          select.value;
+
+        restartGame();
+      }
+    );
+
+    panel.appendChild(
+      select
+    );
+
+    const aiStats =
+      ensureAIStats(
+        selectedAI
+      );
+
+    const statsBox =
+      document.createElement(
+        "div"
+      );
+
+    statsBox.className =
+      "gomoku-ai-stats";
+
+    statsBox.append(
+      createAIStat(
+        text("wins"),
+        aiStats.losses
+      ),
+      createAIStat(
+        text("losses"),
+        aiStats.wins
+      )
+    );
+
+    panel.appendChild(
+      statsBox
+    );
+
+    return panel;
+  }
+
+  function createAIStat(
+    label,
+    value
+  ) {
+    const box =
+      document.createElement(
+        "div"
+      );
+
+    box.className =
+      "gomoku-ai-stat";
+
+    const labelElement =
+      document.createElement(
+        "span"
+      );
+
+    labelElement.textContent =
+      label;
+
+    const valueElement =
+      document.createElement(
+        "strong"
+      );
+
+    valueElement.textContent =
+      String(value);
+
+    box.append(
+      labelElement,
+      valueElement
+    );
+
+    return box;
+  }
+
+  function createLocalPanel() {
+    const panel =
+      document.createElement(
+        "div"
+      );
+
+    panel.className =
+      "gomoku-local-info";
+
+    const title =
+      document.createElement(
+        "div"
+      );
+
+    title.className =
+      "gomoku-local-title";
+
+    title.textContent =
+      text("local");
+
+    const subtitle =
+      document.createElement(
+        "div"
+      );
+
+    subtitle.className =
+      "gomoku-local-subtitle";
+
+    subtitle.textContent =
+      "Player 1 · Player 2";
+
+    const turn =
+      document.createElement(
+        "div"
+      );
+
+    turn.className =
+      "gomoku-local-turn";
+
+    turn.textContent =
+      currentPlayer ===
+      CONFIG.BLACK
+        ? text("player1Turn")
+        : text("player2Turn");
+
+    panel.append(
+      title,
+      subtitle,
+      turn
+    );
+
+    return panel;
+  }
+
+  function showAIOS(
+    type,
+    ai = getSelectedAI()
+  ) {
     if (
-      gameOver ||
-      !moveHistory.length
+      selectedMode !== "ai"
     ) {
       return;
     }
 
+    const panel =
+      DOM.gameScreen?.querySelector(
+        ".gomoku-ai-panel"
+      );
+
+    const os =
+      panel?.querySelector(
+        "[data-ai-os]"
+      );
+
+    if (!os) {
+      return;
+    }
+
+    const messages =
+      ai.os[type] ||
+      ai.os.thinking;
+
+    const message =
+      messages[
+        Math.floor(
+          Math.random() *
+          messages.length
+        )
+      ];
+
     if (
-      selectedMode === "ai"
+      settings.motion
     ) {
+      os.style.opacity = "0";
+
+      setTimeout(
+        () => {
+          os.textContent =
+            message;
+
+          os.style.opacity = "1";
+        },
+        100
+      );
+    } else {
+      os.textContent =
+        message;
+    }
+  }
+
+  function getLastAIOS(ai) {
+    const messages =
+      ai.os.thinking;
+
+    return messages[0];
+  }
+
+  function classifyAIMove(
+    row,
+    col,
+    beforeBoard,
+    player
+  ) {
+    const opponentPlayer =
+      opponent(player);
+
+    const win =
+      findImmediateMove(
+        beforeBoard,
+        player,
+        [
+          {
+            row,
+            col
+          }
+        ]
+      );
+
+    if (win) {
+      return "winning";
+    }
+
+    const block =
+      findImmediateMove(
+        beforeBoard,
+        opponentPlayer,
+        [
+          {
+            row,
+            col
+          }
+        ]
+      );
+
+    if (block) {
+      return "defend";
+    }
+
+    const ownScore =
+      localScore(
+        beforeBoard,
+        row,
+        col,
+        player
+      );
+
+    const enemyScore =
+      localScore(
+        beforeBoard,
+        row,
+        col,
+        opponentPlayer
+      );
+
+    if (
+      enemyScore >
+      ownScore * 1.2
+    ) {
+      return "defend";
+    }
+
+    if (
+      ownScore >
+      250
+    ) {
+      return "attack";
+    }
+
+    return "thinking";
+  }
+
+  /* =========================================================
+     TURN UI
+     ========================================================= */
+
+  function updateTurnUI() {
+    if (!DOM.turnStone) {
+      return;
+    }
+
+    const isBlack =
+      currentPlayer ===
+      CONFIG.BLACK;
+
+    DOM.turnStone.className =
+      `status-stone ${
+        isBlack
+          ? "black-stone"
+          : "white-stone"
+      }`;
+
+    if (
+      selectedMode === "local"
+    ) {
+      DOM.turnLabel.textContent =
+        currentPlayer ===
+        CONFIG.BLACK
+          ? text("player1Turn")
+          : text("player2Turn");
+
+      DOM.turnPlayer.textContent =
+        currentPlayer ===
+        CONFIG.BLACK
+          ? text("black")
+          : text("white");
+
+      DOM.thinkingIndicator.hidden =
+        true;
+
+      return;
+    }
+
+    const human =
+      getHumanSide();
+
+    if (
+      currentPlayer ===
+      human
+    ) {
+      DOM.turnLabel.textContent =
+        text("yourTurn");
+
+      DOM.turnPlayer.textContent =
+        currentPlayer ===
+        CONFIG.BLACK
+          ? text("black")
+          : text("white");
+
+      DOM.thinkingIndicator.hidden =
+        true;
+    } else {
+      const ai =
+        getSelectedAI();
+
+      DOM.turnLabel.textContent =
+        getLocalized(
+          ai.name
+        );
+
+      DOM.turnPlayer.textContent =
+        currentPlayer ===
+        CONFIG.BLACK
+          ? text("black")
+          : text("white");
+
+      DOM.thinkingIndicator.hidden =
+        !aiThinking;
+    }
+  }
+
+  /* =========================================================
+     UNDO
+     ========================================================= */
+
+  function undoMove() {
+    if (
+      gameOver ||
+      aiThinking ||
+      moveHistory.length === 0
+    ) {
+      showToast(
+        text("cannotUndo")
+      );
+
+      return;
+    }
+
+    invalidateWorker();
+
+    if (
+      selectedMode === "local"
+    ) {
+      removeLastMove();
+
+      currentPlayer =
+        moveHistory.length %
+          2 ===
+        0
+          ? CONFIG.BLACK
+          : CONFIG.WHITE;
+    } else {
+      const human =
+        getHumanSide();
+
       while (
-        moveHistory.length &&
-        moveHistory[
-          moveHistory.length - 1
-        ].player ===
-          CONFIG.AI
-      ) {
-        const move =
-          moveHistory.pop();
-
-        board[
-          move.row
-        ][
-          move.col
-        ] = CONFIG.EMPTY;
-      }
-
-      if (
         moveHistory.length
       ) {
-        const move =
-          moveHistory.pop();
+        const last =
+          moveHistory[
+            moveHistory.length - 1
+          ];
 
-        board[
-          move.row
-        ][
-          move.col
-        ] = CONFIG.EMPTY;
+        removeLastMove();
+
+        if (
+          last.player ===
+          human
+        ) {
+          break;
+        }
       }
-    } else {
-      const move =
-        moveHistory.pop();
 
-      board[
-        move.row
-      ][
-        move.col
-      ] = CONFIG.EMPTY;
+      currentPlayer =
+        human;
     }
+
+    winningLine = [];
+    gameOver = false;
+    aiThinking = false;
+
+    boardVersion += 1;
+
+    updateTurnUI();
+    renderGameSidePanel();
+    drawBoard();
+    saveCurrentGame();
+  }
+
+  function removeLastMove() {
+    const move =
+      moveHistory.pop();
+
+    if (!move) {
+      return;
+    }
+
+    board[
+      move.row
+    ][
+      move.col
+    ] = CONFIG.EMPTY;
 
     lastMove =
       moveHistory[
         moveHistory.length - 1
       ] || null;
 
-    currentPlayer =
-      CONFIG.PLAYER;
-
-    aiThinking = false;
-
-    winningLine = [];
-
-    updateTurnUI();
-
-    drawBoard();
-
-    saveCurrentGame();
-
-    showOS(
-      "surprise",
-      getSelectedAI()
-    );
+    boardVersion += 1;
   }
 
   /* =========================================================
-     WIN
+     WIN DETECTION
      ========================================================= */
-
-  function checkWin(
-    currentBoard,
-    row,
-    col,
-    player
-  ) {
-    const line =
-      findWinningLine(
-        currentBoard,
-        row,
-        col,
-        player
-      );
-
-    return Boolean(line);
-  }
 
   function findWinningLine(
     currentBoard,
@@ -2736,10 +2977,8 @@
     ];
 
     for (
-      const [
-        dr,
-        dc
-      ] of directions
+      const [dr, dc]
+      of directions
     ) {
       const line = [
         {
@@ -2749,16 +2988,11 @@
       ];
 
       for (
-        let sign of [
-          1,
-          -1
-        ]
+        const sign of [1, -1]
       ) {
         let distance = 1;
 
-        while (
-          true
-        ) {
+        while (true) {
           const r =
             row +
             dr *
@@ -2772,22 +3006,28 @@
               sign;
 
           if (
-            !isInside(
-              r,
-              c
-            ) ||
+            !isInside(r, c) ||
             currentBoard[r][c] !==
               player
           ) {
             break;
           }
 
-          line.push({
-            row: r,
-            col: c
-          });
+          if (
+            sign === 1
+          ) {
+            line.push({
+              row: r,
+              col: c
+            });
+          } else {
+            line.unshift({
+              row: r,
+              col: c
+            });
+          }
 
-          distance++;
+          distance += 1;
         }
       }
 
@@ -2795,12 +3035,6 @@
         line.length >=
         CONFIG.WIN_LENGTH
       ) {
-        line.sort(
-          (a, b) =>
-            a.row - b.row ||
-            a.col - b.col
-        );
-
         return line;
       }
     }
@@ -2828,324 +3062,220 @@
      FINISH GAME
      ========================================================= */
 
-  function finishGame(
-    result
-  ) {
+  function finishGame(result) {
+    if (gameOver) {
+      return;
+    }
+
     gameOver = true;
     aiThinking = false;
 
-    winningLine = [];
+    invalidateWorker();
 
-    if (
-      result === "win"
-    ) {
-      stats.wins++;
-      stats.total++;
-
-      ensureAIStats();
-
-      stats.ai[
-        selectedAI
-      ].losses++;
-
-      showOS(
-        "losing",
-        getSelectedAI()
-      );
-    }
-
-    if (
-      result === "loss"
-    ) {
-      stats.losses++;
-      stats.total++;
-
-      ensureAIStats();
-
-      stats.ai[
-        selectedAI
-      ].wins++;
-
-      showOS(
-        "winning",
-        getSelectedAI()
-      );
-    }
-
-    if (
-      result === "draw"
-    ) {
-      stats.draws++;
-      stats.total++;
-
-      showOS(
-        "thinking",
-        getSelectedAI()
-      );
-    }
-
-    saveStats();
-
-    const last =
-      moveHistory[
-        moveHistory.length - 1
-      ];
-
-    if (last) {
-      winningLine =
-        findWinningLine(
-          board,
-          last.row,
-          last.col,
-          last.player
-        ) || [];
-    }
-
-    drawBoard();
-
-    updateTurnUI();
+    winningLine =
+      result.line || [];
 
     clearSavedGame();
 
-    setTimeout(
-      () =>
-        showResult(
-          result
-        ),
-      settings.motion
-        ? 280
-        : 0
-    );
+    if (
+      result.type === "draw"
+    ) {
+      stats.draws += 1;
+      stats.total += 1;
+
+      addRecord({
+        mode: selectedMode,
+        result: "draw",
+        winner: CONFIG.EMPTY,
+        ai:
+          selectedMode === "ai"
+            ? selectedAI
+            : null
+      });
+    } else if (
+      selectedMode === "local"
+    ) {
+      stats.total += 1;
+
+      addRecord({
+        mode: "local",
+        result:
+          result.winner ===
+          CONFIG.BLACK
+            ? "player1"
+            : "player2",
+        winner:
+          result.winner,
+        ai: null
+      });
+    } else {
+      const human =
+        getHumanSide();
+
+      const won =
+        result.winner ===
+        human;
+
+      if (won) {
+        stats.wins += 1;
+      } else {
+        stats.losses += 1;
+      }
+
+      stats.total += 1;
+
+      const aiStats =
+        ensureAIStats(
+          selectedAI
+        );
+
+      if (won) {
+        aiStats.losses += 1;
+      } else {
+        aiStats.wins += 1;
+      }
+
+      addRecord({
+        mode: "ai",
+        result:
+          won
+            ? "win"
+            : "loss",
+        winner:
+          result.winner,
+        ai:
+          selectedAI
+      });
+    }
+
+    saveStats();
+    renderStats();
+
+    drawBoard();
+
+    showResult(result);
   }
 
-  function showResult(
-    result
-  ) {
-    const text = {
-      win: {
-        kicker: "GAME COMPLETE",
-        title: "你贏了！",
-        description:
-          `你成功擊敗了 ${getSelectedAI().name["zh-TW"]}。`
-      },
+  function showResult(result) {
+    if (
+      result.type === "draw"
+    ) {
+      DOM.resultMark.className =
+        "result-mark draw";
 
-      loss: {
-        kicker: "GAME COMPLETE",
-        title: "這局輸了",
-        description:
-          `${getSelectedAI().name["zh-TW"]} 找到了五連。`
-      },
-
-      draw: {
-        kicker: "GAME COMPLETE",
-        title: "和局",
-        description:
-          "棋盤已經沒有可以落子的地方。"
-      }
-    };
-
-    const data =
-      text[result];
-
-    if (!data) return;
-
-    if (DOM.resultKicker) {
       DOM.resultKicker.textContent =
-        data.kicker;
-    }
+        text("draw");
 
-    if (DOM.resultTitle) {
       DOM.resultTitle.textContent =
-        data.title;
-    }
+        text("draw");
 
-    if (DOM.resultDescription) {
       DOM.resultDescription.textContent =
-        data.description;
-    }
+        text("drawDesc");
+    } else if (
+      selectedMode === "local"
+    ) {
+      const player1 =
+        result.winner ===
+        CONFIG.BLACK;
 
-    if (DOM.resultMark) {
-      DOM.resultMark.dataset.result =
-        result;
+      DOM.resultMark.className =
+        `result-mark ${
+          player1
+            ? "win"
+            : "lose"
+        }`;
+
+      DOM.resultKicker.textContent =
+        player1
+          ? text("black")
+          : text("white");
+
+      DOM.resultTitle.textContent =
+        player1
+          ? text("player1Win")
+          : text("player2Win");
+
+      DOM.resultDescription.textContent =
+        text(
+          "localWinDesc",
+          {
+            player:
+              player1
+                ? text("player1Turn")
+                    .replace(
+                      " 的回合",
+                      ""
+                    )
+                    .replace(
+                      "'s turn",
+                      ""
+                    )
+                : text("player2Turn")
+                    .replace(
+                      " 的回合",
+                      ""
+                    )
+                    .replace(
+                      "'s turn",
+                      ""
+                    )
+          }
+        );
+    } else {
+      const human =
+        getHumanSide();
+
+      const won =
+        result.winner ===
+        human;
+
+      const ai =
+        getSelectedAI();
+
+      DOM.resultMark.className =
+        `result-mark ${
+          won
+            ? "win"
+            : "lose"
+        }`;
+
+      DOM.resultKicker.textContent =
+        getLocalized(
+          ai.name
+        );
+
+      DOM.resultTitle.textContent =
+        won
+          ? text("win")
+          : text("lose");
+
+      DOM.resultDescription.textContent =
+        won
+          ? text(
+              "playerWinDesc",
+              {
+                name:
+                  getLocalized(
+                    ai.name
+                  )
+              }
+            )
+          : text(
+              "playerLoseDesc",
+              {
+                name:
+                  getLocalized(
+                    ai.name
+                  )
+              }
+            );
     }
 
     showScreen("result");
   }
 
   /* =========================================================
-     TURN UI
-     ========================================================= */
-
-  function updateTurnUI() {
-    if (!DOM.turnPlayer) {
-      return;
-    }
-
-    const isAI =
-      currentPlayer ===
-      CONFIG.AI;
-
-    if (
-      aiThinking ||
-      isAI
-    ) {
-      DOM.turnLabel.textContent =
-        getSelectedAI()
-          .name["zh-TW"];
-
-      DOM.turnPlayer.textContent =
-        "思考中";
-
-      DOM.thinkingIndicator.hidden =
-        false;
-    } else {
-      DOM.turnLabel.textContent =
-        "你的回合";
-
-      DOM.turnPlayer.textContent =
-        playerSide === "black"
-          ? "黑棋"
-          : "白棋";
-
-      DOM.thinkingIndicator.hidden =
-        true;
-    }
-
-    if (DOM.turnStone) {
-      DOM.turnStone.classList.toggle(
-        "white-stone",
-        playerSide === "white" &&
-          !isAI
-      );
-
-      DOM.turnStone.classList.toggle(
-        "black-stone",
-        playerSide === "black" ||
-          isAI
-      );
-    }
-  }
-
-  /* =========================================================
-     AI OS
-     ========================================================= */
-
-  function showOS(
-    type,
-    ai
-  ) {
-    if (!DOM.aiOS) return;
-
-    const character =
-      ai ||
-      getSelectedAI();
-
-    const pool =
-      character.os[type] ||
-      character.os.thinking;
-
-    if (
-      !pool ||
-      !pool.length
-    ) {
-      return;
-    }
-
-    const text =
-      pool[
-        Math.floor(
-          Math.random() *
-            pool.length
-        )
-      ];
-
-    DOM.aiOS.classList.add(
-      "is-changing"
-    );
-
-    setTimeout(
-      () => {
-        DOM.aiOS.textContent =
-          text;
-
-        DOM.aiOS.classList.remove(
-          "is-changing"
-        );
-      },
-      settings.motion
-        ? 120
-        : 0
-    );
-  }
-
-  /* =========================================================
-     AI UI
-     ========================================================= */
-
-  function updateAIUI() {
-    const ai =
-      getSelectedAI();
-
-    if (DOM.aiName) {
-      DOM.aiName.textContent =
-        getLocalized(
-          ai.name
-        );
-    }
-
-    if (
-      DOM.aiDescription
-    ) {
-      DOM.aiDescription.textContent =
-        getLocalized(
-          ai.description
-        );
-    }
-
-    if (DOM.aiSelect) {
-      DOM.aiSelect.value =
-        selectedAI;
-    }
-
-    ensureAIStats();
-
-    if (DOM.aiWins) {
-      DOM.aiWins.textContent =
-        stats.ai[
-          selectedAI
-        ].wins;
-    }
-
-    if (DOM.aiLosses) {
-      DOM.aiLosses.textContent =
-        stats.ai[
-          selectedAI
-        ].losses;
-    }
-  }
-
-  function setupAISelector() {
-    DOM.aiSelect?.addEventListener(
-      "change",
-      event => {
-        selectedAI =
-          event.target.value;
-
-        updateAIUI();
-
-        if (
-          DOM.gameScreen?.classList.contains(
-            "active"
-          )
-        ) {
-          resetGame();
-        }
-      }
-    );
-  }
-
-  /* =========================================================
-     STATS
+     STATISTICS
      ========================================================= */
 
   function createDefaultStats() {
@@ -3186,18 +3316,16 @@
       const parsed =
         JSON.parse(raw);
 
-      const defaults =
+      const base =
         createDefaultStats();
 
       return {
-        ...defaults,
+        ...base,
         ...parsed,
-
         ai: {
-          ...defaults.ai,
+          ...base.ai,
           ...(parsed.ai || {})
         },
-
         records:
           Array.isArray(
             parsed.records
@@ -3210,21 +3338,6 @@
     }
   }
 
-  function ensureAIStats() {
-    if (
-      !stats.ai[
-        selectedAI
-      ]
-    ) {
-      stats.ai[
-        selectedAI
-      ] = {
-        wins: 0,
-        losses: 0
-      };
-    }
-  }
-
   function saveStats() {
     try {
       localStorage.setItem(
@@ -3234,30 +3347,59 @@
     } catch {}
   }
 
+  function ensureAIStats(
+    id
+  ) {
+    if (
+      !stats.ai[id]
+    ) {
+      stats.ai[id] = {
+        wins: 0,
+        losses: 0
+      };
+    }
+
+    return stats.ai[id];
+  }
+
+  function addRecord(record) {
+    stats.records.push({
+      ...record,
+      date:
+        new Date().toLocaleString(
+          settings.language
+        )
+    });
+
+    if (
+      stats.records.length >
+      100
+    ) {
+      stats.records =
+        stats.records.slice(
+          -100
+        );
+    }
+  }
+
   function renderStats() {
-    if (DOM.statGames) {
-      DOM.statGames.textContent =
-        stats.total;
+    if (!DOM.statGames) {
+      return;
     }
 
-    if (DOM.statWins) {
-      DOM.statWins.textContent =
-        stats.wins;
-    }
+    DOM.statGames.textContent =
+      String(stats.total);
 
-    if (DOM.statLosses) {
-      DOM.statLosses.textContent =
-        stats.losses;
-    }
+    DOM.statWins.textContent =
+      String(stats.wins);
 
-    if (DOM.statDraws) {
-      DOM.statDraws.textContent =
-        stats.draws;
-    }
+    DOM.statLosses.textContent =
+      String(stats.losses);
+
+    DOM.statDraws.textContent =
+      String(stats.draws);
 
     renderRecordList();
-
-    updateAIUI();
   }
 
   function renderRecordList() {
@@ -3268,7 +3410,6 @@
     DOM.recordList.innerHTML = "";
 
     if (
-      !stats.records ||
       !stats.records.length
     ) {
       const empty =
@@ -3277,10 +3418,10 @@
         );
 
       empty.textContent =
-        "目前還沒有棋局記錄。";
+        text("noRecords");
 
       empty.style.opacity =
-        "0.55";
+        ".55";
 
       DOM.recordList.appendChild(
         empty
@@ -3290,9 +3431,7 @@
     }
 
     stats.records
-      .slice(
-        -20
-      )
+      .slice(-30)
       .reverse()
       .forEach(
         record => {
@@ -3304,52 +3443,85 @@
           item.className =
             "record-item";
 
-          item.style.cssText =
-            `
-              display:flex;
-              justify-content:space-between;
-              align-items:center;
-              gap:12px;
-              padding:12px 0;
-              border-bottom:1px solid rgba(80,60,40,.1);
-            `;
-
           const left =
             document.createElement(
               "div"
             );
 
-          const ai =
+          const title =
+            document.createElement(
+              "strong"
+            );
+
+          if (
+            record.mode === "local"
+          ) {
+            title.textContent =
+              text("recordLocal");
+          } else if (
+            record.ai &&
             AI_CHARACTERS[
               record.ai
-            ] ||
-            AI_CHARACTERS.sora;
+            ]
+          ) {
+            title.textContent =
+              getLocalized(
+                AI_CHARACTERS[
+                  record.ai
+                ].name
+              );
+          } else {
+            title.textContent =
+              "Gomoku";
+          }
 
-          left.innerHTML =
-            `
-              <strong>
-                ${escapeHTML(
-                  ai.name[
-                    "zh-TW"
-                  ]
-                )}
-              </strong>
-              <div style="font-size:11px;opacity:.5;margin-top:2px;">
-                ${escapeHTML(
-                  record.date
-                )}
-              </div>
-            `;
+          const date =
+            document.createElement(
+              "small"
+            );
+
+          date.textContent =
+            record.date || "";
+
+          left.append(
+            title,
+            date
+          );
 
           const result =
             document.createElement(
               "strong"
             );
 
-          result.textContent =
-            resultLabel(
-              record.result
-            );
+          if (
+            record.result ===
+            "win" ||
+            record.result ===
+            "player1"
+          ) {
+            result.textContent =
+              text("recordWin");
+
+            result.className =
+              "record-result win";
+          } else if (
+            record.result ===
+            "loss" ||
+            record.result ===
+            "player2"
+          ) {
+            result.textContent =
+              text("recordLoss");
+
+            result.className =
+              "record-result loss";
+          } else {
+            result.textContent =
+              text("recordDraw");
+
+            result.className =
+              "record-result draw";
+          }
 
           item.append(
             left,
@@ -3363,60 +3535,37 @@
       );
   }
 
-  function resultLabel(
-    result
-  ) {
-    if (
-      result === "win"
-    ) {
-      return "勝利";
-    }
+  function setupRecordsControls() {
+    DOM.clearRecordsButton?.addEventListener(
+      "click",
+      () => {
+        stats =
+          createDefaultStats();
 
-    if (
-      result === "loss"
-    ) {
-      return "失敗";
-    }
+        saveStats();
+        renderStats();
 
-    return "和局";
-  }
-
-  DOM.clearRecordsButton?.addEventListener(
-    "click",
-    () => {
-      if (
-        !confirm(
-          "確定要清除所有棋局記錄嗎？"
-        )
-      ) {
-        return;
+        showToast(
+          text("recordsCleared")
+        );
       }
-
-      stats =
-        createDefaultStats();
-
-      saveStats();
-
-      renderStats();
-
-      showToast(
-        "棋局記錄已清除"
-      );
-    }
-  );
+    );
+  }
 
   /* =========================================================
      SETTINGS
      ========================================================= */
 
-  function loadSettings() {
-    const defaults = {
+  function createDefaultSettings() {
+    return {
       language: "zh-TW",
       sound: true,
       motion: true,
       theme: "system"
     };
+  }
 
+  function loadSettings() {
     try {
       const raw =
         localStorage.getItem(
@@ -3424,15 +3573,15 @@
         );
 
       if (!raw) {
-        return defaults;
+        return createDefaultSettings();
       }
 
       return {
-        ...defaults,
+        ...createDefaultSettings(),
         ...JSON.parse(raw)
       };
     } catch {
-      return defaults;
+      return createDefaultSettings();
     }
   }
 
@@ -3440,31 +3589,64 @@
     settings = {
       language:
         DOM.languageSelect?.value ||
+        settings.language ||
         "zh-TW",
 
       sound:
         DOM.soundToggle?.checked ??
-        true,
+        settings.sound,
 
       motion:
         DOM.motionToggle?.checked ??
-        true,
+        settings.motion,
 
       theme:
         DOM.themeSelect?.value ||
+        settings.theme ||
         "system"
     };
 
     try {
       localStorage.setItem(
         CONFIG.SETTINGS_KEY,
-        JSON.stringify(
-          settings
-        )
+        JSON.stringify(settings)
       );
     } catch {}
 
     applySettings();
+  }
+
+  function setupSettingsControls() {
+    DOM.languageSelect?.addEventListener(
+      "change",
+      () => {
+        saveSettings();
+
+        applyTranslations();
+        renderStats();
+        updateSetupUI();
+        updateTurnUI();
+        renderGameSidePanel();
+        checkResumeGame();
+      }
+    );
+
+    DOM.soundToggle?.addEventListener(
+      "change",
+      saveSettings
+    );
+
+    DOM.motionToggle?.addEventListener(
+      "change",
+      saveSettings
+    );
+
+    DOM.themeSelect?.addEventListener(
+      "change",
+      saveSettings
+    );
+
+    setupRecordsControls();
   }
 
   function applySettings() {
@@ -3496,78 +3678,193 @@
         settings.theme;
     }
 
-    applyTheme();
-  }
-
-  function setupSettingsControls() {
-    DOM.languageSelect?.addEventListener(
-      "change",
-      saveSettings
-    );
-
-    DOM.soundToggle?.addEventListener(
-      "change",
-      saveSettings
-    );
-
-    DOM.motionToggle?.addEventListener(
-      "change",
-      saveSettings
-    );
-
-    DOM.themeSelect?.addEventListener(
-      "change",
-      saveSettings
-    );
-
-    setupAISelector();
-  }
-
-  function applyTheme() {
-    const theme =
-      settings.theme;
-
     if (
-      theme === "system"
+      settings.theme ===
+      "system"
     ) {
-      document.documentElement
-        .removeAttribute(
-          "data-theme"
-        );
-
-      return;
+      document.documentElement.removeAttribute(
+        "data-theme"
+      );
+    } else {
+      document.documentElement.setAttribute(
+        "data-theme",
+        settings.theme
+      );
     }
 
-    document.documentElement
-      .setAttribute(
-        "data-theme",
-        theme
+    applyTranslations();
+  }
+
+  function applyTranslations() {
+    const dictionary =
+      I18N[
+        settings.language
+      ] ||
+      I18N["zh-TW"];
+
+    document
+      .querySelectorAll(
+        "[data-i18n]"
+      )
+      .forEach(
+        element => {
+          const key =
+            element.dataset.i18n;
+
+          const value =
+            dictionary[
+              convertI18NKey(
+                key
+              )
+            ];
+
+          if (
+            value !== undefined
+          ) {
+            element.textContent =
+              value;
+          }
+        }
       );
+  }
+
+  function convertI18NKey(key) {
+    const map = {
+      "app.title": "title",
+      "home.subtitle": "subtitle",
+      "home.start": "start",
+      "home.records": "records",
+      "home.settings": "settings",
+      "home.resumeLabel": "unfinished",
+      "home.resume": "resume",
+
+      "setup.title": "setup",
+      "setup.mode": "mode",
+      "setup.ai": "ai",
+      "setup.local": "local",
+      "setup.difficulty": "difficulty",
+      "difficulty.easy": "easy",
+      "difficulty.normal": "normal",
+      "difficulty.hard": "hard",
+      "difficulty.easyDescription": "easyDesc",
+      "difficulty.normalDescription": "normalDesc",
+      "difficulty.hardDescription": "hardDesc",
+      "setup.side": "side",
+      "side.black": "black",
+      "side.white": "white",
+      "side.first": "first",
+      "side.second": "second",
+      "setup.begin": "begin",
+
+      "game.thinking": "thinking",
+      "game.undo": "undo",
+      "game.restart": "restart",
+      "game.menu": "menu",
+
+      "result.again": "again",
+      "result.home": "home",
+
+      "records.title": "records",
+      "records.games": "games",
+      "records.wins": "wins",
+      "records.losses": "losses",
+      "records.draws": "draws",
+      "records.clear": "clear",
+
+      "settings.title": "settings",
+      "settings.language": "language",
+      "settings.languageDescription": "languageDesc",
+      "settings.sound": "sound",
+      "settings.soundDescription": "soundDesc",
+      "settings.motion": "motion",
+      "settings.motionDescription": "motionDesc",
+      "settings.theme": "theme",
+      "settings.themeDescription": "themeDesc"
+    };
+
+    return (
+      map[key] ||
+      key
+    );
+  }
+
+  function text(
+    key,
+    variables = {}
+  ) {
+    const dictionary =
+      I18N[
+        settings.language
+      ] ||
+      I18N["zh-TW"];
+
+    let value =
+      dictionary[key] ??
+      I18N["zh-TW"][key] ??
+      key;
+
+    Object.entries(
+      variables
+    ).forEach(
+      ([name, replacement]) => {
+        value =
+          value.replace(
+            `{${name}}`,
+            String(replacement)
+          );
+      }
+    );
+
+    return value;
+  }
+
+  function getLocalized(
+    value
+  ) {
+    if (
+      typeof value ===
+      "string"
+    ) {
+      return value;
+    }
+
+    return (
+      value[
+        settings.language
+      ] ??
+      value["zh-TW"] ??
+      value.en ??
+      ""
+    );
   }
 
   /* =========================================================
      SAVE / RESUME
      ========================================================= */
 
-  const GAME_SAVE_KEY =
-    "gomoku-current-game-v1";
-
   function saveCurrentGame() {
-    if (gameOver) {
+    if (
+      gameOver ||
+      !moveHistory.length
+    ) {
       return;
     }
 
     try {
       localStorage.setItem(
-        GAME_SAVE_KEY,
+        CONFIG.GAME_SAVE_KEY,
         JSON.stringify({
+          version: 3,
+          gameId,
           board,
+          boardVersion,
           currentPlayer,
+          selectedMode,
           selectedAI,
           selectedDifficulty,
-          selectedMode,
           playerSide,
           moveHistory,
+          winningLine,
           lastMove,
           timestamp:
             Date.now()
@@ -3581,8 +3878,10 @@
   function clearSavedGame() {
     try {
       localStorage.removeItem(
-        GAME_SAVE_KEY
+        CONFIG.GAME_SAVE_KEY
       );
+
+      checkResumeGame();
     } catch {}
   }
 
@@ -3597,7 +3896,7 @@
     try {
       const raw =
         localStorage.getItem(
-          GAME_SAVE_KEY
+          CONFIG.GAME_SAVE_KEY
         );
 
       if (!raw) {
@@ -3611,25 +3910,39 @@
         JSON.parse(raw);
 
       if (
-        !Array.isArray(
-          saved.board
-        ) ||
-        !saved.moveHistory
+        !isValidSavedGame(
+          saved
+        )
       ) {
-        DOM.resumeCard.hidden =
-          true;
+        clearSavedGame();
 
         return;
       }
 
-      const ai =
-        AI_CHARACTERS[
-          saved.selectedAI
-        ] ||
-        AI_CHARACTERS.sora;
+      if (
+        saved.mode ===
+        "local"
+      ) {
+        DOM.resumeText.textContent =
+          text("resumedLocal");
+      } else {
+        const ai =
+          AI_CHARACTERS[
+            saved.selectedAI
+          ] ||
+          AI_CHARACTERS.sora;
 
-      DOM.resumeText.textContent =
-        `對戰 ${ai.name["zh-TW"]}`;
+        DOM.resumeText.textContent =
+          text(
+            "resumedAI",
+            {
+              name:
+                getLocalized(
+                  ai.name
+                )
+            }
+          );
+      }
 
       DOM.resumeCard.hidden =
         false;
@@ -3639,11 +3952,66 @@
     }
   }
 
+  function isValidSavedGame(
+    saved
+  ) {
+    if (
+      !saved ||
+      !Array.isArray(
+        saved.board
+      ) ||
+      saved.board.length !==
+        CONFIG.BOARD_SIZE
+    ) {
+      return false;
+    }
+
+    if (
+      !Array.isArray(
+        saved.moveHistory
+      )
+    ) {
+      return false;
+    }
+
+    for (
+      const row of saved.board
+    ) {
+      if (
+        !Array.isArray(row) ||
+        row.length !==
+          CONFIG.BOARD_SIZE
+      ) {
+        return false;
+      }
+
+      if (
+        row.some(
+          value =>
+            ![
+              CONFIG.EMPTY,
+              CONFIG.BLACK,
+              CONFIG.WHITE
+            ].includes(value)
+        )
+      ) {
+        return false;
+      }
+    }
+
+    return (
+      saved.selectedMode ===
+        "ai" ||
+      saved.selectedMode ===
+        "local"
+    );
+  }
+
   function resumeGame() {
     try {
       const raw =
         localStorage.getItem(
-          GAME_SAVE_KEY
+          CONFIG.GAME_SAVE_KEY
         );
 
       if (!raw) {
@@ -3654,223 +4022,96 @@
         JSON.parse(raw);
 
       if (
-        !Array.isArray(
-          saved.board
+        !isValidSavedGame(
+          saved
         )
       ) {
+        clearSavedGame();
+
         return;
       }
 
+      invalidateWorker();
+
       board =
-        saved.board;
+        cloneBoard(
+          saved.board
+        );
+
+      gameId =
+        saved.gameId ||
+        createId();
+
+      boardVersion =
+        saved.boardVersion ||
+        0;
 
       currentPlayer =
-        saved.currentPlayer ??
-        CONFIG.PLAYER;
-
-      selectedAI =
-        saved.selectedAI ||
-        "sora";
-
-      selectedDifficulty =
-        saved.selectedDifficulty ||
-        "normal";
+        saved.currentPlayer;
 
       selectedMode =
-        saved.selectedMode ||
-        "ai";
+        saved.selectedMode;
+
+      selectedAI =
+        AI_CHARACTERS[
+          saved.selectedAI
+        ]
+          ? saved.selectedAI
+          : "sora";
+
+      selectedDifficulty =
+        DIFFICULTIES[
+          saved.selectedDifficulty
+        ]
+          ? saved.selectedDifficulty
+          : "normal";
 
       playerSide =
-        saved.playerSide ||
-        "black";
+        saved.playerSide ===
+        "white"
+          ? "white"
+          : "black";
 
       moveHistory =
+        saved.moveHistory;
+
+      winningLine =
         Array.isArray(
-          saved.moveHistory
+          saved.winningLine
         )
-          ? saved.moveHistory
+          ? saved.winningLine
           : [];
 
       lastMove =
         saved.lastMove ||
+        moveHistory[
+          moveHistory.length - 1
+        ] ||
         null;
 
       gameOver = false;
       aiThinking = false;
-      winningLine = [];
-
-      updateAIUI();
-      updateTurnUI();
 
       showScreen("game");
 
+      updateSetupUI();
+      updateTurnUI();
+      renderGameSidePanel();
+      drawBoard();
+
       if (
         selectedMode === "ai" &&
-        currentPlayer ===
-          CONFIG.AI
+        isAITurn()
       ) {
         runAITurn();
       }
-
-      drawBoard();
     } catch {
       clearSavedGame();
     }
   }
 
   /* =========================================================
-     RESET
-     ========================================================= */
-
-  function resetGame() {
-    board =
-      createBoard();
-
-    currentPlayer =
-      CONFIG.PLAYER;
-
-    gameOver = false;
-    aiThinking = false;
-
-    moveHistory = [];
-    winningLine = [];
-    lastMove = null;
-
-    workerRequestId++;
-
-    if (DOM.aiOS) {
-      DOM.aiOS.textContent = "";
-      DOM.aiOS.classList.remove(
-        "is-changing"
-      );
-    }
-
-    updateAIUI();
-    updateTurnUI();
-
-    clearSavedGame();
-
-    drawBoard();
-
-    if (
-      selectedMode === "ai" &&
-      playerSide === "white"
-    ) {
-      currentPlayer =
-        CONFIG.AI;
-
-      updateTurnUI();
-
-      runAITurn();
-    }
-  }
-
-  /* =========================================================
-     AUDIO
-     ========================================================= */
-
-  function playStoneSound() {
-    if (!settings.sound) {
-      return;
-    }
-
-    try {
-      if (!audioContext) {
-        audioContext =
-          new (
-            window.AudioContext ||
-            window.webkitAudioContext
-          )();
-      }
-
-      if (
-        audioContext.state ===
-        "suspended"
-      ) {
-        audioContext.resume();
-      }
-
-      const oscillator =
-        audioContext.createOscillator();
-
-      const gain =
-        audioContext.createGain();
-
-      oscillator.type =
-        "sine";
-
-      oscillator.frequency.value =
-        180;
-
-      gain.gain.setValueAtTime(
-        0.0001,
-        audioContext.currentTime
-      );
-
-      gain.gain.exponentialRampToValueAtTime(
-        0.055,
-        audioContext.currentTime +
-          0.008
-      );
-
-      gain.gain.exponentialRampToValueAtTime(
-        0.0001,
-        audioContext.currentTime +
-          0.075
-      );
-
-      oscillator.connect(
-        gain
-      );
-
-      gain.connect(
-        audioContext.destination
-      );
-
-      oscillator.start();
-
-      oscillator.stop(
-        audioContext.currentTime +
-          0.08
-      );
-    } catch {}
-  }
-
-  /* =========================================================
-     TOAST
-     ========================================================= */
-
-  function showToast(
-    message
-  ) {
-    if (!DOM.toast) {
-      return;
-    }
-
-    DOM.toast.textContent =
-      message;
-
-    DOM.toast.classList.add(
-      "visible"
-    );
-
-    clearTimeout(
-      showToast.timer
-    );
-
-    showToast.timer =
-      setTimeout(
-        () => {
-          DOM.toast.classList.remove(
-            "visible"
-          );
-        },
-        1800
-      );
-  }
-
-  /* =========================================================
-     HELPERS
+     BOARD DRAWING
      ========================================================= */
 
   function createBoard() {
@@ -3897,6 +4138,772 @@
     );
   }
 
+  function scheduleResize() {
+    cancelAnimationFrame(
+      resizeFrame
+    );
+
+    resizeFrame =
+      requestAnimationFrame(
+        () => {
+          resizeCanvas();
+          drawBoard();
+        }
+      );
+  }
+
+  function resizeCanvas() {
+    if (
+      !canvas ||
+      !ctx
+    ) {
+      return;
+    }
+
+    const wrapper =
+      canvas.parentElement;
+
+    if (!wrapper) {
+      return;
+    }
+
+    const rect =
+      wrapper.getBoundingClientRect();
+
+    const width =
+      Math.max(
+        1,
+        rect.width
+      );
+
+    const height =
+      Math.max(
+        1,
+        rect.height
+      );
+
+    let size =
+      Math.min(
+        width,
+        height
+      );
+
+    if (
+      !isScreenActive("game")
+    ) {
+      size =
+        Math.min(
+          width,
+          760
+        );
+    }
+
+    size =
+      Math.max(
+        220,
+        Math.floor(size)
+      );
+
+    const dpr =
+      Math.min(
+        window.devicePixelRatio ||
+          1,
+        3
+      );
+
+    canvas.style.width =
+      `${size}px`;
+
+    canvas.style.height =
+      `${size}px`;
+
+    canvas.width =
+      Math.round(
+        size * dpr
+      );
+
+    canvas.height =
+      Math.round(
+        size * dpr
+      );
+
+    ctx.setTransform(
+      dpr,
+      0,
+      0,
+      dpr,
+      0,
+      0
+    );
+
+    boardSizePx =
+      size;
+
+    boardOrigin =
+      size *
+      0.075;
+
+    cellSize =
+      (
+        size -
+        boardOrigin * 2
+      ) /
+      (CONFIG.BOARD_SIZE - 1);
+
+    boardRect =
+      canvas.getBoundingClientRect();
+  }
+
+  function drawBoard() {
+    if (
+      !ctx ||
+      !canvas ||
+      boardSizePx <= 0
+    ) {
+      return;
+    }
+
+    boardRect =
+      canvas.getBoundingClientRect();
+
+    ctx.clearRect(
+      0,
+      0,
+      boardSizePx,
+      boardSizePx
+    );
+
+    drawBoardBackground();
+    drawGrid();
+    drawStars();
+    drawStones();
+    drawLastMove();
+    drawWinningLine();
+  }
+
+  function drawBoardBackground() {
+    const gradient =
+      ctx.createLinearGradient(
+        0,
+        0,
+        boardSizePx,
+        boardSizePx
+      );
+
+    gradient.addColorStop(
+      0,
+      "#e2c58e"
+    );
+
+    gradient.addColorStop(
+      1,
+      CONFIG.COLORS.board
+    );
+
+    ctx.fillStyle =
+      gradient;
+
+    ctx.fillRect(
+      0,
+      0,
+      boardSizePx,
+      boardSizePx
+    );
+  }
+
+  function drawGrid() {
+    ctx.save();
+
+    ctx.strokeStyle =
+      CONFIG.COLORS.grid;
+
+    ctx.lineWidth =
+      Math.max(
+        0.8,
+        cellSize * 0.025
+      );
+
+    for (
+      let index = 0;
+      index <
+      CONFIG.BOARD_SIZE;
+      index += 1
+    ) {
+      const position =
+        boardOrigin +
+        index *
+          cellSize;
+
+      ctx.beginPath();
+      ctx.moveTo(
+        boardOrigin,
+        position
+      );
+      ctx.lineTo(
+        boardOrigin +
+          cellSize *
+            (CONFIG.BOARD_SIZE - 1),
+        position
+      );
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(
+        position,
+        boardOrigin
+      );
+      ctx.lineTo(
+        position,
+        boardOrigin +
+          cellSize *
+            (CONFIG.BOARD_SIZE - 1)
+      );
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  function drawStars() {
+    const stars = [
+      [3, 3],
+      [3, 11],
+      [7, 7],
+      [11, 3],
+      [11, 11]
+    ];
+
+    ctx.save();
+
+    ctx.fillStyle =
+      CONFIG.COLORS.star;
+
+    for (
+      const [row, col]
+      of stars
+    ) {
+      const point =
+        boardToCanvas(
+          row,
+          col
+        );
+
+      ctx.beginPath();
+
+      ctx.arc(
+        point.x,
+        point.y,
+        Math.max(
+          2,
+          cellSize * 0.075
+        ),
+        0,
+        Math.PI * 2
+      );
+
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
+
+  function drawStones() {
+    const radius =
+      cellSize *
+      0.43;
+
+    for (
+      let row = 0;
+      row <
+      CONFIG.BOARD_SIZE;
+      row += 1
+    ) {
+      for (
+        let col = 0;
+        col <
+        CONFIG.BOARD_SIZE;
+        col += 1
+      ) {
+        const player =
+          board[row][col];
+
+        if (
+          player ===
+          CONFIG.EMPTY
+        ) {
+          continue;
+        }
+
+        const point =
+          boardToCanvas(
+            row,
+            col
+          );
+
+        drawStone(
+          point.x,
+          point.y,
+          radius,
+          player
+        );
+      }
+    }
+  }
+
+  function drawStone(
+    x,
+    y,
+    radius,
+    player
+  ) {
+    ctx.save();
+
+    ctx.shadowColor =
+      "rgba(30, 20, 10, .25)";
+
+    ctx.shadowBlur =
+      radius * 0.18;
+
+    ctx.shadowOffsetY =
+      radius * 0.08;
+
+    let gradient;
+
+    if (
+      player ===
+      CONFIG.BLACK
+    ) {
+      gradient =
+        ctx.createRadialGradient(
+          x -
+            radius *
+              0.32,
+          y -
+            radius *
+              0.35,
+          radius *
+            0.05,
+          x,
+          y,
+          radius
+        );
+
+      gradient.addColorStop(
+        0,
+        CONFIG.COLORS.blackHighlight
+      );
+
+      gradient.addColorStop(
+        0.35,
+        "#292929"
+      );
+
+      gradient.addColorStop(
+        1,
+        CONFIG.COLORS.black
+      );
+    } else {
+      gradient =
+        ctx.createRadialGradient(
+          x -
+            radius *
+              0.32,
+          y -
+            radius *
+              0.35,
+          radius *
+            0.05,
+          x,
+          y,
+          radius
+        );
+
+      gradient.addColorStop(
+        0,
+        "#ffffff"
+      );
+
+      gradient.addColorStop(
+        0.7,
+        CONFIG.COLORS.white
+      );
+
+      gradient.addColorStop(
+        1,
+        CONFIG.COLORS.whiteShadow
+      );
+    }
+
+    ctx.fillStyle =
+      gradient;
+
+    ctx.beginPath();
+
+    ctx.arc(
+      x,
+      y,
+      radius,
+      0,
+      Math.PI * 2
+    );
+
+    ctx.fill();
+
+    if (
+      player ===
+      CONFIG.WHITE
+    ) {
+      ctx.strokeStyle =
+        "rgba(0,0,0,.08)";
+
+      ctx.lineWidth =
+        Math.max(
+          0.7,
+          radius * 0.025
+        );
+
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  function drawLastMove() {
+    if (!lastMove) {
+      return;
+    }
+
+    const point =
+      boardToCanvas(
+        lastMove.row,
+        lastMove.col
+      );
+
+    ctx.save();
+
+    ctx.strokeStyle =
+      CONFIG.COLORS.lastMove;
+
+    ctx.lineWidth =
+      Math.max(
+        1.5,
+        cellSize * 0.055
+      );
+
+    const size =
+      cellSize *
+      0.16;
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+      point.x - size,
+      point.y
+    );
+
+    ctx.lineTo(
+      point.x + size,
+      point.y
+    );
+
+    ctx.moveTo(
+      point.x,
+      point.y - size
+    );
+
+    ctx.lineTo(
+      point.x,
+      point.y + size
+    );
+
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function drawWinningLine() {
+    if (
+      winningLine.length <
+      CONFIG.WIN_LENGTH
+    ) {
+      return;
+    }
+
+    const first =
+      boardToCanvas(
+        winningLine[0].row,
+        winningLine[0].col
+      );
+
+    const last =
+      boardToCanvas(
+        winningLine[
+          winningLine.length - 1
+        ].row,
+        winningLine[
+          winningLine.length - 1
+        ].col
+      );
+
+    ctx.save();
+
+    ctx.strokeStyle =
+      CONFIG.COLORS.winning;
+
+    ctx.lineWidth =
+      Math.max(
+        3,
+        cellSize * 0.12
+      );
+
+    ctx.lineCap =
+      "round";
+
+    ctx.globalAlpha =
+      0.88;
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+      first.x,
+      first.y
+    );
+
+    ctx.lineTo(
+      last.x,
+      last.y
+    );
+
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function boardToCanvas(
+    row,
+    col
+  ) {
+    return {
+      x:
+        boardOrigin +
+        col *
+          cellSize,
+
+      y:
+        boardOrigin +
+        row *
+          cellSize
+    };
+  }
+
+  function canvasToBoard(
+    event
+  ) {
+    if (
+      !canvas ||
+      !boardRect
+    ) {
+      return null;
+    }
+
+    const x =
+      event.clientX -
+      boardRect.left;
+
+    const y =
+      event.clientY -
+      boardRect.top;
+
+    const col =
+      Math.round(
+        (x - boardOrigin) /
+          cellSize
+      );
+
+    const row =
+      Math.round(
+        (y - boardOrigin) /
+          cellSize
+      );
+
+    if (
+      !isInside(row, col)
+    ) {
+      return null;
+    }
+
+    const point =
+      boardToCanvas(
+        row,
+        col
+      );
+
+    const distance =
+      Math.hypot(
+        x - point.x,
+        y - point.y
+      );
+
+    if (
+      distance >
+      cellSize * 0.5
+    ) {
+      return null;
+    }
+
+    return {
+      row,
+      col
+    };
+  }
+
+  /* =========================================================
+     AUDIO
+     ========================================================= */
+
+  function playStoneSound(
+    player
+  ) {
+    if (
+      !settings.sound
+    ) {
+      return;
+    }
+
+    try {
+      if (
+        !audioContext
+      ) {
+        audioContext =
+          new (
+            window.AudioContext ||
+            window.webkitAudioContext
+          )();
+      }
+
+      const oscillator =
+        audioContext.createOscillator();
+
+      const gain =
+        audioContext.createGain();
+
+      oscillator.type =
+        "sine";
+
+      oscillator.frequency.value =
+        player ===
+        CONFIG.BLACK
+          ? 150
+          : 210;
+
+      gain.gain.setValueAtTime(
+        0.0001,
+        audioContext.currentTime
+      );
+
+      gain.gain.exponentialRampToValueAtTime(
+        0.045,
+        audioContext.currentTime +
+          0.008
+      );
+
+      gain.gain.exponentialRampToValueAtTime(
+        0.0001,
+        audioContext.currentTime +
+          0.08
+      );
+
+      oscillator.connect(
+        gain
+      );
+
+      gain.connect(
+        audioContext.destination
+      );
+
+      oscillator.start();
+
+      oscillator.stop(
+        audioContext.currentTime +
+          0.09
+      );
+    } catch {}
+  }
+
+  /* =========================================================
+     TOAST
+     ========================================================= */
+
+  function showToast(
+    message
+  ) {
+    const toast =
+      $("#toast");
+
+    if (!toast) {
+      return;
+    }
+
+    toast.textContent =
+      message;
+
+    toast.classList.add(
+      "show"
+    );
+
+    clearTimeout(
+      toastTimer
+    );
+
+    toastTimer =
+      setTimeout(
+        () => {
+          toast.classList.remove(
+            "show"
+          );
+        },
+        1800
+      );
+  }
+
+  /* =========================================================
+     SERVICE WORKER
+     ========================================================= */
+
+  function registerServiceWorker() {
+    if (
+      !("serviceWorker" in navigator)
+    ) {
+      return;
+    }
+
+    window.addEventListener(
+      "load",
+      () => {
+        navigator.serviceWorker
+          .register(
+            "./sw.js"
+          )
+          .catch(
+            () => {}
+          );
+      }
+    );
+  }
+
+  /* =========================================================
+     HELPERS
+     ========================================================= */
+
+  function getSelectedAI() {
+    return (
+      AI_CHARACTERS[
+        selectedAI
+      ] ||
+      AI_CHARACTERS.sora
+    );
+  }
+
   function isInside(
     row,
     col
@@ -3911,7 +4918,7 @@
     );
   }
 
-  function delay(ms) {
+  function wait(ms) {
     return new Promise(
       resolve =>
         setTimeout(
@@ -3921,72 +4928,30 @@
     );
   }
 
-  function getSelectedAI() {
-    return (
-      AI_CHARACTERS[
-        selectedAI
-      ] ||
-      AI_CHARACTERS.sora
-    );
-  }
+  function createId() {
+    if (
+      typeof crypto !==
+        "undefined" &&
+      typeof crypto.randomUUID ===
+        "function"
+    ) {
+      return crypto.randomUUID();
+    }
 
-  function getLocalized(
-    object
-  ) {
     return (
-      object[
-        settings.language
-      ] ||
-      object["zh-TW"] ||
-      object.en ||
-      ""
+      Date.now().toString(36) +
+      Math.random()
+        .toString(36)
+        .slice(2)
     );
-  }
-
-  function escapeHTML(
-    value
-  ) {
-    return String(
-      value
-    )
-      .replaceAll(
-        "&",
-        "&amp;"
-      )
-      .replaceAll(
-        "<",
-        "&lt;"
-      )
-      .replaceAll(
-        ">",
-        "&gt;"
-      )
-      .replaceAll(
-        '"',
-        "&quot;"
-      )
-      .replaceAll(
-        "'",
-        "&#039;"
-      );
   }
 
   /* =========================================================
-     INITIAL BOOT
+     START
      ========================================================= */
 
-  if (
-    document.readyState ===
-    "loading"
-  ) {
-    document.addEventListener(
-      "DOMContentLoaded",
-      init,
-      {
-        once: true
-      }
-    );
-  } else {
-    init();
-  }
+  document.addEventListener(
+    "DOMContentLoaded",
+    init
+  );
 })();
