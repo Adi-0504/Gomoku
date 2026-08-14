@@ -3,19 +3,20 @@
 
   /*
    * =========================================================
-   * GOMOKU 1.0
+   * GOMOKU 1.1
    * =========================================================
    *
-   * No backend.
-   * Responsive Canvas.
-   * Human vs Human.
-   * Human vs AI.
-   * AI Worker.
-   * AI OS.
-   * Statistics.
-   * Resume game.
-   * LocalStorage.
+   * Human vs Human
+   * Human vs AI
+   * AI Worker
+   * AI OS
+   * Statistics
+   * Resume game
+   * LocalStorage
+   * Responsive Canvas
    *
+   * UI SFX
+   * Organic 06
    * =========================================================
    */
 
@@ -27,11 +28,20 @@
     BLACK: 1,
     WHITE: 2,
 
-    STORAGE_GAME: "gomoku-active-game-v3",
-    STORAGE_STATS: "gomoku-stats-v3",
-    STORAGE_SETTINGS: "gomoku-settings-v3",
+    STORAGE_GAME: "gomoku-active-game-v4",
+    STORAGE_STATS: "gomoku-stats-v4",
+    STORAGE_SETTINGS: "gomoku-settings-v4",
 
     WORKER: "./ai-worker.js",
+
+    /*
+     * UI SFX 官方 Organic 06
+     * 透過 ESM CDN 動態載入。
+     */
+    SFX_MODULE:
+      "https://esm.unpkg.com/uisfx",
+
+    SFX_PACK: "organic",
 
     COLORS: {
       board: "#e8d5ad",
@@ -61,9 +71,7 @@
     mio: {
       name: "Mio",
       initial: "M",
-
       description: "溫和、防守型",
-
       style: "defense",
 
       os: {
@@ -115,9 +123,7 @@
     rin: {
       name: "Rin",
       initial: "R",
-
       description: "積極、進攻型",
-
       style: "attack",
 
       os: {
@@ -169,9 +175,7 @@
     sora: {
       name: "Sora",
       initial: "S",
-
       description: "冷靜、平衡型",
-
       style: "balanced",
 
       os: {
@@ -223,9 +227,7 @@
     kuro: {
       name: "Kuro",
       initial: "K",
-
       description: "狡猾、反擊型",
-
       style: "counter",
 
       os: {
@@ -272,7 +274,6 @@
         ]
       }
     }
-
   };
 
 
@@ -283,7 +284,6 @@
    */
 
   const DIFFICULTY = {
-
     easy: {
       depth: 1,
       radius: 2,
@@ -301,7 +301,6 @@
       radius: 2,
       randomTop: 1
     }
-
   };
 
 
@@ -312,7 +311,6 @@
    */
 
   const DOM = {
-
     homeScreen: document.querySelector("#homeScreen"),
     setupScreen: document.querySelector("#setupScreen"),
     gameScreen: document.querySelector("#gameScreen"),
@@ -422,7 +420,6 @@
 
     toast:
       document.querySelector("#toast")
-
   };
 
 
@@ -433,7 +430,6 @@
    */
 
   const state = {
-
     screen: "home",
 
     mode: "ai",
@@ -477,8 +473,168 @@
     stats: loadStats(),
 
     settings: loadSettings()
-
   };
+
+
+  /*
+   * =========================================================
+   * AUDIO
+   * =========================================================
+   */
+
+  let uiSFX = null;
+  let sfxLoading = false;
+  let audioUnlocked = false;
+
+  const SFX = {
+    press: "press",
+    select: "select",
+    undo: "undo",
+    start: "start",
+    success: "success",
+    error: "error",
+    info: "info",
+    complete: "complete"
+  };
+
+
+  /*
+   * 載入 UI SFX。
+   *
+   * 使用動態 import，所以原本 HTML 不需要改成
+   * type="module"。
+   */
+
+  async function loadUISFX() {
+
+    if (uiSFX || sfxLoading) {
+      return uiSFX;
+    }
+
+    if (!state.settings.sound) {
+      return null;
+    }
+
+    sfxLoading = true;
+
+    try {
+
+      const module =
+        await import(CONFIG.SFX_MODULE);
+
+      const createUISFX =
+        module.createUISFX ||
+        module.default?.createUISFX;
+
+      if (!createUISFX) {
+        throw new Error(
+          "createUISFX unavailable"
+        );
+      }
+
+      uiSFX =
+        createUISFX({
+          pack: CONFIG.SFX_PACK
+        });
+
+      return uiSFX;
+
+    } catch (error) {
+
+      console.warn(
+        "UI SFX failed to load:",
+        error
+      );
+
+      uiSFX = null;
+
+      return null;
+
+    } finally {
+
+      sfxLoading = false;
+
+    }
+  }
+
+
+  async function unlockAudio() {
+
+    if (
+      !state.settings.sound ||
+      audioUnlocked
+    ) {
+      return;
+    }
+
+    try {
+
+      const ui =
+        await loadUISFX();
+
+      if (ui) {
+        audioUnlocked = true;
+      }
+
+    } catch {}
+
+  }
+
+
+  function playSFX(
+    cue,
+    options = {}
+  ) {
+
+    if (
+      !state.settings.sound
+    ) {
+      return;
+    }
+
+    /*
+     * UI SFX 官方的播放模型是：
+     *
+     * ui.play("select")
+     *
+     * one-shot 會自己結束。
+     */
+
+    if (uiSFX) {
+
+      try {
+
+        uiSFX.play(
+          cue,
+          options
+        );
+
+        return;
+
+      } catch {}
+
+    }
+
+    /*
+     * 如果 CDN 還沒載完，
+     * 不阻塞遊戲。
+     */
+
+    loadUISFX()
+      .then(ui => {
+
+        if (!ui || !state.settings.sound) {
+          return;
+        }
+
+        try {
+          ui.play(cue, options);
+        } catch {}
+
+      })
+      .catch(() => {});
+
+  }
 
 
   /*
@@ -491,7 +647,10 @@
 
     return Array.from(
       { length: CONFIG.SIZE },
-      () => Array(CONFIG.SIZE).fill(CONFIG.EMPTY)
+      () =>
+        Array(CONFIG.SIZE).fill(
+          CONFIG.EMPTY
+        )
     );
 
   }
@@ -499,7 +658,9 @@
 
   function cloneBoard(board) {
 
-    return board.map(row => row.slice());
+    return board.map(
+      row => row.slice()
+    );
 
   }
 
@@ -518,12 +679,21 @@
 
   function isBoardFull() {
 
-    for (let row = 0; row < CONFIG.SIZE; row++) {
+    for (
+      let row = 0;
+      row < CONFIG.SIZE;
+      row++
+    ) {
 
-      for (let col = 0; col < CONFIG.SIZE; col++) {
+      for (
+        let col = 0;
+        col < CONFIG.SIZE;
+        col++
+      ) {
 
         if (
-          state.board[row][col] === CONFIG.EMPTY
+          state.board[row][col] ===
+          CONFIG.EMPTY
         ) {
 
           return false;
@@ -560,15 +730,20 @@
     player
   ) {
 
-    for (const [dr, dc] of DIRECTIONS) {
+    for (
+      const [dr, dc]
+      of DIRECTIONS
+    ) {
 
       const line = [
         [row, col]
       ];
 
+      let r =
+        row + dr;
 
-      let r = row + dr;
-      let c = col + dc;
+      let c =
+        col + dc;
 
       while (
         isInside(r, c) &&
@@ -582,9 +757,11 @@
 
       }
 
+      r =
+        row - dr;
 
-      r = row - dr;
-      c = col - dc;
+      c =
+        col - dc;
 
       while (
         isInside(r, c) &&
@@ -598,8 +775,10 @@
 
       }
 
-
-      if (line.length >= CONFIG.WIN) {
+      if (
+        line.length >=
+        CONFIG.WIN
+      ) {
 
         return line;
 
@@ -614,27 +793,34 @@
 
   /*
    * =========================================================
-   * GAME START
+   * GAME
    * =========================================================
    */
 
   function resetBoard() {
 
-    state.board = createBoard();
+    state.board =
+      createBoard();
 
-    state.currentPlayer = CONFIG.BLACK;
+    state.currentPlayer =
+      CONFIG.BLACK;
 
     state.moves = [];
 
-    state.gameOver = false;
+    state.gameOver =
+      false;
 
-    state.winner = CONFIG.EMPTY;
+    state.winner =
+      CONFIG.EMPTY;
 
-    state.winningLine = [];
+    state.winningLine =
+      [];
 
-    state.lastMove = null;
+    state.lastMove =
+      null;
 
-    state.aiThinking = false;
+    state.aiThinking =
+      false;
 
     state.workerRequest++;
 
@@ -651,11 +837,15 @@
 
   function startNewGame() {
 
+    unlockAudio();
+
     resetBoard();
 
     showScreen("game");
 
     updateAIOS("thinking");
+
+    playSFX(SFX.start);
 
     saveActiveGame();
 
@@ -671,12 +861,6 @@
   }
 
 
-  /*
-   * =========================================================
-   * MOVE
-   * =========================================================
-   */
-
   function playMove(
     row,
     col
@@ -686,35 +870,30 @@
       state.gameOver ||
       state.aiThinking
     ) {
-
       return false;
-
     }
-
 
     if (
       !isInside(row, col) ||
-      state.board[row][col] !== CONFIG.EMPTY
+      state.board[row][col] !==
+        CONFIG.EMPTY
     ) {
-
+      playSFX(SFX.error);
       return false;
-
     }
-
 
     if (
       state.mode === "ai" &&
       state.currentPlayer === state.aiSide
     ) {
-
       return false;
-
     }
 
+    const player =
+      state.currentPlayer;
 
-    const player = state.currentPlayer;
-
-    state.board[row][col] = player;
+    state.board[row][col] =
+      player;
 
     const move = {
       row,
@@ -724,9 +903,10 @@
 
     state.moves.push(move);
 
-    state.lastMove = move;
+    state.lastMove =
+      move;
 
-    playStoneSound();
+    playSFX(SFX.select);
 
     const winningLine =
       getWinningLine(
@@ -735,7 +915,6 @@
         col,
         player
       );
-
 
     if (winningLine.length) {
 
@@ -748,7 +927,6 @@
 
     }
 
-
     if (isBoardFull()) {
 
       finishDraw();
@@ -756,7 +934,6 @@
       return true;
 
     }
-
 
     state.currentPlayer =
       opponent(player);
@@ -766,7 +943,6 @@
     renderBoard();
 
     updateTurnUI();
-
 
     if (
       state.mode === "ai" &&
@@ -796,10 +972,10 @@
 
     }
 
-
     if (
       !isInside(row, col) ||
-      state.board[row][col] !== CONFIG.EMPTY
+      state.board[row][col] !==
+        CONFIG.EMPTY
     ) {
 
       state.aiThinking = false;
@@ -812,10 +988,12 @@
 
     }
 
+    const player =
+      state.currentPlayer;
 
-    const player = state.currentPlayer;
-
-    if (player !== state.aiSide) {
+    if (
+      player !== state.aiSide
+    ) {
 
       state.aiThinking = false;
 
@@ -825,8 +1003,8 @@
 
     }
 
-
-    state.board[row][col] = player;
+    state.board[row][col] =
+      player;
 
     const move = {
       row,
@@ -836,12 +1014,13 @@
 
     state.moves.push(move);
 
-    state.lastMove = move;
+    state.lastMove =
+      move;
 
-    state.aiThinking = false;
+    state.aiThinking =
+      false;
 
-    playStoneSound();
-
+    playSFX(SFX.select);
 
     const winningLine =
       getWinningLine(
@@ -850,7 +1029,6 @@
         col,
         player
       );
-
 
     if (winningLine.length) {
 
@@ -863,7 +1041,6 @@
 
     }
 
-
     if (isBoardFull()) {
 
       finishDraw();
@@ -871,7 +1048,6 @@
       return true;
 
     }
-
 
     state.currentPlayer =
       opponent(player);
@@ -904,46 +1080,48 @@
       state.aiThinking ||
       state.moves.length === 0
     ) {
-
       return;
-
     }
 
+    unlockAudio();
 
-    if (state.mode === "local") {
+    if (
+      state.mode === "local"
+    ) {
 
       const move =
         state.moves.pop();
 
-      state.board[move.row][move.col] =
+      state.board[
+        move.row
+      ][
+        move.col
+      ] =
         CONFIG.EMPTY;
 
       state.currentPlayer =
         move.player;
 
       state.lastMove =
-        state.moves[state.moves.length - 1] || null;
+        state.moves[
+          state.moves.length - 1
+        ] || null;
 
     } else {
-
-      /*
-       * 人機模式：
-       *
-       * AI 已經走了一步時，
-       * 一次悔掉玩家＋AI。
-       *
-       * 如果只有玩家第一步，
-       * 就只悔玩家。
-       */
 
       const aiMove =
         state.moves.pop();
 
-      state.board[aiMove.row][aiMove.col] =
+      state.board[
+        aiMove.row
+      ][
+        aiMove.col
+      ] =
         CONFIG.EMPTY;
 
-
-      if (state.moves.length) {
+      if (
+        state.moves.length
+      ) {
 
         const playerMove =
           state.moves.pop();
@@ -952,32 +1130,37 @@
           playerMove.row
         ][
           playerMove.col
-        ] = CONFIG.EMPTY;
+        ] =
+          CONFIG.EMPTY;
 
         state.currentPlayer =
           playerMove.player;
 
         state.lastMove =
-          state.moves[state.moves.length - 1] ||
-          null;
+          state.moves[
+            state.moves.length - 1
+          ] || null;
 
       } else {
 
         state.currentPlayer =
           state.playerSide;
 
-        state.lastMove = null;
+        state.lastMove =
+          null;
 
       }
 
     }
 
+    state.gameOver =
+      false;
 
-    state.gameOver = false;
+    state.winner =
+      CONFIG.EMPTY;
 
-    state.winner = CONFIG.EMPTY;
-
-    state.winningLine = [];
+    state.winningLine =
+      [];
 
     clearActiveGame();
 
@@ -988,6 +1171,8 @@
     updateTurnUI();
 
     updateAIOS("thinking");
+
+    playSFX(SFX.undo);
 
   }
 
@@ -1003,14 +1188,17 @@
     winningLine
   ) {
 
-    state.gameOver = true;
+    state.gameOver =
+      true;
 
-    state.winner = winner;
+    state.winner =
+      winner;
 
     state.winningLine =
       winningLine || [];
 
-    state.aiThinking = false;
+    state.aiThinking =
+      false;
 
     stopWorker();
 
@@ -1018,30 +1206,37 @@
 
     renderBoard();
 
-    recordResult(
+    const result =
       winner === state.playerSide
         ? "win"
-        : "loss"
+        : "loss";
+
+    recordResult(result);
+
+    playSFX(
+      result === "win"
+        ? SFX.success
+        : SFX.error
     );
 
-    showResult(
-      winner === state.playerSide
-        ? "win"
-        : "loss"
-    );
+    showResult(result);
 
   }
 
 
   function finishDraw() {
 
-    state.gameOver = true;
+    state.gameOver =
+      true;
 
-    state.winner = CONFIG.EMPTY;
+    state.winner =
+      CONFIG.EMPTY;
 
-    state.winningLine = [];
+    state.winningLine =
+      [];
 
-    state.aiThinking = false;
+    state.aiThinking =
+      false;
 
     stopWorker();
 
@@ -1050,6 +1245,8 @@
     renderBoard();
 
     recordResult("draw");
+
+    playSFX(SFX.complete);
 
     showResult("draw");
 
@@ -1065,13 +1262,13 @@
   function createWorker() {
 
     if (
-      typeof Worker === "undefined"
+      typeof Worker ===
+      "undefined"
     ) {
 
       return null;
 
     }
-
 
     try {
 
@@ -1094,7 +1291,8 @@
 
       state.worker.terminate();
 
-      state.worker = null;
+      state.worker =
+        null;
 
     }
 
@@ -1106,7 +1304,8 @@
     if (
       state.mode !== "ai" ||
       state.gameOver ||
-      state.currentPlayer !== state.aiSide ||
+      state.currentPlayer !==
+        state.aiSide ||
       state.aiThinking
     ) {
 
@@ -1114,8 +1313,8 @@
 
     }
 
-
-    state.aiThinking = true;
+    state.aiThinking =
+      true;
 
     state.workerRequest++;
 
@@ -1126,7 +1325,6 @@
 
     updateAIOS("thinking");
 
-
     const delay =
       state.difficulty === "easy"
         ? 300
@@ -1134,23 +1332,23 @@
           ? 450
           : 600;
 
-
     window.setTimeout(
       () => {
 
         if (
           state.gameOver ||
-          state.currentPlayer !== state.aiSide ||
+          state.currentPlayer !==
+            state.aiSide ||
           !state.aiThinking ||
-          requestId !== state.workerRequest
+          requestId !==
+            state.workerRequest
         ) {
-
           return;
-
         }
 
-
-        requestAIMove(requestId);
+        requestAIMove(
+          requestId
+        );
 
       },
       delay
@@ -1168,16 +1366,13 @@
         state.difficulty
       ];
 
-
     const character =
       AI_CHARACTERS[
         state.character
       ];
 
-
     const worker =
       createWorker();
-
 
     if (!worker) {
 
@@ -1187,15 +1382,15 @@
 
     }
 
-
-    state.worker = worker;
-
+    state.worker =
+      worker;
 
     worker.onmessage =
       event => {
 
         if (
-          requestId !== state.workerRequest
+          requestId !==
+          state.workerRequest
         ) {
 
           worker.terminate();
@@ -1204,23 +1399,23 @@
 
         }
 
-
         const {
           row,
           col
-        } = event.data || {};
-
+        } =
+          event.data || {};
 
         worker.terminate();
 
         if (
-          state.worker === worker
+          state.worker ===
+          worker
         ) {
 
-          state.worker = null;
+          state.worker =
+            null;
 
         }
-
 
         if (
           row == null ||
@@ -1232,7 +1427,6 @@
           return;
 
         }
-
 
         playAIMove(
           row,
@@ -1248,10 +1442,12 @@
         worker.terminate();
 
         if (
-          state.worker === worker
+          state.worker ===
+          worker
         ) {
 
-          state.worker = null;
+          state.worker =
+            null;
 
         }
 
@@ -1298,10 +1494,12 @@
 
     if (
       state.gameOver ||
-      state.currentPlayer !== state.aiSide
+      state.currentPlayer !==
+        state.aiSide
     ) {
 
-      state.aiThinking = false;
+      state.aiThinking =
+        false;
 
       updateTurnUI();
 
@@ -1309,27 +1507,26 @@
 
     }
 
-
     const move =
       findFallbackMove();
-
 
     window.setTimeout(
       () => {
 
         if (
           state.gameOver ||
-          state.currentPlayer !== state.aiSide
+          state.currentPlayer !==
+            state.aiSide
         ) {
 
-          state.aiThinking = false;
+          state.aiThinking =
+            false;
 
           updateTurnUI();
 
           return;
 
         }
-
 
         playAIMove(
           move.row,
@@ -1343,20 +1540,6 @@
   }
 
 
-  /*
-   * =========================================================
-   * FALLBACK AI
-   * =========================================================
-   *
-   * This is NOT the main AI.
-   * It exists only if Worker creation fails.
-   *
-   * Priority:
-   * 1. Win
-   * 2. Block
-   * 3. Best local position
-   */
-
   function findFallbackMove() {
 
     const candidates =
@@ -1364,7 +1547,6 @@
         state.board,
         2
       );
-
 
     const win =
       findImmediateWin(
@@ -1374,11 +1556,8 @@
       );
 
     if (win) {
-
       return win;
-
     }
-
 
     const block =
       findImmediateWin(
@@ -1388,18 +1567,18 @@
       );
 
     if (block) {
-
       return block;
-
     }
 
+    let best =
+      candidates[0];
 
-    let best = candidates[0];
+    let bestScore =
+      -Infinity;
 
-    let bestScore = -Infinity;
-
-
-    for (const move of candidates) {
+    for (
+      const move of candidates
+    ) {
 
       let score =
         evaluateLocalMove(
@@ -1409,7 +1588,6 @@
           state.aiSide
         );
 
-
       score +=
         evaluateLocalMove(
           state.board,
@@ -1418,26 +1596,26 @@
           state.playerSide
         ) * 0.9;
 
-
       score +=
         centerScore(
           move.row,
           move.col
         );
 
-
       if (
-        score > bestScore
+        score >
+        bestScore
       ) {
 
-        bestScore = score;
+        bestScore =
+          score;
 
-        best = move;
+        best =
+          move;
 
       }
 
     }
-
 
     return best;
 
@@ -1464,7 +1642,8 @@
       ) {
 
         if (
-          board[row][col] !== CONFIG.EMPTY
+          board[row][col] !==
+          CONFIG.EMPTY
         ) {
 
           occupied.push({
@@ -1478,8 +1657,9 @@
 
     }
 
-
-    if (!occupied.length) {
+    if (
+      !occupied.length
+    ) {
 
       return [
         {
@@ -1490,11 +1670,12 @@
 
     }
 
+    const set =
+      new Set();
 
-    const set = new Set();
-
-
-    for (const point of occupied) {
+    for (
+      const point of occupied
+    ) {
 
       for (
         let dr = -radius;
@@ -1514,24 +1695,18 @@
           const col =
             point.col + dc;
 
-
           if (
             !isInside(row, col)
           ) {
-
             continue;
-
           }
-
 
           if (
-            board[row][col] !== CONFIG.EMPTY
+            board[row][col] !==
+            CONFIG.EMPTY
           ) {
-
             continue;
-
           }
-
 
           set.add(
             `${row},${col}`
@@ -1542,7 +1717,6 @@
       }
 
     }
-
 
     return [
       ...set
@@ -1574,14 +1748,16 @@
     candidates
   ) {
 
-    for (const move of candidates) {
+    for (
+      const move of candidates
+    ) {
 
       board[
         move.row
       ][
         move.col
-      ] = player;
-
+      ] =
+        player;
 
       const win =
         getWinningLine(
@@ -1591,22 +1767,18 @@
           player
         ).length > 0;
 
-
       board[
         move.row
       ][
         move.col
-      ] = CONFIG.EMPTY;
-
+      ] =
+        CONFIG.EMPTY;
 
       if (win) {
-
         return move;
-
       }
 
     }
-
 
     return null;
 
@@ -1621,22 +1793,19 @@
   ) {
 
     if (
-      board[row][col] !== CONFIG.EMPTY
+      board[row][col] !==
+      CONFIG.EMPTY
     ) {
 
       return -Infinity;
 
     }
 
-
     let score = 0;
 
-
     for (
-      const [
-        dr,
-        dc
-      ] of DIRECTIONS
+      const [dr, dc]
+      of DIRECTIONS
     ) {
 
       const before =
@@ -1649,7 +1818,6 @@
           player
         );
 
-
       const after =
         countDirection(
           board,
@@ -1660,16 +1828,15 @@
           player
         );
 
-
       const total =
-        before + after + 1;
-
+        before +
+        after +
+        1;
 
       score +=
         lineValue(total);
 
     }
-
 
     return score;
 
@@ -1687,10 +1854,11 @@
 
     let count = 0;
 
-    let r = row + dr;
+    let r =
+      row + dr;
 
-    let c = col + dc;
-
+    let c =
+      col + dc;
 
     while (
       isInside(r, c) &&
@@ -1700,11 +1868,9 @@
       count++;
 
       r += dr;
-
       c += dc;
 
     }
-
 
     return count;
 
@@ -1715,13 +1881,17 @@
     count
   ) {
 
-    if (count >= 5) return 100000;
+    if (count >= 5)
+      return 100000;
 
-    if (count === 4) return 10000;
+    if (count === 4)
+      return 10000;
 
-    if (count === 3) return 1000;
+    if (count === 3)
+      return 1000;
 
-    if (count === 2) return 100;
+    if (count === 2)
+      return 100;
 
     return 10;
 
@@ -1735,7 +1905,6 @@
 
     const center =
       (CONFIG.SIZE - 1) / 2;
-
 
     return (
       20 -
@@ -1760,20 +1929,20 @@
       state.mode !== "ai"
     ) {
 
-      DOM.aiOS.hidden = true;
+      DOM.aiOS.hidden =
+        true;
 
       return;
 
     }
-
 
     const character =
       AI_CHARACTERS[
         state.character
       ];
 
-
-    DOM.aiOS.hidden = false;
+    DOM.aiOS.hidden =
+      false;
 
     DOM.aiOSAvatar.textContent =
       character.initial;
@@ -1781,13 +1950,9 @@
     DOM.aiOSName.textContent =
       character.name;
 
-
     const pool =
-      character.os[
-        type
-      ] ||
+      character.os[type] ||
       character.os.thinking;
-
 
     DOM.aiOSText.textContent =
       randomFrom(pool);
@@ -1814,59 +1979,42 @@
     if (
       state.gameOver
     ) {
-
       return "winning";
-
     }
-
 
     const aiThreat =
       strongestLocalThreat(
         state.aiSide
       );
 
-
     const playerThreat =
       strongestLocalThreat(
         state.playerSide
       );
 
-
     if (
       playerThreat >= 4
     ) {
-
       return "danger";
-
     }
-
 
     if (
       aiThreat >= 4
     ) {
-
       return "winning";
-
     }
-
 
     if (
       playerThreat > aiThreat
     ) {
-
       return "defend";
-
     }
-
 
     if (
       aiThreat > playerThreat
     ) {
-
       return "attack";
-
     }
-
 
     return "thinking";
 
@@ -1878,7 +2026,6 @@
   ) {
 
     let best = 0;
-
 
     for (
       let row = 0;
@@ -1896,17 +2043,12 @@
           state.board[row][col] !==
           CONFIG.EMPTY
         ) {
-
           continue;
-
         }
 
-
         for (
-          const [
-            dr,
-            dc
-          ] of DIRECTIONS
+          const [dr, dc]
+          of DIRECTIONS
         ) {
 
           const a =
@@ -1919,7 +2061,6 @@
               player
             );
 
-
           const b =
             countDirection(
               state.board,
@@ -1929,7 +2070,6 @@
               -dc,
               player
             );
-
 
           best =
             Math.max(
@@ -1942,7 +2082,6 @@
       }
 
     }
-
 
     return best;
 
@@ -1963,20 +2102,15 @@
     const wrapper =
       canvas?.parentElement;
 
-
     if (
       !canvas ||
       !wrapper
     ) {
-
       return;
-
     }
-
 
     const rect =
       wrapper.getBoundingClientRect();
-
 
     const available =
       Math.min(
@@ -1986,7 +2120,6 @@
           window.innerHeight * 0.64
         )
       );
-
 
     const size =
       Math.floor(
@@ -1999,15 +2132,14 @@
         )
       );
 
-
-    state.boardSize = size;
+    state.boardSize =
+      size;
 
     state.dpr =
       Math.min(
         window.devicePixelRatio || 1,
         3
       );
-
 
     canvas.width =
       Math.floor(
@@ -2019,17 +2151,14 @@
         size * state.dpr
       );
 
-
     canvas.style.width =
       `${size}px`;
 
     canvas.style.height =
       `${size}px`;
 
-
     state.boardPadding =
       size * 0.075;
-
 
     state.cellSize =
       (
@@ -2038,12 +2167,8 @@
       ) /
       (CONFIG.SIZE - 1);
 
-
     const ctx =
-      canvas.getContext(
-        "2d"
-      );
-
+      canvas.getContext("2d");
 
     ctx.setTransform(
       state.dpr,
@@ -2053,7 +2178,6 @@
       0,
       0
     );
-
 
     renderBoard();
 
@@ -2066,7 +2190,6 @@
   ) {
 
     return {
-
       x:
         state.boardPadding +
         col * state.cellSize,
@@ -2074,7 +2197,6 @@
       y:
         state.boardPadding +
         row * state.cellSize
-
     };
 
   }
@@ -2087,20 +2209,16 @@
     const canvas =
       DOM.boardCanvas;
 
-
     const rect =
       canvas.getBoundingClientRect();
-
 
     const x =
       event.clientX -
       rect.left;
 
-
     const y =
       event.clientY -
       rect.top;
-
 
     const col =
       Math.round(
@@ -2111,7 +2229,6 @@
         state.cellSize
       );
 
-
     const row =
       Math.round(
         (
@@ -2121,15 +2238,11 @@
         state.cellSize
       );
 
-
     if (
       !isInside(row, col)
     ) {
-
       return null;
-
     }
-
 
     const point =
       boardPoint(
@@ -2137,28 +2250,18 @@
         col
       );
 
-
     const distance =
       Math.hypot(
         point.x - x,
         point.y - y
       );
 
-
-    /*
-     * 不讓玩家點到棋盤線很遠的位置
-     * 還被強行吸到某一格。
-     */
-
     if (
       distance >
       state.cellSize * 0.48
     ) {
-
       return null;
-
     }
-
 
     return {
       row,
@@ -2173,26 +2276,18 @@
     const canvas =
       DOM.boardCanvas;
 
-
     if (
       !canvas ||
       !state.boardSize
     ) {
-
       return;
-
     }
 
-
     const ctx =
-      canvas.getContext(
-        "2d"
-      );
-
+      canvas.getContext("2d");
 
     const size =
       state.boardSize;
-
 
     ctx.clearRect(
       0,
@@ -2201,11 +2296,6 @@
       size
     );
 
-
-    /*
-     * BOARD
-     */
-
     const gradient =
       ctx.createLinearGradient(
         0,
@@ -2213,7 +2303,6 @@
         0,
         size
       );
-
 
     gradient.addColorStop(
       0,
@@ -2225,7 +2314,6 @@
       "#dfc38e"
     );
 
-
     ctx.fillStyle =
       gradient;
 
@@ -2236,15 +2324,11 @@
       size
     );
 
-
-    /*
-     * BOARD EDGE
-     */
-
     ctx.strokeStyle =
       "rgba(74, 54, 32, 0.28)";
 
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth =
+      1.5;
 
     ctx.strokeRect(
       0.75,
@@ -2253,18 +2337,13 @@
       size - 1.5
     );
 
-
-    /*
-     * GRID
-     */
-
     ctx.beginPath();
 
     ctx.strokeStyle =
       CONFIG.COLORS.grid;
 
-    ctx.lineWidth = 1;
-
+    ctx.lineWidth =
+      1;
 
     for (
       let index = 0;
@@ -2276,7 +2355,6 @@
         state.boardPadding +
         index * state.cellSize;
 
-
       ctx.moveTo(
         state.boardPadding,
         p
@@ -2287,7 +2365,6 @@
         state.boardPadding,
         p
       );
-
 
       ctx.moveTo(
         p,
@@ -2302,13 +2379,7 @@
 
     }
 
-
     ctx.stroke();
-
-
-    /*
-     * STAR POINTS
-     */
 
     const stars = [
       [3, 3],
@@ -2322,22 +2393,19 @@
       [11, 11]
     ];
 
-
     ctx.fillStyle =
       CONFIG.COLORS.star;
 
-
-    for (const [
-      row,
-      col
-    ] of stars) {
+    for (
+      const [row, col]
+      of stars
+    ) {
 
       const point =
         boardPoint(
           row,
           col
         );
-
 
       ctx.beginPath();
 
@@ -2355,11 +2423,6 @@
       ctx.fill();
 
     }
-
-
-    /*
-     * WINNING LINE
-     */
 
     if (
       state.winningLine.length >=
@@ -2383,13 +2446,11 @@
       ctx.globalAlpha =
         0.78;
 
-
       const first =
         boardPoint(
           state.winningLine[0][0],
           state.winningLine[0][1]
         );
-
 
       const last =
         boardPoint(
@@ -2400,7 +2461,6 @@
             state.winningLine.length - 1
           ][1]
         );
-
 
       ctx.beginPath();
 
@@ -2420,11 +2480,6 @@
 
     }
 
-
-    /*
-     * STONES
-     */
-
     for (
       let row = 0;
       row < CONFIG.SIZE;
@@ -2440,15 +2495,12 @@
         const player =
           state.board[row][col];
 
-
         if (
-          player === CONFIG.EMPTY
+          player ===
+          CONFIG.EMPTY
         ) {
-
           continue;
-
         }
-
 
         drawStone(
           ctx,
@@ -2461,11 +2513,6 @@
 
     }
 
-
-    /*
-     * LAST MOVE MARKER
-     */
-
     if (
       state.lastMove
     ) {
@@ -2476,13 +2523,13 @@
           state.lastMove.col
         );
 
-
       ctx.save();
 
       ctx.strokeStyle =
         CONFIG.COLORS.lastMove;
 
-      ctx.lineWidth = 2;
+      ctx.lineWidth =
+        2;
 
       ctx.beginPath();
 
@@ -2519,17 +2566,10 @@
         col
       );
 
-
     const radius =
       state.cellSize * 0.43;
 
-
     ctx.save();
-
-
-    /*
-     * SHADOW
-     */
 
     ctx.beginPath();
 
@@ -2541,39 +2581,24 @@
       Math.PI * 2
     );
 
-
     ctx.fillStyle =
       "rgba(50, 34, 20, 0.22)";
 
     ctx.fill();
 
-
-    /*
-     * STONE
-     */
-
     const gradient =
-      player === CONFIG.BLACK
-        ? ctx.createRadialGradient(
-            point.x - radius * 0.3,
-            point.y - radius * 0.35,
-            radius * 0.05,
-            point.x,
-            point.y,
-            radius
-          )
-        : ctx.createRadialGradient(
-            point.x - radius * 0.3,
-            point.y - radius * 0.35,
-            radius * 0.05,
-            point.x,
-            point.y,
-            radius
-          );
-
+      ctx.createRadialGradient(
+        point.x - radius * 0.3,
+        point.y - radius * 0.35,
+        radius * 0.05,
+        point.x,
+        point.y,
+        radius
+      );
 
     if (
-      player === CONFIG.BLACK
+      player ===
+      CONFIG.BLACK
     ) {
 
       gradient.addColorStop(
@@ -2610,7 +2635,6 @@
 
     }
 
-
     ctx.beginPath();
 
     ctx.arc(
@@ -2621,26 +2645,21 @@
       Math.PI * 2
     );
 
-
     ctx.fillStyle =
       gradient;
 
     ctx.fill();
 
-
-    /*
-     * EDGE
-     */
-
     ctx.strokeStyle =
-      player === CONFIG.BLACK
+      player ===
+      CONFIG.BLACK
         ? "rgba(255,255,255,0.08)"
         : "rgba(75,60,45,0.28)";
 
-    ctx.lineWidth = 1;
+    ctx.lineWidth =
+      1;
 
     ctx.stroke();
-
 
     ctx.restore();
 
@@ -2649,7 +2668,7 @@
 
   /*
    * =========================================================
-   * POINTER EVENTS
+   * INPUT
    * =========================================================
    */
 
@@ -2658,50 +2677,41 @@
     const canvas =
       DOM.boardCanvas;
 
-
     canvas.addEventListener(
       "pointerdown",
       event => {
 
         event.preventDefault();
 
+        unlockAudio();
+
         canvas.setPointerCapture?.(
           event.pointerId
         );
-
 
         if (
           state.gameOver ||
           state.aiThinking
         ) {
-
           return;
-
         }
-
 
         if (
           state.mode === "ai" &&
-          state.currentPlayer === state.aiSide
+          state.currentPlayer ===
+            state.aiSide
         ) {
-
           return;
-
         }
-
 
         const cell =
           pointerToCell(
             event
           );
 
-
         if (!cell) {
-
           return;
-
         }
-
 
         playMove(
           cell.row,
@@ -2714,7 +2724,6 @@
       }
     );
 
-
     canvas.addEventListener(
       "keydown",
       event => {
@@ -2723,11 +2732,8 @@
           event.key !== "Enter" &&
           event.key !== " "
         ) {
-
           return;
-
         }
-
 
         event.preventDefault();
 
@@ -2748,37 +2754,39 @@
     const current =
       state.currentPlayer;
 
-
     const isAI =
       state.mode === "ai" &&
       current === state.aiSide;
-
 
     DOM.turnStone.classList.toggle(
       "black-stone",
       current === CONFIG.BLACK
     );
 
-
     DOM.turnStone.classList.toggle(
       "white-stone",
       current === CONFIG.WHITE
     );
 
-
-    if (state.gameOver) {
+    if (
+      state.gameOver
+    ) {
 
       DOM.turnLabel.textContent =
         "棋局結束";
 
-    } else if (state.mode === "local") {
+    } else if (
+      state.mode === "local"
+    ) {
 
       DOM.turnLabel.textContent =
         current === CONFIG.BLACK
           ? "黑棋回合"
           : "白棋回合";
 
-    } else if (isAI) {
+    } else if (
+      isAI
+    ) {
 
       DOM.turnLabel.textContent =
         "AI 回合";
@@ -2790,16 +2798,13 @@
 
     }
 
-
     DOM.turnPlayer.textContent =
       current === CONFIG.BLACK
         ? "黑棋"
         : "白棋";
 
-
     DOM.thinkingIndicator.hidden =
       !state.aiThinking;
-
 
     DOM.undoButton.disabled =
       state.moves.length === 0 ||
@@ -2820,7 +2825,6 @@
   ) {
 
     const screens = {
-
       home:
         DOM.homeScreen,
 
@@ -2838,16 +2842,16 @@
 
       settings:
         DOM.settingsScreen
-
     };
-
 
     Object.entries(
       screens
     ).forEach(
       ([key, screen]) => {
 
-        if (!screen) return;
+        if (!screen) {
+          return;
+        }
 
         screen.classList.toggle(
           "active",
@@ -2857,10 +2861,8 @@
       }
     );
 
-
     state.screen =
       name;
-
 
     if (
       name === "game"
@@ -2872,7 +2874,6 @@
 
     }
 
-
     if (
       name === "records"
     ) {
@@ -2880,7 +2881,6 @@
       renderStats();
 
     }
-
 
     if (
       name === "home"
@@ -2899,6 +2899,12 @@
       "click",
       () => {
 
+        unlockAudio();
+
+        playSFX(
+          SFX.press
+        );
+
         showScreen(
           "setup"
         );
@@ -2910,6 +2916,12 @@
     DOM.recordsButton.addEventListener(
       "click",
       () => {
+
+        unlockAudio();
+
+        playSFX(
+          SFX.press
+        );
 
         renderStats();
 
@@ -2925,6 +2937,12 @@
       "click",
       () => {
 
+        unlockAudio();
+
+        playSFX(
+          SFX.press
+        );
+
         showScreen(
           "settings"
         );
@@ -2935,19 +2953,40 @@
 
     DOM.resumeButton.addEventListener(
       "click",
-      resumeGame
+      () => {
+
+        unlockAudio();
+
+        playSFX(
+          SFX.start
+        );
+
+        resumeGame();
+
+      }
     );
 
 
     DOM.playAgainButton.addEventListener(
       "click",
-      startNewGame
+      () => {
+
+        unlockAudio();
+
+        startNewGame();
+
+      }
     );
 
 
     DOM.resultHomeButton.addEventListener(
       "click",
       () => {
+
+        playSFX(
+          SFX.back ||
+          SFX.press
+        );
 
         showScreen(
           "home"
@@ -2960,6 +2999,10 @@
     DOM.gameMenuButton.addEventListener(
       "click",
       () => {
+
+        playSFX(
+          SFX.press
+        );
 
         saveActiveGame();
 
@@ -2974,6 +3017,12 @@
     DOM.restartButton.addEventListener(
       "click",
       () => {
+
+        unlockAudio();
+
+        playSFX(
+          SFX.start
+        );
 
         startNewGame();
 
@@ -2991,23 +3040,23 @@
       "click",
       () => {
 
+        unlockAudio();
+
+        playSFX(
+          SFX.press
+        );
+
         if (
           state.screen === "home"
         ) {
-
           return;
-
         }
-
 
         if (
           state.screen === "game"
         ) {
-
           saveActiveGame();
-
         }
-
 
         showScreen(
           "home"
@@ -3020,6 +3069,12 @@
     DOM.menuButton.addEventListener(
       "click",
       () => {
+
+        unlockAudio();
+
+        playSFX(
+          SFX.press
+        );
 
         showScreen(
           "settings"
@@ -3050,9 +3105,14 @@
             "click",
             () => {
 
+              unlockAudio();
+
+              playSFX(
+                SFX.select
+              );
+
               state.mode =
                 button.dataset.mode;
-
 
               DOM.modeControl
                 .querySelectorAll(
@@ -3069,10 +3129,8 @@
                   }
                 );
 
-
               const aiMode =
                 state.mode === "ai";
-
 
               DOM.difficultyGroup.hidden =
                 !aiMode;
@@ -3098,9 +3156,14 @@
             "click",
             () => {
 
+              unlockAudio();
+
+              playSFX(
+                SFX.select
+              );
+
               state.difficulty =
                 button.dataset.difficulty;
-
 
               document
                 .querySelectorAll(
@@ -3135,9 +3198,14 @@
             "click",
             () => {
 
+              unlockAudio();
+
+              playSFX(
+                SFX.select
+              );
+
               state.character =
                 button.dataset.character;
-
 
               DOM.characterControl
                 .querySelectorAll(
@@ -3172,18 +3240,22 @@
             "click",
             () => {
 
+              unlockAudio();
+
+              playSFX(
+                SFX.select
+              );
+
               state.playerSide =
                 button.dataset.side ===
                 "white"
                   ? CONFIG.WHITE
                   : CONFIG.BLACK;
 
-
               state.aiSide =
                 opponent(
                   state.playerSide
                 );
-
 
               document
                 .querySelectorAll(
@@ -3211,13 +3283,11 @@
       "click",
       () => {
 
+        unlockAudio();
+
         if (
           state.mode === "local"
         ) {
-
-          /*
-           * 雙人模式永遠從黑棋開始。
-           */
 
           state.playerSide =
             CONFIG.BLACK;
@@ -3226,7 +3296,6 @@
             CONFIG.WHITE;
 
         }
-
 
         startNewGame();
 
@@ -3251,18 +3320,15 @@
         state.character
       ];
 
-
     DOM.resultMark.classList.remove(
       "win",
       "loss",
       "draw"
     );
 
-
     DOM.resultMark.classList.add(
       result
     );
-
 
     if (
       result === "win"
@@ -3311,7 +3377,6 @@
 
     }
 
-
     showScreen(
       "result"
     );
@@ -3342,7 +3407,6 @@
       }
     );
 
-
     return {
 
       total: 0,
@@ -3368,7 +3432,6 @@
     const defaults =
       createDefaultStats();
 
-
     try {
 
       const raw =
@@ -3376,17 +3439,12 @@
           CONFIG.STORAGE_STATS
         );
 
-
       if (!raw) {
-
         return defaults;
-
       }
-
 
       const data =
         JSON.parse(raw);
-
 
       return {
 
@@ -3441,31 +3499,25 @@
 
     state.stats.total++;
 
-
     if (
       result === "draw"
     ) {
 
       state.stats.draws++;
 
-
       if (
         state.mode === "local"
       ) {
-
         state.stats.localDraws++;
-
       }
 
     }
-
 
     if (
       result === "win"
     ) {
 
       state.stats.wins++;
-
 
       if (
         state.mode === "local"
@@ -3483,13 +3535,11 @@
 
     }
 
-
     if (
       result === "loss"
     ) {
 
       state.stats.losses++;
-
 
       if (
         state.mode === "local"
@@ -3506,7 +3556,6 @@
       }
 
     }
-
 
     state.stats.records.unshift({
 
@@ -3528,13 +3577,11 @@
 
     });
 
-
     state.stats.records =
       state.stats.records.slice(
         0,
         50
       );
-
 
     saveStats();
 
@@ -3546,21 +3593,17 @@
     DOM.statGames.textContent =
       state.stats.total;
 
-
     DOM.statWins.textContent =
       state.stats.wins;
-
 
     DOM.statLosses.textContent =
       state.stats.losses;
 
-
     DOM.statDraws.textContent =
       state.stats.draws;
 
-
-    DOM.recordList.innerHTML = "";
-
+    DOM.recordList.innerHTML =
+      "";
 
     if (
       !state.stats.records.length
@@ -3571,27 +3614,23 @@
           "div"
         );
 
-
       empty.className =
         "record-empty";
 
-
       empty.textContent =
         "還沒有棋局記錄。";
-
 
       DOM.recordList.appendChild(
         empty
       );
 
-
       return;
 
     }
 
-
     for (
-      const record of state.stats.records
+      const record of
+      state.stats.records
     ) {
 
       const item =
@@ -3599,28 +3638,23 @@
           "div"
         );
 
-
       item.className =
         "record-item";
-
 
       const title =
         document.createElement(
           "strong"
         );
 
-
       const description =
         document.createElement(
           "span"
         );
 
-
       const date =
         document.createElement(
           "time"
         );
-
 
       if (
         record.mode === "ai"
@@ -3631,7 +3665,6 @@
             record.character
           ];
 
-
         title.textContent =
           record.result === "win"
             ? "勝利"
@@ -3639,27 +3672,34 @@
               ? "失敗"
               : "平局";
 
-
         description.textContent =
-          `vs ${character?.name || "AI"} · ${record.moves} 手`;
+          `vs ${
+            character?.name ||
+            "AI"
+          } · ${
+            record.moves
+          } 手`;
 
       } else {
 
         title.textContent =
           "雙人對戰";
 
-
         description.textContent =
-          `${record.result === "draw" ? "平局" : "棋局完成"} · ${record.moves} 手`;
+          `${
+            record.result === "draw"
+              ? "平局"
+              : "棋局完成"
+          } · ${
+            record.moves
+          } 手`;
 
       }
-
 
       date.textContent =
         formatDate(
           record.date
         );
-
 
       item.appendChild(
         title
@@ -3672,7 +3712,6 @@
       item.appendChild(
         date
       );
-
 
       DOM.recordList.appendChild(
         item
@@ -3713,6 +3752,45 @@
 
   /*
    * =========================================================
+   * CLEAR RECORDS
+   * =========================================================
+   */
+
+  function clearRecords() {
+
+    if (
+      !state.stats.records.length
+    ) {
+
+      showToast(
+        "目前沒有棋局記錄"
+      );
+
+      return;
+
+    }
+
+    state.stats =
+      createDefaultStats();
+
+    saveStats();
+
+    renderStats();
+
+    playSFX(
+      SFX.delete ||
+      SFX.error
+    );
+
+    showToast(
+      "棋局記錄已清除"
+    );
+
+  }
+
+
+  /*
+   * =========================================================
    * ACTIVE GAME
    * =========================================================
    */
@@ -3723,11 +3801,8 @@
       state.gameOver ||
       state.moves.length === 0
     ) {
-
       return;
-
     }
-
 
     const data = {
 
@@ -3761,7 +3836,6 @@
         state.lastMove
 
     };
-
 
     try {
 
@@ -3799,7 +3873,6 @@
           CONFIG.STORAGE_GAME
         );
 
-
       if (!raw) {
 
         DOM.resumeCard.hidden =
@@ -3809,10 +3882,8 @@
 
       }
 
-
       const data =
         JSON.parse(raw);
-
 
       if (
         !Array.isArray(
@@ -3831,16 +3902,15 @@
 
       }
 
-
       const modeText =
         data.mode === "ai"
           ? "人機"
           : "雙人";
 
-
       DOM.resumeText.textContent =
-        `${modeText} · ${data.moves.length} 手`;
-
+        `${modeText} · ${
+          data.moves.length
+        } 手`;
 
       DOM.resumeCard.hidden =
         false;
@@ -3864,34 +3934,25 @@
           CONFIG.STORAGE_GAME
         );
 
-
       if (!raw) {
-
         return;
-
       }
-
 
       const data =
         JSON.parse(raw);
-
 
       if (
         !Array.isArray(
           data.board
         )
       ) {
-
         return;
-
       }
-
 
       state.mode =
         data.mode === "local"
           ? "local"
           : "ai";
-
 
       state.difficulty =
         DIFFICULTY[
@@ -3900,7 +3961,6 @@
           ? data.difficulty
           : "easy";
 
-
       state.character =
         AI_CHARACTERS[
           data.character
@@ -3908,32 +3968,27 @@
           ? data.character
           : "mio";
 
-
       state.playerSide =
         data.playerSide ===
         CONFIG.WHITE
           ? CONFIG.WHITE
           : CONFIG.BLACK;
 
-
       state.aiSide =
         opponent(
           state.playerSide
         );
-
 
       state.board =
         cloneBoard(
           data.board
         );
 
-
       state.currentPlayer =
         data.currentPlayer ===
         CONFIG.WHITE
           ? CONFIG.WHITE
           : CONFIG.BLACK;
-
 
       state.moves =
         Array.isArray(
@@ -3942,14 +3997,12 @@
           ? data.moves
           : [];
 
-
       state.lastMove =
         data.lastMove ||
         state.moves[
           state.moves.length - 1
         ] ||
         null;
-
 
       state.gameOver =
         false;
@@ -3963,7 +4016,6 @@
       state.aiThinking =
         false;
 
-
       syncSetupUI();
 
       showScreen(
@@ -3974,10 +4026,10 @@
 
       updateTurnUI();
 
-
       if (
         state.mode === "ai" &&
-        state.currentPlayer === state.aiSide
+        state.currentPlayer ===
+          state.aiSide
       ) {
 
         scheduleAI();
@@ -4017,20 +4069,17 @@
           button.classList.toggle(
             "selected",
             button.dataset.mode ===
-            state.mode
+              state.mode
           );
 
         }
       );
 
-
     DOM.difficultyGroup.hidden =
       state.mode !== "ai";
 
-
     DOM.characterGroup.hidden =
       state.mode !== "ai";
-
 
     document
       .querySelectorAll(
@@ -4042,12 +4091,11 @@
           button.classList.toggle(
             "selected",
             button.dataset.difficulty ===
-            state.difficulty
+              state.difficulty
           );
 
         }
       );
-
 
     DOM.characterControl
       .querySelectorAll(
@@ -4059,12 +4107,11 @@
           button.classList.toggle(
             "selected",
             button.dataset.character ===
-            state.character
+              state.character
           );
 
         }
       );
-
 
     document
       .querySelectorAll(
@@ -4076,12 +4123,12 @@
           button.classList.toggle(
             "selected",
             button.dataset.side ===
-            (
-              state.playerSide ===
-              CONFIG.WHITE
-                ? "white"
-                : "black"
-            )
+              (
+                state.playerSide ===
+                CONFIG.WHITE
+                  ? "white"
+                  : "black"
+              )
           );
 
         }
@@ -4100,16 +4147,19 @@
 
     const defaults = {
 
-      language: "zh-TW",
+      language:
+        "zh-TW",
 
-      sound: true,
+      sound:
+        true,
 
-      motion: true,
+      motion:
+        true,
 
-      theme: "system"
+      theme:
+        "system"
 
     };
-
 
     try {
 
@@ -4118,13 +4168,9 @@
           CONFIG.STORAGE_SETTINGS
         );
 
-
       if (!raw) {
-
         return defaults;
-
       }
-
 
       return {
         ...defaults,
@@ -4161,14 +4207,11 @@
     DOM.soundToggle.checked =
       state.settings.sound;
 
-
     DOM.motionToggle.checked =
       state.settings.motion;
 
-
     DOM.themeSelect.value =
       state.settings.theme;
-
 
     DOM.languageSelect.value =
       state.settings.language;
@@ -4183,6 +4226,22 @@
 
         saveSettings();
 
+        if (
+          state.settings.sound
+        ) {
+
+          audioUnlocked =
+            false;
+
+          unlockAudio();
+
+          playSFX(
+            SFX.toggleOn ||
+            SFX.select
+          );
+
+        }
+
       }
     );
 
@@ -4195,6 +4254,12 @@
           DOM.motionToggle.checked;
 
         saveSettings();
+
+        playSFX(
+          state.settings.motion
+            ? SFX.select
+            : SFX.press
+        );
 
       }
     );
@@ -4211,6 +4276,10 @@
 
         saveSettings();
 
+        playSFX(
+          SFX.select
+        );
+
       }
     );
 
@@ -4223,6 +4292,10 @@
           DOM.languageSelect.value;
 
         saveSettings();
+
+        playSFX(
+          SFX.select
+        );
 
         showToast(
           "語言設定已儲存"
@@ -4242,7 +4315,6 @@
     const theme =
       state.settings.theme;
 
-
     if (
       theme === "dark"
     ) {
@@ -4253,7 +4325,6 @@
       return;
 
     }
-
 
     if (
       theme === "light"
@@ -4266,110 +4337,8 @@
 
     }
 
-
     document.documentElement.dataset.theme =
       "system";
-
-  }
-
-
-  /*
-   * =========================================================
-   * AUDIO
-   * =========================================================
-   */
-
-  let audioContext = null;
-
-
-  function playStoneSound() {
-
-    if (
-      !state.settings.sound
-    ) {
-
-      return;
-
-    }
-
-
-    try {
-
-      if (!audioContext) {
-
-        audioContext =
-          new (
-            window.AudioContext ||
-            window.webkitAudioContext
-          )();
-
-      }
-
-
-      if (
-        audioContext.state ===
-        "suspended"
-      ) {
-
-        audioContext.resume();
-
-      }
-
-
-      const oscillator =
-        audioContext.createOscillator();
-
-
-      const gain =
-        audioContext.createGain();
-
-
-      oscillator.type =
-        "sine";
-
-
-      oscillator.frequency.value =
-        160;
-
-
-      gain.gain.setValueAtTime(
-        0.0001,
-        audioContext.currentTime
-      );
-
-
-      gain.gain.exponentialRampToValueAtTime(
-        0.045,
-        audioContext.currentTime +
-        0.008
-      );
-
-
-      gain.gain.exponentialRampToValueAtTime(
-        0.0001,
-        audioContext.currentTime +
-        0.08
-      );
-
-
-      oscillator.connect(
-        gain
-      );
-
-
-      gain.connect(
-        audioContext.destination
-      );
-
-
-      oscillator.start();
-
-      oscillator.stop(
-        audioContext.currentTime +
-        0.09
-      );
-
-    } catch {}
 
   }
 
@@ -4380,7 +4349,8 @@
    * =========================================================
    */
 
-  let toastTimer = null;
+  let toastTimer =
+    null;
 
 
   function showToast(
@@ -4390,16 +4360,13 @@
     DOM.toast.textContent =
       message;
 
-
     DOM.toast.classList.add(
       "visible"
     );
 
-
     clearTimeout(
       toastTimer
     );
-
 
     toastTimer =
       window.setTimeout(
@@ -4422,7 +4389,8 @@
    * =========================================================
    */
 
-  let resizeTimer = null;
+  let resizeTimer =
+    null;
 
 
   window.addEventListener(
@@ -4432,7 +4400,6 @@
       clearTimeout(
         resizeTimer
       );
-
 
       resizeTimer =
         window.setTimeout(
@@ -4479,11 +4446,8 @@
     if (
       !("serviceWorker" in navigator)
     ) {
-
       return;
-
     }
-
 
     window.addEventListener(
       "load",
@@ -4516,7 +4480,8 @@
     player
   ) {
 
-    return player === CONFIG.BLACK
+    return player ===
+      CONFIG.BLACK
       ? CONFIG.WHITE
       : CONFIG.BLACK;
 
@@ -4538,6 +4503,67 @@
     setupBoardInput();
 
     setupSettings();
+
+    if (
+      DOM.clearRecordsButton
+    ) {
+
+      DOM.clearRecordsButton
+        .addEventListener(
+          "click",
+          () => {
+
+            unlockAudio();
+
+            clearRecords();
+
+          }
+        );
+
+    }
+
+    /*
+     * 第一次真正的使用者互動時解鎖音訊。
+     * iOS Safari 對這個很敏感。
+     */
+
+    const unlockEvents = [
+      "pointerdown",
+      "touchstart",
+      "keydown"
+    ];
+
+    const unlockOnce =
+      () => {
+
+        unlockAudio();
+
+        unlockEvents.forEach(
+          eventName => {
+
+            document.removeEventListener(
+              eventName,
+              unlockOnce
+            );
+
+          }
+        );
+
+      };
+
+    unlockEvents.forEach(
+      eventName => {
+
+        document.addEventListener(
+          eventName,
+          unlockOnce,
+          {
+            passive: true
+          }
+        );
+
+      }
+    );
 
     syncSetupUI();
 
