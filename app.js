@@ -5,7 +5,6 @@
    * =========================================================
    * GOMOKU 1.2
    * =========================================================
-   *
    * Human vs Human
    * Human vs AI
    * AI Worker
@@ -18,11 +17,11 @@
    * Official UI SFX
    * Organic 06
    *
-   * Official:
+   * UI SFX:
    * https://uisfx.com/
    *
-   * npm:
-   * https://www.npmjs.com/package/uisfx
+   * Official repository:
+   * https://github.com/romainsimon/uisfx
    * =========================================================
    */
 
@@ -41,16 +40,15 @@
     WORKER: "./ai-worker.js",
 
     /*
-     * 官方 UI SFX ESM CDN
+     * UI SFX official npm package through jsDelivr ESM.
      *
-     * UI SFX 本身負責即時合成音效，
-     * 不需要在專案裡放 MP3 / WAV。
+     * UI SFX performs its sound generation through Web Audio.
+     * No MP3 / WAV files are required in this project.
      */
     SFX_MODULE:
-      "https://esm.unpkg.com/uisfx",
+      "https://cdn.jsdelivr.net/npm/uisfx@0.4.0/+esm",
 
     SFX_PACK: "organic",
-
     SFX_VOLUME: 0.38,
 
     COLORS: {
@@ -69,7 +67,6 @@
     }
   };
 
-
   /*
    * =========================================================
    * AI CHARACTERS
@@ -77,7 +74,6 @@
    */
 
   const AI_CHARACTERS = {
-
     mio: {
       name: "Mio",
       initial: "M",
@@ -90,37 +86,31 @@
           "這一步要小心一點。",
           "慢慢來就好。"
         ],
-
         attack: [
           "這裡好像可以試試看。",
           "嗯，輪到我進攻了。",
           "這個位置不錯。"
         ],
-
         defend: [
           "這裡先防守比較好。",
           "不能讓你繼續連下去。",
           "先把這裡補起來。"
         ],
-
         danger: [
           "欸……這裡有點危險。",
           "差一點就被你抓到了。",
           "這一步不能大意。"
         ],
-
         winning: [
           "好像快結束了。",
           "再一步看看。",
           "這局快要分出勝負了。"
         ],
-
         losing: [
           "還有機會。",
           "嗯……不能放棄。",
           "我再想一下。"
         ],
-
         surprise: [
           "欸？",
           "原來是這樣。",
@@ -128,7 +118,6 @@
         ]
       }
     },
-
 
     rin: {
       name: "Rin",
@@ -142,37 +131,31 @@
           "等等……我看到一個機會。",
           "這次我要主動出擊。"
         ],
-
         attack: [
           "來了！",
           "這裡就是機會！",
           "看我的！"
         ],
-
         defend: [
           "嘖，這招得先擋掉。",
           "先擋住你再說。",
           "這裡不能讓你連。"
         ],
-
         danger: [
           "欸？！等等。",
           "這有點危險欸。",
           "你這一步很狠喔。"
         ],
-
         winning: [
           "看到啦！",
           "這局我要拿下！",
           "差一步！"
         ],
-
         losing: [
           "還沒完啦！",
           "我才不會這麼容易輸。",
           "再來！"
         ],
-
         surprise: [
           "欸？！",
           "真的假的？",
@@ -180,7 +163,6 @@
         ]
       }
     },
-
 
     sora: {
       name: "Sora",
@@ -194,37 +176,31 @@
           "這一步有幾種可能。",
           "我需要重新評估。"
         ],
-
         attack: [
           "這裡值得進攻。",
           "我找到一個突破口。",
           "現在可以開始施壓。"
         ],
-
         defend: [
           "這個位置不能放掉。",
           "先處理你的威脅。",
           "這一步需要防守。"
         ],
-
         danger: [
           "局面開始變得複雜了。",
           "你的威脅正在增加。",
           "這一步很關鍵。"
         ],
-
         winning: [
           "局面對我有利。",
           "勝負快要決定了。",
           "再一步。"
         ],
-
         losing: [
           "還有反擊的可能。",
           "局面還沒有結束。",
           "我還能找到機會。"
         ],
-
         surprise: [
           "這一步出乎我的預料。",
           "原來你選擇了這裡。",
@@ -232,7 +208,6 @@
         ]
       }
     },
-
 
     kuro: {
       name: "Kuro",
@@ -246,37 +221,31 @@
           "這一步值得再算一次。",
           "有趣……"
         ],
-
         attack: [
           "現在輪到我了。",
           "抓到空隙了。",
           "這裡會很有趣。"
         ],
-
         defend: [
           "先拆掉你的計畫。",
           "這個威脅太明顯了。",
           "我不會讓你這麼順。"
         ],
-
         danger: [
           "嘖……被你逼到了。",
           "這一步有點麻煩。",
           "不能再讓你走下去。"
         ],
-
         winning: [
           "你已經沒有多少空間了。",
           "看起來結束了。",
           "最後一步。"
         ],
-
         losing: [
           "別急著慶祝。",
           "局還沒結束。",
           "我還留著一手。"
         ],
-
         surprise: [
           "哦？",
           "這一步有意思。",
@@ -285,7 +254,6 @@
       }
     }
   };
-
 
   /*
    * =========================================================
@@ -312,7 +280,6 @@
       randomTop: 1
     }
   };
-
 
   /*
    * =========================================================
@@ -432,7 +399,6 @@
       document.querySelector("#toast")
   };
 
-
   /*
    * =========================================================
    * STATE
@@ -485,27 +451,25 @@
     settings: loadSettings()
   };
 
-
   /*
    * =========================================================
    * AUDIO
    * =========================================================
+   *
+   * IMPORTANT:
+   *
+   * UI SFX creates and manages its own AudioContext.
+   * We must call ui.unlock() from a trusted user gesture.
+   *
+   * We DO NOT create another AudioContext here.
    */
 
   let uiSFX = null;
-
   let sfxModulePromise = null;
-
   let sfxLoading = false;
-
-  let audioUnlocked = false;
-
   let audioUnlockPromise = null;
+  let audioInitialized = false;
 
-
-  /*
-   * 官方 UI SFX semantic cues。
-   */
   const SFX = {
     hover: "hover",
 
@@ -539,29 +503,27 @@
     complete: "complete"
   };
 
-
   /*
    * ---------------------------------------------------------
-   * AUDIO HELPERS
+   * LOAD UI SFX MODULE
    * ---------------------------------------------------------
    */
 
   function loadUISFXModule() {
-
     if (!sfxModulePromise) {
-
-      sfxModulePromise =
-        import(CONFIG.SFX_MODULE);
-
+      sfxModulePromise = import(CONFIG.SFX_MODULE);
     }
 
     return sfxModulePromise;
-
   }
 
+  /*
+   * ---------------------------------------------------------
+   * CREATE UI SFX
+   * ---------------------------------------------------------
+   */
 
   async function loadUISFX() {
-
     if (uiSFX) {
       return uiSFX;
     }
@@ -570,15 +532,12 @@
       sfxLoading ||
       !state.settings.sound
     ) {
-
       return uiSFX;
-
     }
 
     sfxLoading = true;
 
     try {
-
       const module =
         await loadUISFXModule();
 
@@ -587,31 +546,21 @@
         module.default?.createUISFX;
 
       if (
-        typeof createUISFX !==
-        "function"
+        typeof createUISFX !== "function"
       ) {
-
         throw new Error(
-          "createUISFX() was not found."
+          "UI SFX createUISFX() was not found."
         );
-
       }
 
-      uiSFX =
-        createUISFX({
-
-          pack:
-            CONFIG.SFX_PACK,
-
-          volume:
-            CONFIG.SFX_VOLUME
-
-        });
+      uiSFX = createUISFX({
+        pack: CONFIG.SFX_PACK,
+        volume: CONFIG.SFX_VOLUME,
+        preferences: {}
+      });
 
       return uiSFX;
-
     } catch (error) {
-
       console.warn(
         "[Gomoku] UI SFX failed to load:",
         error
@@ -620,169 +569,75 @@
       uiSFX = null;
 
       return null;
-
     } finally {
-
       sfxLoading = false;
-
     }
-
   }
 
-
   /*
-   * Native browser audio unlock.
+   * ---------------------------------------------------------
+   * UNLOCK UI SFX
+   * ---------------------------------------------------------
    *
-   * This does NOT generate the sound itself.
-   * It simply creates/resumes a tiny AudioContext
-   * from a real user gesture so Safari allows audio.
+   * This is the important Safari/iPad fix.
+   *
+   * UI SFX's official API owns the AudioContext.
+   * The unlock call must happen from the actual user gesture.
    */
-  async function unlockBrowserAudio() {
 
-    if (audioUnlocked) {
-      return true;
+  async function unlockAudio() {
+    if (!state.settings.sound) {
+      return null;
     }
 
     if (audioUnlockPromise) {
       return audioUnlockPromise;
     }
 
-    audioUnlockPromise =
-      (async () => {
+    audioUnlockPromise = (async () => {
+      try {
+        const ui = await loadUISFX();
 
-        try {
-
-          const AudioContextClass =
-            window.AudioContext ||
-            window.webkitAudioContext;
-
-          if (!AudioContextClass) {
-
-            /*
-             * Browser has no Web Audio API.
-             * UI SFX may still be able to handle
-             * its own audio implementation.
-             */
-            return true;
-
-          }
-
-          const context =
-            new AudioContextClass();
-
-          if (
-            context.state ===
-            "suspended"
-          ) {
-
-            await context.resume();
-
-          }
-
-          /*
-           * Create a zero-gain oscillator only to
-           * establish a trusted audio graph.
-           */
-          const gain =
-            context.createGain();
-
-          gain.gain.value = 0;
-
-          const oscillator =
-            context.createOscillator();
-
-          oscillator.connect(gain);
-
-          gain.connect(
-            context.destination
-          );
-
-          oscillator.start();
-
-          oscillator.stop(
-            context.currentTime + 0.01
-          );
-
-          await new Promise(
-            resolve => {
-
-              oscillator.addEventListener(
-                "ended",
-                resolve,
-                {
-                  once: true
-                }
-              );
-
-            }
-          );
-
-          await context.close();
-
-          audioUnlocked = true;
-
-          return true;
-
-        } catch (error) {
-
-          console.warn(
-            "[Gomoku] Browser audio unlock failed:",
-            error
-          );
-
-          return false;
-
-        } finally {
-
-          audioUnlockPromise =
-            null;
-
+        if (!ui) {
+          return null;
         }
 
-      })();
+        if (
+          !audioInitialized &&
+          typeof ui.unlock === "function"
+        ) {
+          await ui.unlock();
+          audioInitialized = true;
+        }
+
+        return ui;
+      } catch (error) {
+        console.warn(
+          "[Gomoku] UI SFX unlock failed:",
+          error
+        );
+
+        return null;
+      } finally {
+        audioUnlockPromise = null;
+      }
+    })();
 
     return audioUnlockPromise;
-
   }
-
 
   /*
-   * Unlock + load UI SFX.
-   *
-   * This function is always called from user
-   * interaction handlers before playing a cue.
+   * ---------------------------------------------------------
+   * PLAY UI SFX
+   * ---------------------------------------------------------
    */
-  async function unlockAudio() {
-
-    if (
-      !state.settings.sound
-    ) {
-
-      return null;
-
-    }
-
-    await unlockBrowserAudio();
-
-    const ui =
-      await loadUISFX();
-
-    return ui;
-
-  }
-
 
   async function playSFX(
     cue,
     options = {}
   ) {
-
-    if (
-      !state.settings.sound
-    ) {
-
+    if (!state.settings.sound) {
       return;
-
     }
 
     const ui =
@@ -794,64 +649,42 @@
     }
 
     try {
-
-      ui.play(
-        cue,
-        options
-      );
-
+      ui.play(cue, options);
     } catch (error) {
-
       console.warn(
         `[Gomoku] Failed to play "${cue}":`,
         error
       );
-
     }
-
   }
 
+  /*
+   * ---------------------------------------------------------
+   * SOUND SETTING
+   * ---------------------------------------------------------
+   */
 
-  function setSoundEnabled(
-    enabled
-  ) {
-
+  function setSoundEnabled(enabled) {
     state.settings.sound =
       Boolean(enabled);
 
     saveSettings();
 
-    if (!uiSFX) {
+    if (!state.settings.sound) {
+      try {
+        if (
+          uiSFX &&
+          typeof uiSFX.stopAll === "function"
+        ) {
+          uiSFX.stopAll();
+        }
+      } catch {}
+
       return;
     }
 
-    try {
-
-      if (
-        typeof uiSFX.setEnabled ===
-        "function"
-      ) {
-
-        uiSFX.setEnabled(
-          state.settings.sound
-        );
-
-      }
-
-      if (
-        !state.settings.sound &&
-        typeof uiSFX.stopAll ===
-        "function"
-      ) {
-
-        uiSFX.stopAll();
-
-      }
-
-    } catch {}
-
+    audioInitialized = false;
   }
-
 
   /*
    * =========================================================
@@ -860,7 +693,6 @@
    */
 
   function createBoard() {
-
     return Array.from(
       { length: CONFIG.SIZE },
       () =>
@@ -868,62 +700,45 @@
           CONFIG.EMPTY
         )
     );
-
   }
 
-
   function cloneBoard(board) {
-
     return board.map(
       row => row.slice()
     );
-
   }
 
-
   function isInside(row, col) {
-
     return (
       row >= 0 &&
       row < CONFIG.SIZE &&
       col >= 0 &&
       col < CONFIG.SIZE
     );
-
   }
 
-
   function isBoardFull() {
-
     for (
       let row = 0;
       row < CONFIG.SIZE;
       row++
     ) {
-
       for (
         let col = 0;
         col < CONFIG.SIZE;
         col++
       ) {
-
         if (
           state.board[row][col] ===
           CONFIG.EMPTY
         ) {
-
           return false;
-
         }
-
       }
-
     }
 
     return true;
-
   }
-
 
   /*
    * =========================================================
@@ -938,74 +753,56 @@
     [1, -1]
   ];
 
-
   function getWinningLine(
     board,
     row,
     col,
     player
   ) {
-
     for (
       const [dr, dc]
       of DIRECTIONS
     ) {
-
       const line = [
         [row, col]
       ];
 
-      let r =
-        row + dr;
-
-      let c =
-        col + dc;
+      let r = row + dr;
+      let c = col + dc;
 
       while (
         isInside(r, c) &&
         board[r][c] === player
       ) {
-
         line.push([r, c]);
 
         r += dr;
         c += dc;
-
       }
 
-      r =
-        row - dr;
-
-      c =
-        col - dc;
+      r = row - dr;
+      c = col - dc;
 
       while (
         isInside(r, c) &&
         board[r][c] === player
       ) {
-
         line.unshift([r, c]);
 
         r -= dr;
         c -= dc;
-
       }
 
       if (
         line.length >=
         CONFIG.WIN
       ) {
-
         return line;
-
       }
-
     }
 
     return [];
-
   }
-
 
   /*
    * =========================================================
@@ -1014,7 +811,6 @@
    */
 
   function resetBoard() {
-
     state.board =
       createBoard();
 
@@ -1047,14 +843,9 @@
     renderBoard();
 
     updateTurnUI();
-
   }
 
-
   function startNewGame() {
-
-    unlockAudio();
-
     resetBoard();
 
     showScreen("game");
@@ -1067,28 +858,19 @@
 
     if (
       state.mode === "ai" &&
-      state.currentPlayer === state.aiSide
+      state.currentPlayer ===
+        state.aiSide
     ) {
-
       scheduleAI();
-
     }
-
   }
 
-
-  function playMove(
-    row,
-    col
-  ) {
-
+  function playMove(row, col) {
     if (
       state.gameOver ||
       state.aiThinking
     ) {
-
       return false;
-
     }
 
     if (
@@ -1096,20 +878,16 @@
       state.board[row][col] !==
         CONFIG.EMPTY
     ) {
-
       playSFX(SFX.error);
-
       return false;
-
     }
 
     if (
       state.mode === "ai" &&
-      state.currentPlayer === state.aiSide
+      state.currentPlayer ===
+        state.aiSide
     ) {
-
       return false;
-
     }
 
     const player =
@@ -1140,22 +918,18 @@
       );
 
     if (winningLine.length) {
-
       finishGame(
         player,
         winningLine
       );
 
       return true;
-
     }
 
     if (isBoardFull()) {
-
       finishDraw();
 
       return true;
-
     }
 
     state.currentPlayer =
@@ -1169,30 +943,21 @@
 
     if (
       state.mode === "ai" &&
-      state.currentPlayer === state.aiSide
+      state.currentPlayer ===
+        state.aiSide
     ) {
-
       scheduleAI();
-
     }
 
     return true;
-
   }
 
-
-  function playAIMove(
-    row,
-    col
-  ) {
-
+  function playAIMove(row, col) {
     if (
       state.gameOver ||
       !state.aiThinking
     ) {
-
       return false;
-
     }
 
     if (
@@ -1200,15 +965,10 @@
       state.board[row][col] !==
         CONFIG.EMPTY
     ) {
-
       state.aiThinking = false;
-
       updateTurnUI();
-
       scheduleAI();
-
       return false;
-
     }
 
     const player =
@@ -1217,13 +977,9 @@
     if (
       player !== state.aiSide
     ) {
-
       state.aiThinking = false;
-
       updateTurnUI();
-
       return false;
-
     }
 
     state.board[row][col] =
@@ -1254,22 +1010,18 @@
       );
 
     if (winningLine.length) {
-
       finishGame(
         player,
         winningLine
       );
 
       return true;
-
     }
 
     if (isBoardFull()) {
-
       finishDraw();
 
       return true;
-
     }
 
     state.currentPlayer =
@@ -1286,9 +1038,7 @@
     );
 
     return true;
-
   }
-
 
   /*
    * =========================================================
@@ -1297,23 +1047,17 @@
    */
 
   function undoMove() {
-
     if (
       state.gameOver ||
       state.aiThinking ||
       state.moves.length === 0
     ) {
-
       return;
-
     }
-
-    unlockAudio();
 
     if (
       state.mode === "local"
     ) {
-
       const move =
         state.moves.pop();
 
@@ -1331,9 +1075,7 @@
         state.moves[
           state.moves.length - 1
         ] || null;
-
     } else {
-
       const aiMove =
         state.moves.pop();
 
@@ -1347,7 +1089,6 @@
       if (
         state.moves.length
       ) {
-
         const playerMove =
           state.moves.pop();
 
@@ -1365,17 +1106,13 @@
           state.moves[
             state.moves.length - 1
           ] || null;
-
       } else {
-
         state.currentPlayer =
           state.playerSide;
 
         state.lastMove =
           null;
-
       }
-
     }
 
     state.gameOver =
@@ -1398,9 +1135,7 @@
     updateAIOS("thinking");
 
     playSFX(SFX.undo);
-
   }
-
 
   /*
    * =========================================================
@@ -1412,7 +1147,6 @@
     winner,
     winningLine
   ) {
-
     state.gameOver =
       true;
 
@@ -1445,12 +1179,9 @@
     );
 
     showResult(result);
-
   }
 
-
   function finishDraw() {
-
     state.gameOver =
       true;
 
@@ -1474,9 +1205,7 @@
     playSFX(SFX.complete);
 
     showResult("draw");
-
   }
-
 
   /*
    * =========================================================
@@ -1485,47 +1214,30 @@
    */
 
   function createWorker() {
-
     if (
       typeof Worker ===
       "undefined"
     ) {
-
       return null;
-
     }
 
     try {
-
       return new Worker(
         CONFIG.WORKER
       );
-
     } catch {
-
       return null;
-
     }
-
   }
-
 
   function stopWorker() {
-
     if (state.worker) {
-
       state.worker.terminate();
-
-      state.worker =
-        null;
-
+      state.worker = null;
     }
-
   }
 
-
   function scheduleAI() {
-
     if (
       state.mode !== "ai" ||
       state.gameOver ||
@@ -1533,9 +1245,7 @@
         state.aiSide ||
       state.aiThinking
     ) {
-
       return;
-
     }
 
     state.aiThinking =
@@ -1559,7 +1269,6 @@
 
     window.setTimeout(
       () => {
-
         if (
           state.gameOver ||
           state.currentPlayer !==
@@ -1568,26 +1277,20 @@
           requestId !==
             state.workerRequest
         ) {
-
           return;
-
         }
 
         requestAIMove(
           requestId
         );
-
       },
       delay
     );
-
   }
-
 
   function requestAIMove(
     requestId
   ) {
-
     const config =
       DIFFICULTY[
         state.difficulty
@@ -1602,11 +1305,8 @@
       createWorker();
 
     if (!worker) {
-
       fallbackAIMove();
-
       return;
-
     }
 
     state.worker =
@@ -1614,16 +1314,12 @@
 
     worker.onmessage =
       event => {
-
         if (
           requestId !==
           state.workerRequest
         ) {
-
           worker.terminate();
-
           return;
-
         }
 
         const {
@@ -1638,53 +1334,40 @@
           state.worker ===
           worker
         ) {
-
           state.worker =
             null;
-
         }
 
         if (
           row == null ||
           col == null
         ) {
-
           fallbackAIMove();
-
           return;
-
         }
 
         playAIMove(
           row,
           col
         );
-
       };
-
 
     worker.onerror =
       () => {
-
         worker.terminate();
 
         if (
           state.worker ===
           worker
         ) {
-
           state.worker =
             null;
-
         }
 
         fallbackAIMove();
-
       };
 
-
     worker.postMessage({
-
       board:
         cloneBoard(
           state.board
@@ -1694,7 +1377,6 @@
         state.aiSide,
 
       config: {
-
         depth:
           config.depth,
 
@@ -1706,32 +1388,25 @@
 
         style:
           character.style
-
       },
 
       thinkTime:
         Date.now()
-
     });
-
   }
 
-
   function fallbackAIMove() {
-
     if (
       state.gameOver ||
       state.currentPlayer !==
         state.aiSide
     ) {
-
       state.aiThinking =
         false;
 
       updateTurnUI();
 
       return;
-
     }
 
     const move =
@@ -1739,36 +1414,29 @@
 
     window.setTimeout(
       () => {
-
         if (
           state.gameOver ||
           state.currentPlayer !==
             state.aiSide
         ) {
-
           state.aiThinking =
             false;
 
           updateTurnUI();
 
           return;
-
         }
 
         playAIMove(
           move.row,
           move.col
         );
-
       },
       250
     );
-
   }
 
-
   function findFallbackMove() {
-
     const candidates =
       getCandidateMoves(
         state.board,
@@ -1806,7 +1474,6 @@
     for (
       const move of candidates
     ) {
-
       let score =
         evaluateLocalMove(
           state.board,
@@ -1833,27 +1500,21 @@
         score >
         bestScore
       ) {
-
         bestScore =
           score;
 
         best =
           move;
-
       }
-
     }
 
     return best;
-
   }
-
 
   function getCandidateMoves(
     board,
     radius
   ) {
-
     const occupied = [];
 
     for (
@@ -1861,40 +1522,32 @@
       row < CONFIG.SIZE;
       row++
     ) {
-
       for (
         let col = 0;
         col < CONFIG.SIZE;
         col++
       ) {
-
         if (
           board[row][col] !==
           CONFIG.EMPTY
         ) {
-
           occupied.push({
             row,
             col
           });
-
         }
-
       }
-
     }
 
     if (
       !occupied.length
     ) {
-
       return [
         {
           row: 7,
           col: 7
         }
       ];
-
     }
 
     const set =
@@ -1903,19 +1556,16 @@
     for (
       const point of occupied
     ) {
-
       for (
         let dr = -radius;
         dr <= radius;
         dr++
       ) {
-
         for (
           let dc = -radius;
           dc <= radius;
           dc++
         ) {
-
           const row =
             point.row + dr;
 
@@ -1938,18 +1588,14 @@
           set.add(
             `${row},${col}`
           );
-
         }
-
       }
-
     }
 
     return [
       ...set
     ].map(
       key => {
-
         const [
           row,
           col
@@ -1962,23 +1608,18 @@
           row,
           col
         };
-
       }
     );
-
   }
-
 
   function findImmediateWin(
     board,
     player,
     candidates
   ) {
-
     for (
       const move of candidates
     ) {
-
       board[
         move.row
       ][
@@ -2004,13 +1645,10 @@
       if (win) {
         return move;
       }
-
     }
 
     return null;
-
   }
-
 
   function evaluateLocalMove(
     board,
@@ -2018,14 +1656,11 @@
     col,
     player
   ) {
-
     if (
       board[row][col] !==
       CONFIG.EMPTY
     ) {
-
       return -Infinity;
-
     }
 
     let score = 0;
@@ -2034,7 +1669,6 @@
       const [dr, dc]
       of DIRECTIONS
     ) {
-
       const before =
         countDirection(
           board,
@@ -2062,13 +1696,10 @@
 
       score +=
         lineValue(total);
-
     }
 
     return score;
-
   }
-
 
   function countDirection(
     board,
@@ -2078,7 +1709,6 @@
     dc,
     player
   ) {
-
     let count = 0;
 
     let r =
@@ -2091,23 +1721,16 @@
       isInside(r, c) &&
       board[r][c] === player
     ) {
-
       count++;
 
       r += dr;
       c += dc;
-
     }
 
     return count;
-
   }
 
-
-  function lineValue(
-    count
-  ) {
-
+  function lineValue(count) {
     if (count >= 5)
       return 100000;
 
@@ -2121,15 +1744,9 @@
       return 100;
 
     return 10;
-
   }
 
-
-  function centerScore(
-    row,
-    col
-  ) {
-
+  function centerScore(row, col) {
     const center =
       (CONFIG.SIZE - 1) / 2;
 
@@ -2138,9 +1755,7 @@
       Math.abs(row - center) -
       Math.abs(col - center)
     );
-
   }
-
 
   /*
    * =========================================================
@@ -2148,19 +1763,14 @@
    * =========================================================
    */
 
-  function updateAIOS(
-    type
-  ) {
-
+  function updateAIOS(type) {
     if (
       state.mode !== "ai"
     ) {
-
       DOM.aiOS.hidden =
         true;
 
       return;
-
     }
 
     const character =
@@ -2183,26 +1793,18 @@
 
     DOM.aiOSText.textContent =
       randomFrom(pool);
-
   }
 
-
-  function randomFrom(
-    array
-  ) {
-
+  function randomFrom(array) {
     return array[
       Math.floor(
         Math.random() *
         array.length
       )
     ];
-
   }
 
-
   function classifyBoardForOS() {
-
     if (
       state.gameOver
     ) {
@@ -2244,14 +1846,9 @@
     }
 
     return "thinking";
-
   }
 
-
-  function strongestLocalThreat(
-    player
-  ) {
-
+  function strongestLocalThreat(player) {
     let best = 0;
 
     for (
@@ -2259,13 +1856,11 @@
       row < CONFIG.SIZE;
       row++
     ) {
-
       for (
         let col = 0;
         col < CONFIG.SIZE;
         col++
       ) {
-
         if (
           state.board[row][col] !==
           CONFIG.EMPTY
@@ -2277,7 +1872,6 @@
           const [dr, dc]
           of DIRECTIONS
         ) {
-
           const a =
             countDirection(
               state.board,
@@ -2303,17 +1897,12 @@
               best,
               a + b + 1
             );
-
         }
-
       }
-
     }
 
     return best;
-
   }
-
 
   /*
    * =========================================================
@@ -2322,7 +1911,6 @@
    */
 
   function resizeCanvas() {
-
     const canvas =
       DOM.boardCanvas;
 
@@ -2407,15 +1995,9 @@
     );
 
     renderBoard();
-
   }
 
-
-  function boardPoint(
-    row,
-    col
-  ) {
-
+  function boardPoint(row, col) {
     return {
       x:
         state.boardPadding +
@@ -2425,14 +2007,9 @@
         state.boardPadding +
         row * state.cellSize
     };
-
   }
 
-
-  function pointerToCell(
-    event
-  ) {
-
+  function pointerToCell(event) {
     const canvas =
       DOM.boardCanvas;
 
@@ -2494,12 +2071,9 @@
       row,
       col
     };
-
   }
 
-
   function renderBoard() {
-
     const canvas =
       DOM.boardCanvas;
 
@@ -2577,7 +2151,6 @@
       index < CONFIG.SIZE;
       index++
     ) {
-
       const p =
         state.boardPadding +
         index * state.cellSize;
@@ -2603,7 +2176,6 @@
         size -
         state.boardPadding
       );
-
     }
 
     ctx.stroke();
@@ -2627,7 +2199,6 @@
       const [row, col]
       of stars
     ) {
-
       const point =
         boardPoint(
           row,
@@ -2648,14 +2219,12 @@
       );
 
       ctx.fill();
-
     }
 
     if (
       state.winningLine.length >=
       CONFIG.WIN
     ) {
-
       ctx.save();
 
       ctx.strokeStyle =
@@ -2704,7 +2273,6 @@
       ctx.stroke();
 
       ctx.restore();
-
     }
 
     for (
@@ -2712,13 +2280,11 @@
       row < CONFIG.SIZE;
       row++
     ) {
-
       for (
         let col = 0;
         col < CONFIG.SIZE;
         col++
       ) {
-
         const player =
           state.board[row][col];
 
@@ -2735,15 +2301,12 @@
           col,
           player
         );
-
       }
-
     }
 
     if (
       state.lastMove
     ) {
-
       const point =
         boardPoint(
           state.lastMove.row,
@@ -2774,11 +2337,8 @@
       ctx.stroke();
 
       ctx.restore();
-
     }
-
   }
-
 
   function drawStone(
     ctx,
@@ -2786,7 +2346,6 @@
     col,
     player
   ) {
-
     const point =
       boardPoint(
         row,
@@ -2827,7 +2386,6 @@
       player ===
       CONFIG.BLACK
     ) {
-
       gradient.addColorStop(
         0,
         "#575757"
@@ -2842,9 +2400,7 @@
         1,
         "#090909"
       );
-
     } else {
-
       gradient.addColorStop(
         0,
         "#ffffff"
@@ -2859,7 +2415,6 @@
         1,
         "#c8c0b2"
       );
-
     }
 
     ctx.beginPath();
@@ -2889,9 +2444,7 @@
     ctx.stroke();
 
     ctx.restore();
-
   }
-
 
   /*
    * =========================================================
@@ -2900,21 +2453,19 @@
    */
 
   function setupBoardInput() {
-
     const canvas =
       DOM.boardCanvas;
 
     canvas.addEventListener(
       "pointerdown",
-      event => {
-
+      async event => {
         event.preventDefault();
 
         /*
-         * This pointerdown is a genuine user gesture.
-         * Unlock browser audio here before any game sound.
+         * This is a genuine trusted gesture.
+         * UI SFX is unlocked directly here.
          */
-        unlockAudio();
+        await unlockAudio();
 
         canvas.setPointerCapture?.(
           event.pointerId
@@ -2948,7 +2499,6 @@
           cell.row,
           cell.col
         );
-
       },
       {
         passive: false
@@ -2957,8 +2507,7 @@
 
     canvas.addEventListener(
       "keydown",
-      event => {
-
+      async event => {
         if (
           event.key !== "Enter" &&
           event.key !== " "
@@ -2968,13 +2517,10 @@
 
         event.preventDefault();
 
-        unlockAudio();
-
+        await unlockAudio();
       }
     );
-
   }
-
 
   /*
    * =========================================================
@@ -2983,7 +2529,6 @@
    */
 
   function updateTurnUI() {
-
     const current =
       state.currentPlayer;
 
@@ -3004,31 +2549,23 @@
     if (
       state.gameOver
     ) {
-
       DOM.turnLabel.textContent =
         "棋局結束";
-
     } else if (
       state.mode === "local"
     ) {
-
       DOM.turnLabel.textContent =
         current === CONFIG.BLACK
           ? "黑棋回合"
           : "白棋回合";
-
     } else if (
       isAI
     ) {
-
       DOM.turnLabel.textContent =
         "AI 回合";
-
     } else {
-
       DOM.turnLabel.textContent =
         "你的回合";
-
     }
 
     DOM.turnPlayer.textContent =
@@ -3043,9 +2580,7 @@
       state.moves.length === 0 ||
       state.aiThinking ||
       state.gameOver;
-
   }
-
 
   /*
    * =========================================================
@@ -3053,10 +2588,7 @@
    * =========================================================
    */
 
-  function showScreen(
-    name
-  ) {
-
+  function showScreen(name) {
     const screens = {
       home:
         DOM.homeScreen,
@@ -3081,7 +2613,6 @@
       screens
     ).forEach(
       ([key, screen]) => {
-
         if (!screen) {
           return;
         }
@@ -3090,7 +2621,6 @@
           "active",
           key === name
         );
-
       }
     );
 
@@ -3100,38 +2630,28 @@
     if (
       name === "game"
     ) {
-
       requestAnimationFrame(
         resizeCanvas
       );
-
     }
 
     if (
       name === "records"
     ) {
-
       renderStats();
-
     }
 
     if (
       name === "home"
     ) {
-
       checkResumeGame();
-
     }
-
   }
 
-
   function setupNavigation() {
-
     DOM.startButton.addEventListener(
       "click",
       async () => {
-
         await unlockAudio();
 
         playSFX(
@@ -3141,15 +2661,12 @@
         showScreen(
           "setup"
         );
-
       }
     );
-
 
     DOM.recordsButton.addEventListener(
       "click",
       async () => {
-
         await unlockAudio();
 
         playSFX(
@@ -3161,15 +2678,12 @@
         showScreen(
           "records"
         );
-
       }
     );
-
 
     DOM.settingsButton.addEventListener(
       "click",
       async () => {
-
         await unlockAudio();
 
         playSFX(
@@ -3179,15 +2693,12 @@
         showScreen(
           "settings"
         );
-
       }
     );
-
 
     DOM.resumeButton.addEventListener(
       "click",
       async () => {
-
         await unlockAudio();
 
         playSFX(
@@ -3195,27 +2706,21 @@
         );
 
         resumeGame();
-
       }
     );
-
 
     DOM.playAgainButton.addEventListener(
       "click",
       async () => {
-
         await unlockAudio();
 
         startNewGame();
-
       }
     );
-
 
     DOM.resultHomeButton.addEventListener(
       "click",
       async () => {
-
         await unlockAudio();
 
         playSFX(
@@ -3225,15 +2730,12 @@
         showScreen(
           "home"
         );
-
       }
     );
-
 
     DOM.gameMenuButton.addEventListener(
       "click",
       async () => {
-
         await unlockAudio();
 
         playSFX(
@@ -3245,15 +2747,12 @@
         showScreen(
           "home"
         );
-
       }
     );
-
 
     DOM.restartButton.addEventListener(
       "click",
       async () => {
-
         await unlockAudio();
 
         playSFX(
@@ -3261,27 +2760,21 @@
         );
 
         startNewGame();
-
       }
     );
-
 
     DOM.undoButton.addEventListener(
       "click",
       async () => {
-
         await unlockAudio();
 
         undoMove();
-
       }
     );
-
 
     DOM.backButton.addEventListener(
       "click",
       async () => {
-
         await unlockAudio();
 
         playSFX(
@@ -3297,23 +2790,18 @@
         if (
           state.screen === "game"
         ) {
-
           saveActiveGame();
-
         }
 
         showScreen(
           "home"
         );
-
       }
     );
-
 
     DOM.menuButton.addEventListener(
       "click",
       async () => {
-
         await unlockAudio();
 
         playSFX(
@@ -3323,12 +2811,9 @@
         showScreen(
           "settings"
         );
-
       }
     );
-
   }
-
 
   /*
    * =========================================================
@@ -3337,19 +2822,16 @@
    */
 
   function setupGameOptions() {
-
     DOM.modeControl
       .querySelectorAll(
         "[data-mode]"
       )
       .forEach(
         button => {
-
           button.addEventListener(
             "click",
-            () => {
-
-              unlockAudio();
+            async () => {
+              await unlockAudio();
 
               playSFX(
                 SFX.select
@@ -3364,12 +2846,10 @@
                 )
                 .forEach(
                   item => {
-
                     item.classList.toggle(
                       "selected",
                       item === button
                     );
-
                   }
                 );
 
@@ -3381,13 +2861,10 @@
 
               DOM.characterGroup.hidden =
                 !aiMode;
-
             }
           );
-
         }
       );
-
 
     document
       .querySelectorAll(
@@ -3395,12 +2872,10 @@
       )
       .forEach(
         button => {
-
           button.addEventListener(
             "click",
-            () => {
-
-              unlockAudio();
+            async () => {
+              await unlockAudio();
 
               playSFX(
                 SFX.select
@@ -3415,21 +2890,16 @@
                 )
                 .forEach(
                   item => {
-
                     item.classList.toggle(
                       "selected",
                       item === button
                     );
-
                   }
                 );
-
             }
           );
-
         }
       );
-
 
     DOM.characterControl
       .querySelectorAll(
@@ -3437,12 +2907,10 @@
       )
       .forEach(
         button => {
-
           button.addEventListener(
             "click",
-            () => {
-
-              unlockAudio();
+            async () => {
+              await unlockAudio();
 
               playSFX(
                 SFX.select
@@ -3457,21 +2925,16 @@
                 )
                 .forEach(
                   item => {
-
                     item.classList.toggle(
                       "selected",
                       item === button
                     );
-
                   }
                 );
-
             }
           );
-
         }
       );
-
 
     document
       .querySelectorAll(
@@ -3479,12 +2942,10 @@
       )
       .forEach(
         button => {
-
           button.addEventListener(
             "click",
-            () => {
-
-              unlockAudio();
+            async () => {
+              await unlockAudio();
 
               playSFX(
                 SFX.select
@@ -3507,47 +2968,36 @@
                 )
                 .forEach(
                   item => {
-
                     item.classList.toggle(
                       "selected",
                       item === button
                     );
-
                   }
                 );
-
             }
           );
-
         }
       );
-
 
     DOM.beginGameButton.addEventListener(
       "click",
       async () => {
-
         await unlockAudio();
 
         if (
           state.mode === "local"
         ) {
-
           state.playerSide =
             CONFIG.BLACK;
 
           state.aiSide =
             CONFIG.WHITE;
-
         }
 
         startNewGame();
-
       }
     );
-
   }
-
 
   /*
    * =========================================================
@@ -3555,10 +3005,7 @@
    * =========================================================
    */
 
-  function showResult(
-    result
-  ) {
-
+  function showResult(result) {
     const character =
       AI_CHARACTERS[
         state.character
@@ -3577,7 +3024,6 @@
     if (
       result === "win"
     ) {
-
       DOM.resultKicker.textContent =
         "VICTORY";
 
@@ -3590,11 +3036,9 @@
         state.mode === "local"
           ? "這一局已經分出勝負。"
           : `${character.name} 輸掉了這一局。`;
-
     } else if (
       result === "loss"
     ) {
-
       DOM.resultKicker.textContent =
         "DEFEAT";
 
@@ -3607,9 +3051,7 @@
         state.mode === "local"
           ? "這一局已經分出勝負。"
           : `${character.name} 拿下了這一局。`;
-
     } else {
-
       DOM.resultKicker.textContent =
         "DRAW";
 
@@ -3618,15 +3060,12 @@
 
       DOM.resultDescription.textContent =
         "棋盤已經沒有空位了。";
-
     }
 
     showScreen(
       "result"
     );
-
   }
-
 
   /*
    * =========================================================
@@ -3635,24 +3074,20 @@
    */
 
   function createDefaultStats() {
-
     const ai = {};
 
     Object.keys(
       AI_CHARACTERS
     ).forEach(
       id => {
-
         ai[id] = {
           wins: 0,
           losses: 0
         };
-
       }
     );
 
     return {
-
       total: 0,
       wins: 0,
       losses: 0,
@@ -3665,19 +3100,14 @@
       ai,
 
       records: []
-
     };
-
   }
 
-
   function loadStats() {
-
     const defaults =
       createDefaultStats();
 
     try {
-
       const raw =
         localStorage.getItem(
           CONFIG.STORAGE_STATS
@@ -3691,7 +3121,6 @@
         JSON.parse(raw);
 
       return {
-
         ...defaults,
         ...data,
 
@@ -3709,102 +3138,71 @@
                 50
               )
             : []
-
       };
-
     } catch {
-
       return defaults;
-
     }
-
   }
 
-
   function saveStats() {
-
     try {
-
       localStorage.setItem(
         CONFIG.STORAGE_STATS,
         JSON.stringify(
           state.stats
         )
       );
-
     } catch {}
-
   }
 
-
-  function recordResult(
-    result
-  ) {
-
+  function recordResult(result) {
     state.stats.total++;
 
     if (
       result === "draw"
     ) {
-
       state.stats.draws++;
 
       if (
         state.mode === "local"
       ) {
-
         state.stats.localDraws++;
-
       }
-
     }
 
     if (
       result === "win"
     ) {
-
       state.stats.wins++;
 
       if (
         state.mode === "local"
       ) {
-
         state.stats.localWins++;
-
       } else {
-
         state.stats.ai[
           state.character
         ].losses++;
-
       }
-
     }
 
     if (
       result === "loss"
     ) {
-
       state.stats.losses++;
 
       if (
         state.mode === "local"
       ) {
-
         state.stats.localLosses++;
-
       } else {
-
         state.stats.ai[
           state.character
         ].wins++;
-
       }
-
     }
 
     state.stats.records.unshift({
-
       date:
         new Date().toISOString(),
 
@@ -3820,7 +3218,6 @@
 
       moves:
         state.moves.length
-
     });
 
     state.stats.records =
@@ -3830,12 +3227,9 @@
       );
 
     saveStats();
-
   }
 
-
   function renderStats() {
-
     DOM.statGames.textContent =
       state.stats.total;
 
@@ -3854,7 +3248,6 @@
     if (
       !state.stats.records.length
     ) {
-
       const empty =
         document.createElement(
           "div"
@@ -3871,14 +3264,12 @@
       );
 
       return;
-
     }
 
     for (
       const record of
       state.stats.records
     ) {
-
       const item =
         document.createElement(
           "div"
@@ -3905,7 +3296,6 @@
       if (
         record.mode === "ai"
       ) {
-
         const character =
           AI_CHARACTERS[
             record.character
@@ -3925,9 +3315,7 @@
           } · ${
             record.moves
           } 手`;
-
       } else {
-
         title.textContent =
           "雙人對戰";
 
@@ -3939,7 +3327,6 @@
           } · ${
             record.moves
           } 手`;
-
       }
 
       date.textContent =
@@ -3962,18 +3349,11 @@
       DOM.recordList.appendChild(
         item
       );
-
     }
-
   }
 
-
-  function formatDate(
-    value
-  ) {
-
+  function formatDate(value) {
     try {
-
       return new Date(
         value
       ).toLocaleString(
@@ -3986,15 +3366,10 @@
           minute: "2-digit"
         }
       );
-
     } catch {
-
       return "";
-
     }
-
   }
-
 
   /*
    * =========================================================
@@ -4003,17 +3378,14 @@
    */
 
   function clearRecords() {
-
     if (
       !state.stats.records.length
     ) {
-
       showToast(
         "目前沒有棋局記錄"
       );
 
       return;
-
     }
 
     state.stats =
@@ -4030,9 +3402,7 @@
     showToast(
       "棋局記錄已清除"
     );
-
   }
-
 
   /*
    * =========================================================
@@ -4041,7 +3411,6 @@
    */
 
   function saveActiveGame() {
-
     if (
       state.gameOver ||
       state.moves.length === 0
@@ -4050,7 +3419,6 @@
     }
 
     const data = {
-
       mode:
         state.mode,
 
@@ -4079,52 +3447,38 @@
 
       lastMove:
         state.lastMove
-
     };
 
     try {
-
       localStorage.setItem(
         CONFIG.STORAGE_GAME,
         JSON.stringify(
           data
         )
       );
-
     } catch {}
-
   }
 
-
   function clearActiveGame() {
-
     try {
-
       localStorage.removeItem(
         CONFIG.STORAGE_GAME
       );
-
     } catch {}
-
   }
 
-
   function checkResumeGame() {
-
     try {
-
       const raw =
         localStorage.getItem(
           CONFIG.STORAGE_GAME
         );
 
       if (!raw) {
-
         DOM.resumeCard.hidden =
           true;
 
         return;
-
       }
 
       const data =
@@ -4139,12 +3493,10 @@
         ) ||
         !data.moves.length
       ) {
-
         DOM.resumeCard.hidden =
           true;
 
         return;
-
       }
 
       const modeText =
@@ -4159,21 +3511,14 @@
 
       DOM.resumeCard.hidden =
         false;
-
     } catch {
-
       DOM.resumeCard.hidden =
         true;
-
     }
-
   }
 
-
   function resumeGame() {
-
     try {
-
       const raw =
         localStorage.getItem(
           CONFIG.STORAGE_GAME
@@ -4276,25 +3621,16 @@
         state.currentPlayer ===
           state.aiSide
       ) {
-
         scheduleAI();
-
       } else {
-
         updateAIOS(
           "thinking"
         );
-
       }
-
     } catch {
-
       clearActiveGame();
-
     }
-
   }
-
 
   /*
    * =========================================================
@@ -4303,20 +3639,17 @@
    */
 
   function syncSetupUI() {
-
     DOM.modeControl
       .querySelectorAll(
         "[data-mode]"
       )
       .forEach(
         button => {
-
           button.classList.toggle(
             "selected",
             button.dataset.mode ===
               state.mode
           );
-
         }
       );
 
@@ -4332,13 +3665,11 @@
       )
       .forEach(
         button => {
-
           button.classList.toggle(
             "selected",
             button.dataset.difficulty ===
               state.difficulty
           );
-
         }
       );
 
@@ -4348,13 +3679,11 @@
       )
       .forEach(
         button => {
-
           button.classList.toggle(
             "selected",
             button.dataset.character ===
               state.character
           );
-
         }
       );
 
@@ -4364,7 +3693,6 @@
       )
       .forEach(
         button => {
-
           button.classList.toggle(
             "selected",
             button.dataset.side ===
@@ -4375,12 +3703,9 @@
                   : "black"
               )
           );
-
         }
       );
-
   }
-
 
   /*
    * =========================================================
@@ -4389,9 +3714,7 @@
    */
 
   function loadSettings() {
-
     const defaults = {
-
       language:
         "zh-TW",
 
@@ -4403,11 +3726,9 @@
 
       theme:
         "system"
-
     };
 
     try {
-
       const raw =
         localStorage.getItem(
           CONFIG.STORAGE_SETTINGS
@@ -4421,34 +3742,23 @@
         ...defaults,
         ...JSON.parse(raw)
       };
-
     } catch {
-
       return defaults;
-
     }
-
   }
 
-
   function saveSettings() {
-
     try {
-
       localStorage.setItem(
         CONFIG.STORAGE_SETTINGS,
         JSON.stringify(
           state.settings
         )
       );
-
     } catch {}
-
   }
 
-
   function setupSettings() {
-
     DOM.soundToggle.checked =
       state.settings.sound;
 
@@ -4461,39 +3771,39 @@
     DOM.languageSelect.value =
       state.settings.language;
 
-
     DOM.soundToggle.addEventListener(
       "change",
       async () => {
-
         const enabled =
           DOM.soundToggle.checked;
 
-        setSoundEnabled(
-          enabled
-        );
-
-        if (enabled) {
-
-          audioUnlocked =
-            false;
-
-          await unlockAudio();
-
-          await playSFX(
-            SFX.toggleOn
+        if (!enabled) {
+          setSoundEnabled(
+            false
           );
 
+          return;
         }
 
+        setSoundEnabled(
+          true
+        );
+
+        /*
+         * This change event is itself a trusted
+         * user gesture, so unlock UI SFX here.
+         */
+        await unlockAudio();
+
+        await playSFX(
+          SFX.toggleOn
+        );
       }
     );
-
 
     DOM.motionToggle.addEventListener(
       "change",
       async () => {
-
         state.settings.motion =
           DOM.motionToggle.checked;
 
@@ -4506,15 +3816,12 @@
             ? SFX.select
             : SFX.press
         );
-
       }
     );
-
 
     DOM.themeSelect.addEventListener(
       "change",
       async () => {
-
         state.settings.theme =
           DOM.themeSelect.value;
 
@@ -4527,15 +3834,12 @@
         playSFX(
           SFX.select
         );
-
       }
     );
-
 
     DOM.languageSelect.addEventListener(
       "change",
       async () => {
-
         state.settings.language =
           DOM.languageSelect.value;
 
@@ -4550,48 +3854,37 @@
         showToast(
           "語言設定已儲存"
         );
-
       }
     );
 
-
     applyTheme();
-
   }
 
-
   function applyTheme() {
-
     const theme =
       state.settings.theme;
 
     if (
       theme === "dark"
     ) {
-
       document.documentElement.dataset.theme =
         "dark";
 
       return;
-
     }
 
     if (
       theme === "light"
     ) {
-
       document.documentElement.dataset.theme =
         "light";
 
       return;
-
     }
 
     document.documentElement.dataset.theme =
       "system";
-
   }
-
 
   /*
    * =========================================================
@@ -4602,11 +3895,7 @@
   let toastTimer =
     null;
 
-
-  function showToast(
-    message
-  ) {
-
+  function showToast(message) {
     DOM.toast.textContent =
       message;
 
@@ -4621,17 +3910,13 @@
     toastTimer =
       window.setTimeout(
         () => {
-
           DOM.toast.classList.remove(
             "visible"
           );
-
         },
         1800
       );
-
   }
-
 
   /*
    * =========================================================
@@ -4642,11 +3927,9 @@
   let resizeTimer =
     null;
 
-
   window.addEventListener(
     "resize",
     () => {
-
       clearTimeout(
         resizeTimer
       );
@@ -4654,36 +3937,27 @@
       resizeTimer =
         window.setTimeout(
           () => {
-
             if (
               state.screen ===
               "game"
             ) {
-
               resizeCanvas();
-
             }
-
           },
           80
         );
-
     }
   );
-
 
   window.addEventListener(
     "orientationchange",
     () => {
-
       window.setTimeout(
         resizeCanvas,
         150
       );
-
     }
   );
-
 
   /*
    * =========================================================
@@ -4692,7 +3966,6 @@
    */
 
   function registerServiceWorker() {
-
     if (
       !("serviceWorker" in navigator)
     ) {
@@ -4702,7 +3975,6 @@
     window.addEventListener(
       "load",
       () => {
-
         navigator.serviceWorker
           .register(
             "./sw.js",
@@ -4713,12 +3985,9 @@
           .catch(
             () => {}
           );
-
       }
     );
-
   }
-
 
   /*
    * =========================================================
@@ -4726,17 +3995,12 @@
    * =========================================================
    */
 
-  function opponent(
-    player
-  ) {
-
+  function opponent(player) {
     return player ===
       CONFIG.BLACK
       ? CONFIG.WHITE
       : CONFIG.BLACK;
-
   }
-
 
   /*
    * =========================================================
@@ -4745,7 +4009,6 @@
    */
 
   function init() {
-
     setupNavigation();
 
     setupGameOptions();
@@ -4757,59 +4020,69 @@
     if (
       DOM.clearRecordsButton
     ) {
-
       DOM.clearRecordsButton
         .addEventListener(
           "click",
           async () => {
-
             await unlockAudio();
 
             clearRecords();
-
           }
         );
-
     }
 
     /*
-     * First real user interaction.
+     * First trusted interaction.
      *
-     * This is especially important on iPad/iPhone Safari.
+     * UI SFX officially recommends unlocking from
+     * the first trusted pointer or keyboard action.
+     *
+     * We do not create our own AudioContext.
      */
+
     const unlockEvents = [
       "pointerdown",
       "keydown"
     ];
 
+    let globalUnlocking =
+      false;
+
     const unlockOnce =
       async () => {
+        if (
+          globalUnlocking
+        ) {
+          return;
+        }
 
-        await unlockAudio();
+        globalUnlocking =
+          true;
+
+        try {
+          await unlockAudio();
+        } finally {
+          globalUnlocking =
+            false;
+        }
 
         if (
-          audioUnlocked ||
+          audioInitialized ||
           !state.settings.sound
         ) {
-
           unlockEvents.forEach(
             eventName => {
-
               document.removeEventListener(
                 eventName,
                 unlockOnce
               );
-
             }
           );
-
         }
-
       };
 
     unlockEvents.forEach(
       eventName => {
-
         document.addEventListener(
           eventName,
           unlockOnce,
@@ -4817,7 +4090,6 @@
             passive: true
           }
         );
-
       }
     );
 
@@ -4830,9 +4102,7 @@
     updateTurnUI();
 
     registerServiceWorker();
-
   }
-
 
   init();
 
