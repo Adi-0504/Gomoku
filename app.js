@@ -1,10 +1,29 @@
-/*
- * =========================================================
- * GOMOKU 1.0
- * Canvas Gomoku + Local PvP + AI Worker + AI OS
- * Offline / PWA / i18n / Statistics / Resume
- * =========================================================
- */
+/* =========================================================
+   GOMOKU
+   Complete client-side game controller
+   No backend
+   Compatible with:
+   - index.html
+   - style.css
+   - ai-worker.js
+   - manifest.webmanifest
+
+   Modes:
+   - AI
+   - Local 2 Player
+
+   Features:
+   - Responsive Canvas
+   - AI characters
+   - AI OS
+   - Statistics
+   - Undo
+   - Resume
+   - i18n
+   - Settings
+   - Sound
+   - Motion
+   ========================================================= */
 
 (() => {
   "use strict";
@@ -21,55 +40,40 @@
     BLACK: 1,
     WHITE: 2,
 
-    STORAGE_KEY: "gomoku-stats-v3",
+    STORAGE_KEY: "gomoku-game-data-v3",
     SETTINGS_KEY: "gomoku-settings-v3",
-    GAME_SAVE_KEY: "gomoku-current-game-v3",
+    SAVE_KEY: "gomoku-current-game-v3",
 
     AI_WORKER: "./ai-worker.js",
 
-    LANGUAGES: ["zh-TW", "zh-CN", "en", "ja", "ko"],
+    THINKING_MIN: 420,
+    THINKING_MAX: 1200,
+
+    BOARD_PADDING: 0.075,
 
     COLORS: {
-      board: "#d7b77c",
-      grid: "rgba(54, 38, 20, .68)",
+      board: "#e8d5ad",
+      grid: "#765f43",
       star: "#5e4934",
+
       black: "#171717",
-      blackHighlight: "#505050",
+      blackHighlight: "#444444",
+
       white: "#f7f3e9",
       whiteShadow: "#c9c1b3",
+
       lastMove: "#b86f52",
       winning: "#d46d52"
     }
   };
 
-  const DIFFICULTIES = {
-    easy: {
-      depth: 1,
-      radius: 2,
-      randomTop: 4,
-      delay: 360
-    },
-
-    normal: {
-      depth: 2,
-      radius: 2,
-      randomTop: 2,
-      delay: 560
-    },
-
-    hard: {
-      depth: 3,
-      radius: 2,
-      randomTop: 0,
-      delay: 760
-    }
-  };
 
   /* =========================================================
      AI CHARACTERS
      ========================================================= */
 
   const AI_CHARACTERS = {
+
     mio: {
       id: "mio",
 
@@ -89,7 +93,11 @@
         ko: "차분한 수비형"
       },
 
-      style: "defense",
+      worker: {
+        depth: 1,
+        radius: 2,
+        randomTop: 3
+      },
 
       os: {
         thinking: [
@@ -130,6 +138,7 @@
       }
     },
 
+
     rin: {
       id: "rin",
 
@@ -149,7 +158,11 @@
         ko: "공격적인 타입"
       },
 
-      style: "attack",
+      worker: {
+        depth: 2,
+        radius: 2,
+        randomTop: 2
+      },
 
       os: {
         thinking: [
@@ -190,6 +203,7 @@
       }
     },
 
+
     sora: {
       id: "sora",
 
@@ -209,7 +223,11 @@
         ko: "차분한 밸런스형"
       },
 
-      style: "balanced",
+      worker: {
+        depth: 2,
+        radius: 2,
+        randomTop: 1
+      },
 
       os: {
         thinking: [
@@ -250,6 +268,7 @@
       }
     },
 
+
     kuro: {
       id: "kuro",
 
@@ -269,7 +288,11 @@
         ko: "신비로운 전략형"
       },
 
-      style: "tricky",
+      worker: {
+        depth: 2,
+        radius: 2,
+        randomTop: 2
+      },
 
       os: {
         thinking: [
@@ -310,6 +333,7 @@
       }
     },
 
+
     nagi: {
       id: "nagi",
 
@@ -329,7 +353,11 @@
         ko: "정밀한 반격형"
       },
 
-      style: "counter",
+      worker: {
+        depth: 3,
+        radius: 2,
+        randomTop: 1
+      },
 
       os: {
         thinking: [
@@ -370,6 +398,7 @@
       }
     },
 
+
     rei: {
       id: "rei",
 
@@ -389,7 +418,11 @@
         ko: "조용한 고수형"
       },
 
-      style: "master",
+      worker: {
+        depth: 3,
+        radius: 2,
+        randomTop: 0
+      },
 
       os: {
         thinking: [
@@ -429,390 +462,303 @@
         ]
       }
     }
+
   };
+
 
   /* =========================================================
      I18N
      ========================================================= */
 
   const I18N = {
+
     "zh-TW": {
-      title: "五子棋",
-      subtitle: "簡單的規則，沒有簡單的棋局。",
-      start: "開始遊戲",
-      records: "棋局記錄",
-      settings: "設定",
-      resume: "繼續",
-      unfinished: "未完成棋局",
+      "app.title": "五子棋",
+      "home.subtitle": "簡單的規則，沒有簡單的棋局。",
+      "home.start": "開始遊戲",
+      "home.records": "棋局記錄",
+      "home.settings": "設定",
+      "home.resumeLabel": "未完成棋局",
+      "home.resume": "繼續",
 
-      setup: "開始遊戲",
-      mode: "對戰方式",
-      ai: "人機",
-      local: "雙人",
-      difficulty: "難度",
-      easy: "初級",
-      normal: "中級",
-      hard: "高級",
-      easyDesc: "適合第一次玩",
-      normalDesc: "開始認真下棋",
-      hardDesc: "需要真正思考",
-      side: "你的棋子",
-      black: "黑棋",
-      white: "白棋",
-      first: "先手",
-      second: "後手",
-      begin: "開始",
+      "setup.title": "開始遊戲",
+      "setup.mode": "對戰方式",
+      "setup.ai": "人機",
+      "setup.local": "雙人",
+      "setup.difficulty": "難度",
+      "setup.side": "你的棋子",
+      "setup.begin": "開始",
 
-      thinking: "思考中",
-      yourTurn: "你的回合",
-      player1Turn: "玩家 1 的回合",
-      player2Turn: "玩家 2 的回合",
-      aiTurn: "回合",
-      undo: "悔棋",
-      restart: "重新開始",
-      menu: "選單",
+      "difficulty.easy": "初級",
+      "difficulty.easyDescription": "適合第一次玩",
+      "difficulty.normal": "中級",
+      "difficulty.normalDescription": "開始認真下棋",
+      "difficulty.hard": "高級",
+      "difficulty.hardDescription": "需要真正思考",
 
-      again: "再來一局",
-      home: "返回首頁",
-      win: "你贏了",
-      lose: "你輸了",
-      draw: "平局",
-      player1Win: "玩家 1 獲勝",
-      player2Win: "玩家 2 獲勝",
+      "side.black": "黑棋",
+      "side.white": "白棋",
+      "side.first": "先手",
+      "side.second": "後手",
 
-      games: "對局",
-      wins: "勝利",
-      losses: "失敗",
-      draws: "平局",
-      clear: "清除記錄",
-      noRecords: "目前還沒有棋局記錄。",
+      "game.thinking": "思考中",
+      "game.undo": "悔棋",
+      "game.restart": "重新開始",
+      "game.menu": "選單",
 
-      language: "語言",
-      languageDesc: "選擇介面語言",
-      sound: "音效",
-      soundDesc: "落子與遊戲音效",
-      motion: "動畫",
-      motionDesc: "啟用遊戲動畫",
-      theme: "外觀",
-      themeDesc: "使用系統外觀",
+      "result.again": "再來一局",
+      "result.home": "返回首頁",
 
-      playerWinDesc: "你成功擊敗了 {name}。",
-      playerLoseDesc: "{name} 贏下了這一局。",
-      localWinDesc: "{player} 完成了五連。",
-      drawDesc: "棋盤已經沒有可以落子的地方。",
-      resumedAI: "對戰 {name}",
-      resumedLocal: "雙人對戰",
+      "records.title": "棋局記錄",
+      "records.games": "對局",
+      "records.wins": "勝利",
+      "records.losses": "失敗",
+      "records.draws": "和局",
+      "records.clear": "清除記錄",
 
-      os: "OS",
-      recordWin: "勝利",
-      recordLoss: "失敗",
-      recordDraw: "平局",
-      recordLocal: "雙人",
-
-      restarted: "棋局已重新開始",
-      cannotUndo: "現在不能悔棋",
-      aiThinking: "AI 正在思考",
-      saved: "棋局已保存",
-      recordsCleared: "記錄已清除"
+      "settings.title": "設定",
+      "settings.language": "語言",
+      "settings.languageDescription": "選擇介面語言",
+      "settings.sound": "音效",
+      "settings.soundDescription": "落子與遊戲音效",
+      "settings.motion": "動畫",
+      "settings.motionDescription": "啟用遊戲動畫",
+      "settings.theme": "外觀",
+      "settings.themeDescription": "使用系統外觀"
     },
+
 
     "zh-CN": {
-      title: "五子棋",
-      subtitle: "简单的规则，没有简单的棋局。",
-      start: "开始游戏",
-      records: "棋局记录",
-      settings: "设置",
-      resume: "继续",
-      unfinished: "未完成棋局",
-      setup: "开始游戏",
-      mode: "对战方式",
-      ai: "人机",
-      local: "双人",
-      difficulty: "难度",
-      easy: "初级",
-      normal: "中级",
-      hard: "高级",
-      easyDesc: "适合第一次玩",
-      normalDesc: "开始认真下棋",
-      hardDesc: "需要真正思考",
-      side: "你的棋子",
-      black: "黑棋",
-      white: "白棋",
-      first: "先手",
-      second: "后手",
-      begin: "开始",
-      thinking: "思考中",
-      yourTurn: "你的回合",
-      player1Turn: "玩家 1 的回合",
-      player2Turn: "玩家 2 的回合",
-      aiTurn: "回合",
-      undo: "悔棋",
-      restart: "重新开始",
-      menu: "菜单",
-      again: "再来一局",
-      home: "返回首页",
-      win: "你赢了",
-      lose: "你输了",
-      draw: "平局",
-      player1Win: "玩家 1 获胜",
-      player2Win: "玩家 2 获胜",
-      games: "对局",
-      wins: "胜利",
-      losses: "失败",
-      draws: "平局",
-      clear: "清除记录",
-      noRecords: "目前还没有棋局记录。",
-      language: "语言",
-      languageDesc: "选择界面语言",
-      sound: "音效",
-      soundDesc: "落子与游戏音效",
-      motion: "动画",
-      motionDesc: "启用游戏动画",
-      theme: "外观",
-      themeDesc: "使用系统外观",
-      playerWinDesc: "你成功击败了 {name}。",
-      playerLoseDesc: "{name} 赢下了这一局。",
-      localWinDesc: "{player} 完成了五连。",
-      drawDesc: "棋盘已经没有可以落子的地方。",
-      resumedAI: "对战 {name}",
-      resumedLocal: "双人对战",
-      os: "OS",
-      recordWin: "胜利",
-      recordLoss: "失败",
-      recordDraw: "平局",
-      recordLocal: "双人",
-      restarted: "棋局已重新开始",
-      cannotUndo: "现在不能悔棋",
-      aiThinking: "AI 正在思考",
-      saved: "棋局已保存",
-      recordsCleared: "记录已清除"
+      "app.title": "五子棋",
+      "home.subtitle": "简单的规则，没有简单的棋局。",
+      "home.start": "开始游戏",
+      "home.records": "棋局记录",
+      "home.settings": "设置",
+      "home.resumeLabel": "未完成棋局",
+      "home.resume": "继续",
+
+      "setup.title": "开始游戏",
+      "setup.mode": "对战方式",
+      "setup.ai": "人机",
+      "setup.local": "双人",
+      "setup.difficulty": "难度",
+      "setup.side": "你的棋子",
+      "setup.begin": "开始",
+
+      "difficulty.easy": "初级",
+      "difficulty.easyDescription": "适合第一次玩",
+      "difficulty.normal": "中级",
+      "difficulty.normalDescription": "开始认真下棋",
+      "difficulty.hard": "高级",
+      "difficulty.hardDescription": "需要真正思考",
+
+      "side.black": "黑棋",
+      "side.white": "白棋",
+      "side.first": "先手",
+      "side.second": "后手",
+
+      "game.thinking": "思考中",
+      "game.undo": "悔棋",
+      "game.restart": "重新开始",
+      "game.menu": "选单",
+
+      "result.again": "再来一局",
+      "result.home": "返回首页",
+
+      "records.title": "棋局记录",
+      "records.games": "对局",
+      "records.wins": "胜利",
+      "records.losses": "失败",
+      "records.draws": "和局",
+      "records.clear": "清除记录",
+
+      "settings.title": "设置",
+      "settings.language": "语言",
+      "settings.languageDescription": "选择界面语言",
+      "settings.sound": "音效",
+      "settings.soundDescription": "落子与游戏音效",
+      "settings.motion": "动画",
+      "settings.motionDescription": "启用游戏动画",
+      "settings.theme": "外观",
+      "settings.themeDescription": "使用系统外观"
     },
+
 
     en: {
-      title: "Gomoku",
-      subtitle: "Simple rules. Never simple games.",
-      start: "Start Game",
-      records: "Records",
-      settings: "Settings",
-      resume: "Resume",
-      unfinished: "Unfinished game",
-      setup: "New Game",
-      mode: "Game Mode",
-      ai: "VS AI",
-      local: "Two Players",
-      difficulty: "Difficulty",
-      easy: "Easy",
-      normal: "Normal",
-      hard: "Hard",
-      easyDesc: "Good for a first game",
-      normalDesc: "Time to think",
-      hardDesc: "A real challenge",
-      side: "Your Stone",
-      black: "Black",
-      white: "White",
-      first: "First",
-      second: "Second",
-      begin: "Begin",
-      thinking: "Thinking",
-      yourTurn: "Your turn",
-      player1Turn: "Player 1's turn",
-      player2Turn: "Player 2's turn",
-      aiTurn: "Turn",
-      undo: "Undo",
-      restart: "Restart",
-      menu: "Menu",
-      again: "Play Again",
-      home: "Home",
-      win: "You Win",
-      lose: "You Lose",
-      draw: "Draw",
-      player1Win: "Player 1 Wins",
-      player2Win: "Player 2 Wins",
-      games: "Games",
-      wins: "Wins",
-      losses: "Losses",
-      draws: "Draws",
-      clear: "Clear Records",
-      noRecords: "No games recorded yet.",
-      language: "Language",
-      languageDesc: "Choose interface language",
-      sound: "Sound",
-      soundDesc: "Stone and game sounds",
-      motion: "Motion",
-      motionDesc: "Enable game animations",
-      theme: "Appearance",
-      themeDesc: "Use system appearance",
-      playerWinDesc: "You defeated {name}.",
-      playerLoseDesc: "{name} won this game.",
-      localWinDesc: "{player} completed five in a row.",
-      drawDesc: "There are no empty intersections left.",
-      resumedAI: "VS {name}",
-      resumedLocal: "Two-player game",
-      os: "OS",
-      recordWin: "Win",
-      recordLoss: "Loss",
-      recordDraw: "Draw",
-      recordLocal: "Two Players",
-      restarted: "Game restarted",
-      cannotUndo: "Undo is not available now",
-      aiThinking: "AI is thinking",
-      saved: "Game saved",
-      recordsCleared: "Records cleared"
+      "app.title": "Gomoku",
+      "home.subtitle": "Simple rules. Never simple games.",
+      "home.start": "Start Game",
+      "home.records": "Records",
+      "home.settings": "Settings",
+      "home.resumeLabel": "Unfinished Game",
+      "home.resume": "Resume",
+
+      "setup.title": "Start Game",
+      "setup.mode": "Game Mode",
+      "setup.ai": "vs AI",
+      "setup.local": "2 Players",
+      "setup.difficulty": "Difficulty",
+      "setup.side": "Your Stone",
+      "setup.begin": "Begin",
+
+      "difficulty.easy": "Easy",
+      "difficulty.easyDescription": "Good for beginners",
+      "difficulty.normal": "Normal",
+      "difficulty.normalDescription": "A serious game",
+      "difficulty.hard": "Hard",
+      "difficulty.hardDescription": "Think carefully",
+
+      "side.black": "Black",
+      "side.white": "White",
+      "side.first": "First",
+      "side.second": "Second",
+
+      "game.thinking": "Thinking",
+      "game.undo": "Undo",
+      "game.restart": "Restart",
+      "game.menu": "Menu",
+
+      "result.again": "Play Again",
+      "result.home": "Home",
+
+      "records.title": "Records",
+      "records.games": "Games",
+      "records.wins": "Wins",
+      "records.losses": "Losses",
+      "records.draws": "Draws",
+      "records.clear": "Clear Records",
+
+      "settings.title": "Settings",
+      "settings.language": "Language",
+      "settings.languageDescription": "Interface language",
+      "settings.sound": "Sound",
+      "settings.soundDescription": "Game sounds",
+      "settings.motion": "Motion",
+      "settings.motionDescription": "Enable animations",
+      "settings.theme": "Appearance",
+      "settings.themeDescription": "Use system appearance"
     },
+
 
     ja: {
-      title: "五目並べ",
-      subtitle: "ルールは簡単。でも、対局は簡単じゃない。",
-      start: "ゲーム開始",
-      records: "対局記録",
-      settings: "設定",
-      resume: "続ける",
-      unfinished: "途中の対局",
-      setup: "ゲーム開始",
-      mode: "対戦方式",
-      ai: "AI対戦",
-      local: "2人対戦",
-      difficulty: "難易度",
-      easy: "初級",
-      normal: "中級",
-      hard: "上級",
-      easyDesc: "はじめての人向け",
-      normalDesc: "少し本気で",
-      hardDesc: "本気の対戦",
-      side: "あなたの石",
-      black: "黒",
-      white: "白",
-      first: "先手",
-      second: "後手",
-      begin: "開始",
-      thinking: "考え中",
-      yourTurn: "あなたの番",
-      player1Turn: "プレイヤー1の番",
-      player2Turn: "プレイヤー2の番",
-      aiTurn: "番",
-      undo: "待った",
-      restart: "最初から",
-      menu: "メニュー",
-      again: "もう一度",
-      home: "ホーム",
-      win: "勝ち",
-      lose: "負け",
-      draw: "引き分け",
-      player1Win: "プレイヤー1の勝ち",
-      player2Win: "プレイヤー2の勝ち",
-      games: "対局",
-      wins: "勝ち",
-      losses: "負け",
-      draws: "引き分け",
-      clear: "記録を消去",
-      noRecords: "まだ対局記録がありません。",
-      language: "言語",
-      languageDesc: "表示言語を選択",
-      sound: "サウンド",
-      soundDesc: "石とゲームの音",
-      motion: "アニメーション",
-      motionDesc: "ゲームアニメーション",
-      theme: "外観",
-      themeDesc: "システム設定を使用",
-      playerWinDesc: "{name}に勝ちました。",
-      playerLoseDesc: "{name}の勝ちです。",
-      localWinDesc: "{player}が五連を完成しました。",
-      drawDesc: "置ける場所がなくなりました。",
-      resumedAI: "{name}と対戦",
-      resumedLocal: "2人対戦",
-      os: "OS",
-      recordWin: "勝ち",
-      recordLoss: "負け",
-      recordDraw: "引き分け",
-      recordLocal: "2人対戦",
-      restarted: "対局を再開しました",
-      cannotUndo: "今は待ったできません",
-      aiThinking: "AIが考えています",
-      saved: "対局を保存しました",
-      recordsCleared: "記録を消去しました"
+      "app.title": "五目並べ",
+      "home.subtitle": "簡単なルール。でも、簡単な勝負じゃない。",
+      "home.start": "ゲーム開始",
+      "home.records": "対戦記録",
+      "home.settings": "設定",
+      "home.resumeLabel": "途中のゲーム",
+      "home.resume": "続ける",
+
+      "setup.title": "ゲーム開始",
+      "setup.mode": "対戦モード",
+      "setup.ai": "AI対戦",
+      "setup.local": "2人対戦",
+      "setup.difficulty": "難易度",
+      "setup.side": "あなたの石",
+      "setup.begin": "開始",
+
+      "difficulty.easy": "初級",
+      "difficulty.easyDescription": "初めてでも安心",
+      "difficulty.normal": "中級",
+      "difficulty.normalDescription": "しっかり対戦",
+      "difficulty.hard": "上級",
+      "difficulty.hardDescription": "よく考えて",
+
+      "side.black": "黒",
+      "side.white": "白",
+      "side.first": "先手",
+      "side.second": "後手",
+
+      "game.thinking": "考え中",
+      "game.undo": "待った",
+      "game.restart": "再スタート",
+      "game.menu": "メニュー",
+
+      "result.again": "もう一度",
+      "result.home": "ホーム",
+
+      "records.title": "対戦記録",
+      "records.games": "対局",
+      "records.wins": "勝ち",
+      "records.losses": "負け",
+      "records.draws": "引き分け",
+      "records.clear": "記録を消去",
+
+      "settings.title": "設定",
+      "settings.language": "言語",
+      "settings.languageDescription": "表示言語",
+      "settings.sound": "サウンド",
+      "settings.soundDescription": "ゲームサウンド",
+      "settings.motion": "アニメーション",
+      "settings.motionDescription": "アニメーションを有効にする",
+      "settings.theme": "外観",
+      "settings.themeDescription": "システム設定を使用"
     },
 
+
     ko: {
-      title: "오목",
-      subtitle: "규칙은 간단하지만, 승부는 간단하지 않습니다.",
-      start: "게임 시작",
-      records: "대국 기록",
-      settings: "설정",
-      resume: "계속하기",
-      unfinished: "진행 중인 대국",
-      setup: "게임 시작",
-      mode: "대전 방식",
-      ai: "AI 대전",
-      local: "2인 대전",
-      difficulty: "난이도",
-      easy: "초급",
-      normal: "중급",
-      hard: "고급",
-      easyDesc: "처음 플레이하기 좋음",
-      normalDesc: "진지하게 시작",
-      hardDesc: "진짜 도전",
-      side: "내 돌",
-      black: "흑",
-      white: "백",
-      first: "선공",
-      second: "후공",
-      begin: "시작",
-      thinking: "생각 중",
-      yourTurn: "내 차례",
-      player1Turn: "플레이어 1 차례",
-      player2Turn: "플레이어 2 차례",
-      aiTurn: "차례",
-      undo: "무르기",
-      restart: "다시 시작",
-      menu: "메뉴",
-      again: "다시 하기",
-      home: "홈",
-      win: "승리",
-      lose: "패배",
-      draw: "무승부",
-      player1Win: "플레이어 1 승리",
-      player2Win: "플레이어 2 승리",
-      games: "대국",
-      wins: "승리",
-      losses: "패배",
-      draws: "무승부",
-      clear: "기록 삭제",
-      noRecords: "아직 대국 기록이 없습니다.",
-      language: "언어",
-      languageDesc: "표시 언어 선택",
-      sound: "소리",
-      soundDesc: "돌과 게임 효과음",
-      motion: "애니메이션",
-      motionDesc: "게임 애니메이션 사용",
-      theme: "외관",
-      themeDesc: "시스템 설정 사용",
-      playerWinDesc: "{name}에게 승리했습니다.",
-      playerLoseDesc: "{name}이 승리했습니다.",
-      localWinDesc: "{player}가 오목을 완성했습니다.",
-      drawDesc: "놓을 수 있는 곳이 없습니다.",
-      resumedAI: "{name}와 대전",
-      resumedLocal: "2인 대전",
-      os: "OS",
-      recordWin: "승리",
-      recordLoss: "패배",
-      recordDraw: "무승부",
-      recordLocal: "2인 대전",
-      restarted: "대국을 다시 시작했습니다",
-      cannotUndo: "지금은 무를 수 없습니다",
-      aiThinking: "AI가 생각하고 있습니다",
-      saved: "대국을 저장했습니다",
-      recordsCleared: "기록을 삭제했습니다"
+      "app.title": "오목",
+      "home.subtitle": "간단한 규칙. 하지만 간단하지 않은 승부.",
+      "home.start": "게임 시작",
+      "home.records": "전적",
+      "home.settings": "설정",
+      "home.resumeLabel": "진행 중인 게임",
+      "home.resume": "계속",
+
+      "setup.title": "게임 시작",
+      "setup.mode": "게임 모드",
+      "setup.ai": "AI 대전",
+      "setup.local": "2인 대전",
+      "setup.difficulty": "난이도",
+      "setup.side": "내 돌",
+      "setup.begin": "시작",
+
+      "difficulty.easy": "초급",
+      "difficulty.easyDescription": "처음이라면 추천",
+      "difficulty.normal": "중급",
+      "difficulty.normalDescription": "진지한 대국",
+      "difficulty.hard": "고급",
+      "difficulty.hardDescription": "신중하게 생각하세요",
+
+      "side.black": "흑",
+      "side.white": "백",
+      "side.first": "선공",
+      "side.second": "후공",
+
+      "game.thinking": "생각 중",
+      "game.undo": "무르기",
+      "game.restart": "다시 시작",
+      "game.menu": "메뉴",
+
+      "result.again": "다시 플레이",
+      "result.home": "홈",
+
+      "records.title": "전적",
+      "records.games": "대국",
+      "records.wins": "승리",
+      "records.losses": "패배",
+      "records.draws": "무승부",
+      "records.clear": "기록 삭제",
+
+      "settings.title": "설정",
+      "settings.language": "언어",
+      "settings.languageDescription": "인터페이스 언어",
+      "settings.sound": "효과음",
+      "settings.soundDescription": "게임 효과음",
+      "settings.motion": "애니메이션",
+      "settings.motionDescription": "애니메이션 사용",
+      "settings.theme": "테마",
+      "settings.themeDescription": "시스템 설정 사용"
     }
+
   };
+
 
   /* =========================================================
      STATE
      ========================================================= */
 
   let board = createBoard();
-
-  let gameId = createId();
-  let boardVersion = 0;
 
   let currentPlayer = CONFIG.BLACK;
 
@@ -822,27 +768,32 @@
   let selectedMode = "ai";
   let selectedAI = "sora";
   let selectedDifficulty = "normal";
-  let playerSide = "black";
+
+  let playerSide = CONFIG.BLACK;
 
   let moveHistory = [];
-  let winningLine = [];
   let lastMove = null;
+  let winningLine = [];
 
   let worker = null;
-  let activeWorkerRequest = null;
+  let workerRequestId = 0;
+
+  let stats = loadStats();
+  let settings = loadSettings();
+
+  let audioContext = null;
 
   let canvas = null;
   let ctx = null;
-  let boardSizePx = 0;
-  let cellSize = 0;
-  let boardOrigin = 0;
-  let resizeFrame = 0;
 
-  let toastTimer = null;
-  let audioContext = null;
+  let boardMetrics = {
+    size: 0,
+    padding: 0,
+    cell: 0
+  };
 
-  let settings = loadSettings();
-  let stats = loadStats();
+  let aiPanel = null;
+
 
   /* =========================================================
      DOM
@@ -851,756 +802,892 @@
   const DOM = {};
 
   function cacheDOM() {
-    DOM.homeScreen = $("#homeScreen");
-    DOM.setupScreen = $("#setupScreen");
-    DOM.gameScreen = $("#gameScreen");
-    DOM.resultScreen = $("#resultScreen");
-    DOM.recordsScreen = $("#recordsScreen");
-    DOM.settingsScreen = $("#settingsScreen");
+    DOM.homeScreen =
+      document.querySelector("#homeScreen");
 
-    DOM.startButton = $("#startButton");
-    DOM.recordsButton = $("#recordsButton");
-    DOM.settingsButton = $("#settingsButton");
-    DOM.beginGameButton = $("#beginGameButton");
+    DOM.setupScreen =
+      document.querySelector("#setupScreen");
 
-    DOM.modeControl = $("#modeControl");
-    DOM.difficultyGroup = $("#difficultyGroup");
+    DOM.gameScreen =
+      document.querySelector("#gameScreen");
 
-    DOM.undoButton = $("#undoButton");
-    DOM.restartButton = $("#restartButton");
-    DOM.gameMenuButton = $("#gameMenuButton");
+    DOM.resultScreen =
+      document.querySelector("#resultScreen");
 
-    DOM.playAgainButton = $("#playAgainButton");
-    DOM.resultHomeButton = $("#resultHomeButton");
+    DOM.recordsScreen =
+      document.querySelector("#recordsScreen");
 
-    DOM.clearRecordsButton = $("#clearRecordsButton");
+    DOM.settingsScreen =
+      document.querySelector("#settingsScreen");
 
-    DOM.languageSelect = $("#languageSelect");
-    DOM.soundToggle = $("#soundToggle");
-    DOM.motionToggle = $("#motionToggle");
-    DOM.themeSelect = $("#themeSelect");
+    DOM.startButton =
+      document.querySelector("#startButton");
 
-    DOM.turnStone = $("#turnStone");
-    DOM.turnLabel = $("#turnLabel");
-    DOM.turnPlayer = $("#turnPlayer");
-    DOM.thinkingIndicator = $("#thinkingIndicator");
+    DOM.recordsButton =
+      document.querySelector("#recordsButton");
 
-    DOM.resultMark = $("#resultMark");
-    DOM.resultKicker = $("#resultKicker");
-    DOM.resultTitle = $("#resultTitle");
-    DOM.resultDescription = $("#resultDescription");
+    DOM.settingsButton =
+      document.querySelector("#settingsButton");
 
-    DOM.statGames = $("#statGames");
-    DOM.statWins = $("#statWins");
-    DOM.statLosses = $("#statLosses");
-    DOM.statDraws = $("#statDraws");
-    DOM.recordList = $("#recordList");
+    DOM.beginGameButton =
+      document.querySelector("#beginGameButton");
 
-    DOM.resumeCard = $("#resumeCard");
-    DOM.resumeText = $("#resumeText");
-    DOM.resumeButton = $("#resumeButton");
+    DOM.modeControl =
+      document.querySelector("#modeControl");
 
-    DOM.backButton = $("#backButton");
-    DOM.menuButton = $("#menuButton");
+    DOM.difficultyGroup =
+      document.querySelector("#difficultyGroup");
 
-    canvas = $("#boardCanvas");
+    DOM.undoButton =
+      document.querySelector("#undoButton");
 
-    if (canvas) {
-      ctx = canvas.getContext("2d", {
-        alpha: false
-      });
-    }
+    DOM.restartButton =
+      document.querySelector("#restartButton");
+
+    DOM.gameMenuButton =
+      document.querySelector("#gameMenuButton");
+
+    DOM.playAgainButton =
+      document.querySelector("#playAgainButton");
+
+    DOM.resultHomeButton =
+      document.querySelector("#resultHomeButton");
+
+    DOM.clearRecordsButton =
+      document.querySelector("#clearRecordsButton");
+
+    DOM.languageSelect =
+      document.querySelector("#languageSelect");
+
+    DOM.soundToggle =
+      document.querySelector("#soundToggle");
+
+    DOM.motionToggle =
+      document.querySelector("#motionToggle");
+
+    DOM.themeSelect =
+      document.querySelector("#themeSelect");
+
+    DOM.turnStone =
+      document.querySelector("#turnStone");
+
+    DOM.turnLabel =
+      document.querySelector("#turnLabel");
+
+    DOM.turnPlayer =
+      document.querySelector("#turnPlayer");
+
+    DOM.thinkingIndicator =
+      document.querySelector("#thinkingIndicator");
+
+    DOM.resultMark =
+      document.querySelector("#resultMark");
+
+    DOM.resultKicker =
+      document.querySelector("#resultKicker");
+
+    DOM.resultTitle =
+      document.querySelector("#resultTitle");
+
+    DOM.resultDescription =
+      document.querySelector("#resultDescription");
+
+    DOM.statGames =
+      document.querySelector("#statGames");
+
+    DOM.statWins =
+      document.querySelector("#statWins");
+
+    DOM.statLosses =
+      document.querySelector("#statLosses");
+
+    DOM.statDraws =
+      document.querySelector("#statDraws");
+
+    DOM.recordList =
+      document.querySelector("#recordList");
+
+    DOM.resumeCard =
+      document.querySelector("#resumeCard");
+
+    DOM.resumeText =
+      document.querySelector("#resumeText");
+
+    DOM.resumeButton =
+      document.querySelector("#resumeButton");
+
+    DOM.toast =
+      document.querySelector("#toast");
+
+    canvas =
+      document.querySelector("#boardCanvas");
+
+    ctx =
+      canvas?.getContext("2d");
+
+    createGamePanel();
   }
 
-  function $(selector) {
-    return document.querySelector(selector);
-  }
 
   /* =========================================================
-     INIT
+     BOARD
      ========================================================= */
 
-  function init() {
-    cacheDOM();
+  function createBoard() {
+    return Array.from(
+      {
+        length: CONFIG.BOARD_SIZE
+      },
+      () =>
+        Array(CONFIG.BOARD_SIZE)
+          .fill(CONFIG.EMPTY)
+    );
+  }
 
-    injectRuntimeStyles();
-    setupNavigation();
-    setupSetupControls();
-    setupGameControls();
-    setupSettingsControls();
-    setupCanvas();
 
-    applySettings();
-    createWorker();
+  function cloneBoard(source) {
+    return source.map(row => row.slice());
+  }
 
-    renderStats();
-    updateSetupUI();
-    updateTurnUI();
-    checkResumeGame();
 
-    registerServiceWorker();
+  function isInside(row, col) {
+    return (
+      row >= 0 &&
+      row < CONFIG.BOARD_SIZE &&
+      col >= 0 &&
+      col < CONFIG.BOARD_SIZE
+    );
+  }
+
+
+  function opponent(player) {
+    return player === CONFIG.BLACK
+      ? CONFIG.WHITE
+      : CONFIG.BLACK;
+  }
+
+
+  /* =========================================================
+     CANVAS
+     ========================================================= */
+
+  function setupCanvas() {
+    if (!canvas || !ctx) return;
+
+    resizeCanvas();
 
     window.addEventListener(
       "resize",
-      scheduleResize,
-      { passive: true }
+      debounce(resizeCanvas, 80),
+      {
+        passive: true
+      }
     );
 
     window.addEventListener(
       "orientationchange",
-      scheduleResize,
-      { passive: true }
-    );
-
-    document.addEventListener(
-      "visibilitychange",
       () => {
-        if (
-          !document.hidden &&
-          isScreenActive("game")
-        ) {
-          scheduleResize();
-        }
+        setTimeout(resizeCanvas, 120);
+      },
+      {
+        passive: true
       }
     );
-
-    showScreen("home");
-
-    scheduleResize();
-  }
-
-  /* =========================================================
-     RUNTIME CSS
-     ========================================================= */
-
-  function injectRuntimeStyles() {
-    const style = document.createElement("style");
-
-    style.textContent = `
-      .gomoku-ai-panel {
-        width: min(100%, 340px);
-        padding: 18px;
-        border-radius: 20px;
-        background: var(--surface);
-        border: 1px solid var(--line);
-        box-shadow: var(--shadow-soft);
-      }
-
-      .gomoku-ai-head {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-      }
-
-      .gomoku-ai-name {
-        font-size: 18px;
-        font-weight: 750;
-      }
-
-      .gomoku-ai-description {
-        margin-top: 3px;
-        color: var(--muted);
-        font-size: 12px;
-      }
-
-      .gomoku-ai-status {
-        margin-top: 16px;
-        padding: 12px 13px;
-        border-radius: 14px;
-        background: color-mix(
-          in srgb,
-          var(--accent) 8%,
-          var(--surface-solid)
-        );
-      }
-
-      .gomoku-ai-status-label {
-        color: var(--muted);
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: .08em;
-        text-transform: uppercase;
-      }
-
-      .gomoku-ai-os {
-        min-height: 22px;
-        margin-top: 5px;
-        font-size: 13px;
-        line-height: 1.55;
-      }
-
-      .gomoku-ai-select {
-        width: 100%;
-        margin-top: 14px;
-        padding: 10px 12px;
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        background: var(--surface-solid);
-        color: var(--text);
-      }
-
-      .gomoku-ai-stats {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 8px;
-        margin-top: 12px;
-      }
-
-      .gomoku-ai-stat {
-        padding: 11px;
-        border-radius: 12px;
-        background: color-mix(
-          in srgb,
-          var(--text) 4%,
-          transparent
-        );
-      }
-
-      .gomoku-ai-stat span {
-        display: block;
-        color: var(--muted);
-        font-size: 10px;
-      }
-
-      .gomoku-ai-stat strong {
-        display: block;
-        margin-top: 3px;
-        font-size: 18px;
-      }
-
-      .gomoku-mode-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        margin-top: 5px;
-        color: var(--muted);
-        font-size: 11px;
-      }
-
-      .gomoku-mode-badge::before {
-        content: "";
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: var(--accent);
-      }
-
-      .gomoku-local-info {
-        width: min(100%, 340px);
-        padding: 18px;
-        border-radius: 20px;
-        background: var(--surface);
-        border: 1px solid var(--line);
-        box-shadow: var(--shadow-soft);
-      }
-
-      .gomoku-local-title {
-        font-weight: 750;
-      }
-
-      .gomoku-local-subtitle {
-        margin-top: 4px;
-        color: var(--muted);
-        font-size: 12px;
-      }
-
-      .gomoku-local-turn {
-        margin-top: 14px;
-        padding: 12px;
-        border-radius: 14px;
-        background: color-mix(
-          in srgb,
-          var(--accent) 8%,
-          var(--surface-solid)
-        );
-        font-size: 13px;
-      }
-
-      .gomoku-result-score {
-        margin: 18px auto 0;
-        color: var(--muted);
-        font-size: 13px;
-      }
-
-      @media (max-width: 899px) {
-        .gomoku-ai-panel,
-        .gomoku-local-info {
-          width: min(100%, 680px);
-          margin: 0 auto;
-        }
-      }
-
-      @media (max-height: 650px) and (orientation: landscape) {
-        .game-screen {
-          padding-top: calc(
-            68px + env(safe-area-inset-top)
-          );
-        }
-
-        .game-layout {
-          min-height: calc(100dvh - 82px);
-          grid-template-rows: auto 1fr auto;
-          gap: 6px;
-        }
-
-        .game-status {
-          min-height: 38px;
-        }
-
-        .game-actions {
-          min-height: 42px;
-        }
-      }
-    `;
-
-    document.head.appendChild(style);
-  }
-
-  /* =========================================================
-     NAVIGATION
-     ========================================================= */
-
-  function setupNavigation() {
-    DOM.startButton?.addEventListener(
-      "click",
-      () => showScreen("setup")
-    );
-
-    DOM.recordsButton?.addEventListener(
-      "click",
-      () => {
-        renderStats();
-        showScreen("records");
-      }
-    );
-
-    DOM.settingsButton?.addEventListener(
-      "click",
-      () => showScreen("settings")
-    );
-
-    DOM.beginGameButton?.addEventListener(
-      "click",
-      beginGame
-    );
-
-    DOM.playAgainButton?.addEventListener(
-      "click",
-      () => {
-        showScreen("setup");
-      }
-    );
-
-    DOM.resultHomeButton?.addEventListener(
-      "click",
-      () => {
-        clearSavedGame();
-        showScreen("home");
-      }
-    );
-
-    DOM.backButton?.addEventListener(
-      "click",
-      goBack
-    );
-
-    DOM.menuButton?.addEventListener(
-      "click",
-      () => showScreen("settings")
-    );
-
-    DOM.gameMenuButton?.addEventListener(
-      "click",
-      () => {
-        if (!gameOver) {
-          saveCurrentGame();
-        }
-
-        showScreen("home");
-      }
-    );
-
-    DOM.resumeButton?.addEventListener(
-      "click",
-      resumeGame
-    );
-
-    window.addEventListener(
-      "popstate",
-      () => {}
-    );
-  }
-
-  function showScreen(name) {
-    const screens = {
-      home: DOM.homeScreen,
-      setup: DOM.setupScreen,
-      game: DOM.gameScreen,
-      result: DOM.resultScreen,
-      records: DOM.recordsScreen,
-      settings: DOM.settingsScreen
-    };
-
-    Object.entries(screens).forEach(
-      ([key, element]) => {
-        element?.classList.toggle(
-          "active",
-          key === name
-        );
-      }
-    );
-
-    if (name === "game") {
-      requestAnimationFrame(() => {
-        resizeCanvas();
-        drawBoard();
-      });
-    }
-
-    if (name === "home") {
-      checkResumeGame();
-    }
-
-    if (name === "records") {
-      renderStats();
-    }
-
-    updateTopbar(name);
-  }
-
-  function updateTopbar(screen) {
-    const isHome = screen === "home";
-
-    if (DOM.backButton) {
-      DOM.backButton.style.visibility =
-        isHome ? "hidden" : "visible";
-    }
-  }
-
-  function isScreenActive(name) {
-    const map = {
-      home: DOM.homeScreen,
-      setup: DOM.setupScreen,
-      game: DOM.gameScreen,
-      result: DOM.resultScreen,
-      records: DOM.recordsScreen,
-      settings: DOM.settingsScreen
-    };
-
-    return Boolean(
-      map[name]?.classList.contains("active")
-    );
-  }
-
-  function goBack() {
-    if (isScreenActive("home")) {
-      return;
-    }
-
-    if (isScreenActive("game")) {
-      saveCurrentGame();
-      showScreen("home");
-      return;
-    }
-
-    if (isScreenActive("result")) {
-      showScreen("home");
-      return;
-    }
-
-    showScreen("home");
-  }
-
-  /* =========================================================
-     SETUP
-     ========================================================= */
-
-  function setupSetupControls() {
-    DOM.modeControl?.addEventListener(
-      "click",
-      event => {
-        const button =
-          event.target.closest("[data-mode]");
-
-        if (!button) {
-          return;
-        }
-
-        selectedMode =
-          button.dataset.mode === "local"
-            ? "local"
-            : "ai";
-
-        DOM.modeControl
-          .querySelectorAll("[data-mode]")
-          .forEach(
-            item =>
-              item.classList.toggle(
-                "selected",
-                item === button
-              )
-          );
-
-        updateSetupUI();
-      }
-    );
-
-    document
-      .querySelectorAll("[data-difficulty]")
-      .forEach(button => {
-        button.addEventListener(
-          "click",
-          () => {
-            selectedDifficulty =
-              button.dataset.difficulty;
-
-            document
-              .querySelectorAll("[data-difficulty]")
-              .forEach(
-                item =>
-                  item.classList.toggle(
-                    "selected",
-                    item === button
-                  )
-              );
-          }
-        );
-      });
-
-    document
-      .querySelectorAll("[data-side]")
-      .forEach(button => {
-        button.addEventListener(
-          "click",
-          () => {
-            playerSide =
-              button.dataset.side === "white"
-                ? "white"
-                : "black";
-
-            document
-              .querySelectorAll("[data-side]")
-              .forEach(
-                item =>
-                  item.classList.toggle(
-                    "selected",
-                    item === button
-                  )
-              );
-          }
-        );
-      });
-  }
-
-  function updateSetupUI() {
-    if (DOM.difficultyGroup) {
-      DOM.difficultyGroup.hidden =
-        selectedMode !== "ai";
-    }
-
-    const sideLabel =
-      DOM.setupScreen?.querySelector(
-        ".settings-group:nth-of-type(3) h3"
-      );
-
-    if (sideLabel) {
-      sideLabel.textContent =
-        selectedMode === "ai"
-          ? text("side")
-          : text("side");
-    }
-  }
-
-  function beginGame() {
-    if (selectedMode === "local") {
-      startLocalGame();
-    } else {
-      startAIGame();
-    }
-  }
-
-  /* =========================================================
-     GAME START
-     ========================================================= */
-
-  function startLocalGame() {
-    invalidateWorker();
-
-    selectedMode = "local";
-    currentPlayer = CONFIG.BLACK;
-
-    resetGameState();
-
-    showScreen("game");
-    updateTurnUI();
-    renderGameSidePanel();
-
-    saveCurrentGame();
-  }
-
-  function startAIGame() {
-    invalidateWorker();
-
-    selectedMode = "ai";
-
-    currentPlayer =
-      playerSide === "white"
-        ? CONFIG.WHITE
-        : CONFIG.BLACK;
-
-    resetGameState();
-
-    showScreen("game");
-    updateTurnUI();
-    renderGameSidePanel();
-
-    saveCurrentGame();
-
-    if (isAITurn()) {
-      runAITurn();
-    }
-  }
-
-  function resetGameState() {
-    board = createBoard();
-
-    gameId = createId();
-    boardVersion = 0;
-
-    gameOver = false;
-    aiThinking = false;
-
-    moveHistory = [];
-    winningLine = [];
-    lastMove = null;
-
-    invalidateWorker();
-
-    updateTurnUI();
-    renderGameSidePanel();
-
-    scheduleResize();
-  }
-
-  function restartGame() {
-    if (selectedMode === "local") {
-      startLocalGame();
-    } else {
-      startAIGame();
-    }
-
-    showToast(text("restarted"));
-  }
-
-  /* =========================================================
-     GAME CONTROLS
-     ========================================================= */
-
-  function setupGameControls() {
-    DOM.restartButton?.addEventListener(
-      "click",
-      restartGame
-    );
-
-    DOM.undoButton?.addEventListener(
-      "click",
-      undoMove
-    );
-  }
-
-  /* =========================================================
-     CANVAS INPUT
-     ========================================================= */
-
-  function setupCanvas() {
-    if (!canvas) {
-      return;
-    }
 
     canvas.addEventListener(
       "pointerdown",
-      event => {
-        event.preventDefault();
-
-        if (gameOver || aiThinking) {
-          return;
-        }
-
-        if (
-          selectedMode === "ai" &&
-          !isHumanTurn()
-        ) {
-          return;
-        }
-
-        const position =
-          canvasToBoard(event);
-
-        if (!position) {
-          return;
-        }
-
-        if (
-          board[position.row][position.col] !==
-          CONFIG.EMPTY
-        ) {
-          return;
-        }
-
-        placeMove(
-          position.row,
-          position.col,
-          currentPlayer
-        );
-      },
-      { passive: false }
+      handleCanvasPointer,
+      {
+        passive: false
+      }
     );
 
     canvas.addEventListener(
       "keydown",
-      event => {
-        if (
-          gameOver ||
-          aiThinking ||
-          event.key !== "Enter" &&
-          event.key !== " "
-        ) {
-          return;
-        }
-
-        event.preventDefault();
-      }
+      handleCanvasKeyboard
     );
   }
 
-  /* =========================================================
-     MOVE ENGINE
-     ========================================================= */
 
-  function placeMove(row, col, player) {
-    if (gameOver) {
-      return false;
-    }
+  function resizeCanvas() {
+    if (!canvas || !ctx) return;
 
-    if (!isInside(row, col)) {
-      return false;
-    }
+    const wrapper =
+      canvas.parentElement;
 
-    if (board[row][col] !== CONFIG.EMPTY) {
-      return false;
-    }
+    if (!wrapper) return;
 
-    board[row][col] = player;
+    const rect =
+      wrapper.getBoundingClientRect();
 
-    const move = {
-      row,
-      col,
-      player,
-      time: Date.now()
+    const viewportWidth =
+      Math.max(
+        240,
+        window.innerWidth ||
+          document.documentElement.clientWidth ||
+          360
+      );
+
+    const viewportHeight =
+      Math.max(
+        300,
+        window.innerHeight ||
+          document.documentElement.clientHeight ||
+          640
+      );
+
+    const widthLimit =
+      Math.min(
+        rect.width || viewportWidth,
+        viewportWidth - 24
+      );
+
+    const heightLimit =
+      Math.max(
+        240,
+        viewportHeight -
+          190
+      );
+
+    const size =
+      Math.max(
+        240,
+        Math.floor(
+          Math.min(
+            widthLimit,
+            heightLimit
+          )
+        )
+      );
+
+    const dpr =
+      Math.min(
+        window.devicePixelRatio || 1,
+        2
+      );
+
+    canvas.style.width =
+      `${size}px`;
+
+    canvas.style.height =
+      `${size}px`;
+
+    canvas.width =
+      Math.round(
+        size * dpr
+      );
+
+    canvas.height =
+      Math.round(
+        size * dpr
+      );
+
+    ctx.setTransform(
+      dpr,
+      0,
+      0,
+      dpr,
+      0,
+      0
+    );
+
+    boardMetrics = {
+      size,
+      padding:
+        size * CONFIG.BOARD_PADDING,
+      cell:
+        (size -
+          size *
+            CONFIG.BOARD_PADDING *
+            2) /
+        (CONFIG.BOARD_SIZE - 1)
     };
 
-    moveHistory.push(move);
+    drawBoard();
+  }
+
+
+  function getBoardPoint(row, col) {
+    return {
+      x:
+        boardMetrics.padding +
+        col *
+          boardMetrics.cell,
+
+      y:
+        boardMetrics.padding +
+        row *
+          boardMetrics.cell
+    };
+  }
+
+
+  function pointerToCell(event) {
+    if (!canvas) return null;
+
+    const rect =
+      canvas.getBoundingClientRect();
+
+    if (!rect.width || !rect.height) {
+      return null;
+    }
+
+    const x =
+      event.clientX -
+      rect.left;
+
+    const y =
+      event.clientY -
+      rect.top;
+
+    const col =
+      Math.round(
+        (x -
+          boardMetrics.padding) /
+          boardMetrics.cell
+      );
+
+    const row =
+      Math.round(
+        (y -
+          boardMetrics.padding) /
+          boardMetrics.cell
+      );
+
+    if (
+      !isInside(
+        row,
+        col
+      )
+    ) {
+      return null;
+    }
+
+    const point =
+      getBoardPoint(
+        row,
+        col
+      );
+
+    const distance =
+      Math.hypot(
+        point.x - x,
+        point.y - y
+      );
+
+    if (
+      distance >
+      boardMetrics.cell *
+        0.48
+    ) {
+      return null;
+    }
+
+    return {
+      row,
+      col
+    };
+  }
+
+
+  function handleCanvasPointer(event) {
+    event.preventDefault();
+
+    if (
+      gameOver ||
+      aiThinking
+    ) {
+      return;
+    }
+
+    if (
+      selectedMode === "ai" &&
+      currentPlayer !== playerSide
+    ) {
+      return;
+    }
+
+    const cell =
+      pointerToCell(event);
+
+    if (!cell) return;
+
+    playMove(
+      cell.row,
+      cell.col,
+      currentPlayer
+    );
+  }
+
+
+  function handleCanvasKeyboard(event) {
+    if (
+      event.key === "Enter" ||
+      event.key === " "
+    ) {
+      event.preventDefault();
+    }
+  }
+
+
+  function drawBoard() {
+    if (
+      !canvas ||
+      !ctx ||
+      !boardMetrics.size
+    ) {
+      return;
+    }
+
+    const size =
+      boardMetrics.size;
+
+    ctx.clearRect(
+      0,
+      0,
+      size,
+      size
+    );
+
+    drawBoardBackground(
+      size
+    );
+
+    drawGrid(
+      size
+    );
+
+    drawStars();
+
+    drawStones();
+
+    drawWinningLine();
+  }
+
+
+  function drawBoardBackground(size) {
+    const gradient =
+      ctx.createLinearGradient(
+        0,
+        0,
+        size,
+        size
+      );
+
+    gradient.addColorStop(
+      0,
+      "#f0dfb9"
+    );
+
+    gradient.addColorStop(
+      1,
+      CONFIG.COLORS.board
+    );
+
+    ctx.fillStyle =
+      gradient;
+
+    ctx.fillRect(
+      0,
+      0,
+      size,
+      size
+    );
+
+    ctx.save();
+
+    ctx.globalAlpha =
+      0.07;
+
+    for (
+      let y = 0;
+      y < size;
+      y += 4
+    ) {
+      ctx.fillStyle =
+        "#5d4a35";
+
+      ctx.fillRect(
+        0,
+        y,
+        size,
+        1
+      );
+    }
+
+    ctx.restore();
+  }
+
+
+  function drawGrid(size) {
+    ctx.save();
+
+    ctx.strokeStyle =
+      CONFIG.COLORS.grid;
+
+    ctx.lineWidth = 1;
+
+    const start =
+      boardMetrics.padding;
+
+    const end =
+      size -
+      boardMetrics.padding;
+
+    for (
+      let i = 0;
+      i < CONFIG.BOARD_SIZE;
+      i++
+    ) {
+      const p =
+        start +
+        i *
+          boardMetrics.cell;
+
+      ctx.beginPath();
+
+      ctx.moveTo(
+        start,
+        p
+      );
+
+      ctx.lineTo(
+        end,
+        p
+      );
+
+      ctx.stroke();
+
+      ctx.beginPath();
+
+      ctx.moveTo(
+        p,
+        start
+      );
+
+      ctx.lineTo(
+        p,
+        end
+      );
+
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+
+  function drawStars() {
+    const points = [
+      [3, 3],
+      [3, 11],
+      [7, 7],
+      [11, 3],
+      [11, 11]
+    ];
+
+    ctx.save();
+
+    ctx.fillStyle =
+      CONFIG.COLORS.star;
+
+    for (
+      const [row, col]
+      of points
+    ) {
+      const p =
+        getBoardPoint(
+          row,
+          col
+        );
+
+      ctx.beginPath();
+
+      ctx.arc(
+        p.x,
+        p.y,
+        Math.max(
+          2,
+          boardMetrics.cell *
+            0.08
+        ),
+        0,
+        Math.PI * 2
+      );
+
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
+
+
+  function drawStones() {
+    for (
+      let row = 0;
+      row < CONFIG.BOARD_SIZE;
+      row++
+    ) {
+      for (
+        let col = 0;
+        col < CONFIG.BOARD_SIZE;
+        col++
+      ) {
+        const player =
+          board[row][col];
+
+        if (
+          player ===
+          CONFIG.EMPTY
+        ) {
+          continue;
+        }
+
+        drawStone(
+          row,
+          col,
+          player
+        );
+      }
+    }
+  }
+
+
+  function drawStone(
+    row,
+    col,
+    player
+  ) {
+    const p =
+      getBoardPoint(
+        row,
+        col
+      );
+
+    const radius =
+      boardMetrics.cell *
+      0.42;
+
+    ctx.save();
+
+    if (
+      player ===
+      CONFIG.BLACK
+    ) {
+      const gradient =
+        ctx.createRadialGradient(
+          p.x -
+            radius *
+              0.35,
+          p.y -
+            radius *
+              0.4,
+          radius *
+            0.08,
+          p.x,
+          p.y,
+          radius
+        );
+
+      gradient.addColorStop(
+        0,
+        "#555"
+      );
+
+      gradient.addColorStop(
+        0.35,
+        CONFIG.COLORS.black
+      );
+
+      gradient.addColorStop(
+        1,
+        "#050505"
+      );
+
+      ctx.fillStyle =
+        gradient;
+    } else {
+      const gradient =
+        ctx.createRadialGradient(
+          p.x -
+            radius *
+              0.35,
+          p.y -
+            radius *
+              0.4,
+          radius *
+            0.08,
+          p.x,
+          p.y,
+          radius
+        );
+
+      gradient.addColorStop(
+        0,
+        "#ffffff"
+      );
+
+      gradient.addColorStop(
+        0.65,
+        CONFIG.COLORS.white
+      );
+
+      gradient.addColorStop(
+        1,
+        CONFIG.COLORS.whiteShadow
+      );
+
+      ctx.fillStyle =
+        gradient;
+    }
+
+    ctx.shadowColor =
+      "rgba(0,0,0,.22)";
+
+    ctx.shadowBlur =
+      radius *
+      0.28;
+
+    ctx.shadowOffsetY =
+      radius *
+      0.12;
+
+    ctx.beginPath();
+
+    ctx.arc(
+      p.x,
+      p.y,
+      radius,
+      0,
+      Math.PI * 2
+    );
+
+    ctx.fill();
+
+    ctx.shadowColor =
+      "transparent";
+
+    if (
+      lastMove &&
+      lastMove.row === row &&
+      lastMove.col === col
+    ) {
+      ctx.strokeStyle =
+        CONFIG.COLORS.lastMove;
+
+      ctx.lineWidth =
+        Math.max(
+          2,
+          radius * 0.12
+        );
+
+      ctx.beginPath();
+
+      ctx.arc(
+        p.x,
+        p.y,
+        radius *
+          0.78,
+        0,
+        Math.PI * 2
+      );
+
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+
+  function drawWinningLine() {
+    if (
+      winningLine.length <
+      CONFIG.WIN_LENGTH
+    ) {
+      return;
+    }
+
+    const first =
+      winningLine[0];
+
+    const last =
+      winningLine[
+        winningLine.length - 1
+      ];
+
+    const p1 =
+      getBoardPoint(
+        first.row,
+        first.col
+      );
+
+    const p2 =
+      getBoardPoint(
+        last.row,
+        last.col
+      );
+
+    ctx.save();
+
+    ctx.strokeStyle =
+      CONFIG.COLORS.winning;
+
+    ctx.lineWidth =
+      Math.max(
+        4,
+        boardMetrics.cell *
+          0.12
+      );
+
+    ctx.lineCap =
+      "round";
+
+    ctx.globalAlpha =
+      0.9;
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+      p1.x,
+      p1.y
+    );
+
+    ctx.lineTo(
+      p2.x,
+      p2.y
+    );
+
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+
+  /* =========================================================
+     GAME LOGIC
+     ========================================================= */
+
+  function playMove(
+    row,
+    col,
+    player
+  ) {
+    if (
+      gameOver ||
+      board[row][col] !==
+        CONFIG.EMPTY
+    ) {
+      return false;
+    }
+
+    board[row][col] =
+      player;
+
+    moveHistory.push({
+      row,
+      col,
+      player
+    });
 
     lastMove = {
       row,
@@ -1608,9 +1695,10 @@
       player
     };
 
-    boardVersion += 1;
+    winningLine = [];
 
-    playStoneSound(player);
+    playStoneSound();
+
     drawBoard();
 
     const line =
@@ -1622,23 +1710,26 @@
       );
 
     if (line) {
-      winningLine = line;
+      winningLine =
+        line;
+
       drawBoard();
-      finishGame({
-        type: "win",
-        winner: player,
-        line
-      });
+
+      finishGame(
+        getResultForWinner(
+          player
+        )
+      );
 
       return true;
     }
 
-    if (isBoardFull()) {
-      finishGame({
-        type: "draw",
-        winner: CONFIG.EMPTY,
-        line: []
-      });
+    if (
+      isBoardFull()
+    ) {
+      finishGame(
+        "draw"
+      );
 
       return true;
     }
@@ -1646,1322 +1737,41 @@
     currentPlayer =
       opponent(player);
 
-    updateTurnUI();
-    renderGameSidePanel();
     saveCurrentGame();
+
+    updateTurnUI();
 
     if (
       selectedMode === "ai" &&
-      isAITurn()
+      currentPlayer !==
+        playerSide
     ) {
-      runAITurn();
+      requestAIMove();
     }
 
     return true;
   }
 
-  function opponent(player) {
-    return player === CONFIG.BLACK
-      ? CONFIG.WHITE
-      : CONFIG.BLACK;
-  }
 
-  function isHumanTurn() {
-    if (selectedMode === "local") {
-      return true;
-    }
-
-    return currentPlayer === getHumanSide();
-  }
-
-  function isAITurn() {
-    return (
-      selectedMode === "ai" &&
-      currentPlayer === getAISide()
-    );
-  }
-
-  function getHumanSide() {
-    return playerSide === "white"
-      ? CONFIG.WHITE
-      : CONFIG.BLACK;
-  }
-
-  function getAISide() {
-    return opponent(
-      getHumanSide()
-    );
-  }
-
-  /* =========================================================
-     AI TURN
-     ========================================================= */
-
-  async function runAITurn() {
+  function getResultForWinner(
+    winner
+  ) {
     if (
-      gameOver ||
-      !isAITurn() ||
-      aiThinking
+      selectedMode ===
+      "local"
     ) {
-      return;
-    }
-
-    aiThinking = true;
-
-    const request = {
-      gameId,
-      boardVersion,
-      player: getAISide(),
-      board: cloneBoard(board),
-      config: {
-        ...DIFFICULTIES[selectedDifficulty],
-        style:
-          AI_CHARACTERS[selectedAI]?.style ||
-          "balanced"
-      }
-    };
-
-    activeWorkerRequest = request;
-
-    updateTurnUI();
-    renderGameSidePanel();
-
-    const ai =
-      getSelectedAI();
-
-    showAIOS(
-      "thinking",
-      ai
-    );
-
-    const startTime =
-      performance.now();
-
-    try {
-      const result =
-        await askWorker(request);
-
-      const elapsed =
-        performance.now() -
-        startTime;
-
-      const delay =
-        Math.max(
-          120,
-          request.config.delay -
-            elapsed
-        );
-
-      await wait(delay);
-
-      if (
-        !isCurrentWorkerRequest(
-          request
-        )
-      ) {
-        return;
-      }
-
-      if (
-        !result ||
-        !Number.isInteger(result.row) ||
-        !Number.isInteger(result.col)
-      ) {
-        aiThinking = false;
-        updateTurnUI();
-        return;
-      }
-
-      const row = result.row;
-      const col = result.col;
-
-      if (
-        !isInside(row, col) ||
-        board[row][col] !== CONFIG.EMPTY
-      ) {
-        aiThinking = false;
-        updateTurnUI();
-
-        /*
-         * Worker result is invalid.
-         * Recalculate from the CURRENT board instead
-         * of trusting the old prediction.
-         */
-        if (
-          isAITurn() &&
-          !gameOver
-        ) {
-          runAITurn();
-        }
-
-        return;
-      }
-
-      aiThinking = false;
-      activeWorkerRequest = null;
-
-      const category =
-        classifyAIMove(
-          row,
-          col,
-          request.board,
-          getAISide()
-        );
-
-      showAIOS(
-        category,
-        ai
-      );
-
-      placeMove(
-        row,
-        col,
-        getAISide()
-      );
-    } catch {
-      if (
-        !isCurrentWorkerRequest(
-          request
-        )
-      ) {
-        return;
-      }
-
-      aiThinking = false;
-      activeWorkerRequest = null;
-
-      const fallback =
-        findFallbackMove();
-
-      if (fallback) {
-        placeMove(
-          fallback.row,
-          fallback.col,
-          getAISide()
-        );
-      } else {
-        updateTurnUI();
-      }
-    }
-  }
-
-  function askWorker(request) {
-    return new Promise(
-      (resolve, reject) => {
-        if (!worker) {
-          resolve(
-            fallbackAIMove(
-              request.board,
-              request.player
-            )
-          );
-
-          return;
-        }
-
-        const listener =
-          event => {
-            worker.removeEventListener(
-              "message",
-              listener
-            );
-
-            resolve(event.data);
-          };
-
-        const errorListener =
-          () => {
-            worker.removeEventListener(
-              "message",
-              listener
-            );
-
-            worker.removeEventListener(
-              "error",
-              errorListener
-            );
-
-            reject(
-              new Error(
-                "AI Worker failed"
-              )
-            );
-          };
-
-        worker.addEventListener(
-          "message",
-          listener
-        );
-
-        worker.addEventListener(
-          "error",
-          errorListener,
-          { once: true }
-        );
-
-        worker.postMessage({
-          board: request.board,
-          player: request.player,
-          config: request.config
-        });
-      }
-    );
-  }
-
-  function createWorker() {
-    if (
-      typeof Worker ===
-      "undefined"
-    ) {
-      return;
-    }
-
-    try {
-      worker =
-        new Worker(
-          CONFIG.AI_WORKER
-        );
-    } catch {
-      worker = null;
-    }
-  }
-
-  function invalidateWorker() {
-    boardVersion += 1;
-
-    activeWorkerRequest = null;
-    aiThinking = false;
-
-    workerRequestToken();
-  }
-
-  function workerRequestToken() {
-    return createId();
-  }
-
-  function isCurrentWorkerRequest(request) {
-    return (
-      activeWorkerRequest === request &&
-      request.gameId === gameId &&
-      request.boardVersion === boardVersion &&
-      !gameOver &&
-      isAITurn()
-    );
-  }
-
-  /* =========================================================
-     FALLBACK AI
-     ========================================================= */
-
-  function fallbackAIMove(
-    currentBoard,
-    player
-  ) {
-    const candidates =
-      getCandidateMoves(
-        currentBoard,
-        2
-      );
-
-    if (!candidates.length) {
-      return null;
-    }
-
-    const winning =
-      findImmediateMove(
-        currentBoard,
-        player,
-        candidates
-      );
-
-    if (winning) {
-      return winning;
-    }
-
-    const blocking =
-      findImmediateMove(
-        currentBoard,
-        opponent(player),
-        candidates
-      );
-
-    if (blocking) {
-      return blocking;
-    }
-
-    return candidates[0];
-  }
-
-  function findFallbackMove() {
-    return fallbackAIMove(
-      board,
-      getAISide()
-    );
-  }
-
-  function getCandidateMoves(
-    currentBoard,
-    radius
-  ) {
-    const occupied = [];
-
-    for (
-      let row = 0;
-      row < CONFIG.BOARD_SIZE;
-      row += 1
-    ) {
-      for (
-        let col = 0;
-        col < CONFIG.BOARD_SIZE;
-        col += 1
-      ) {
-        if (
-          currentBoard[row][col] !==
-          CONFIG.EMPTY
-        ) {
-          occupied.push({
-            row,
-            col
-          });
-        }
-      }
-    }
-
-    if (!occupied.length) {
-      const center =
-        Math.floor(
-          CONFIG.BOARD_SIZE / 2
-        );
-
-      return [
-        {
-          row: center,
-          col: center
-        }
-      ];
-    }
-
-    const map =
-      new Map();
-
-    for (
-      const stone of occupied
-    ) {
-      for (
-        let dr = -radius;
-        dr <= radius;
-        dr += 1
-      ) {
-        for (
-          let dc = -radius;
-          dc <= radius;
-          dc += 1
-        ) {
-          const row =
-            stone.row + dr;
-
-          const col =
-            stone.col + dc;
-
-          if (
-            !isInside(row, col)
-          ) {
-            continue;
-          }
-
-          if (
-            currentBoard[row][col] !==
-            CONFIG.EMPTY
-          ) {
-            continue;
-          }
-
-          map.set(
-            `${row},${col}`,
-            {
-              row,
-              col
-            }
-          );
-        }
-      }
-    }
-
-    return [
-      ...map.values()
-    ].sort(
-      (a, b) =>
-        localMovePotential(
-          currentBoard,
-          b.row,
-          b.col
-        ) -
-        localMovePotential(
-          currentBoard,
-          a.row,
-          a.col
-        )
-    );
-  }
-
-  function findImmediateMove(
-    currentBoard,
-    player,
-    candidates
-  ) {
-    for (
-      const move of candidates
-    ) {
-      currentBoard[
-        move.row
-      ][
-        move.col
-      ] = player;
-
-      const win =
-        Boolean(
-          findWinningLine(
-            currentBoard,
-            move.row,
-            move.col,
-            player
-          )
-        );
-
-      currentBoard[
-        move.row
-      ][
-        move.col
-      ] = CONFIG.EMPTY;
-
-      if (win) {
-        return move;
-      }
-    }
-
-    return null;
-  }
-
-  function localMovePotential(
-    currentBoard,
-    row,
-    col
-  ) {
-    return (
-      localScore(
-        currentBoard,
-        row,
-        col,
+      return winner ===
         CONFIG.BLACK
-      ) +
-      localScore(
-        currentBoard,
-        row,
-        col,
-        CONFIG.WHITE
-      ) +
-      centerValue(
-        row,
-        col
-      )
-    );
+        ? "black"
+        : "white";
+    }
+
+    return winner ===
+      playerSide
+      ? "win"
+      : "loss";
   }
 
-  function localScore(
-    currentBoard,
-    row,
-    col,
-    player
-  ) {
-    let score = 0;
-
-    const directions = [
-      [1, 0],
-      [0, 1],
-      [1, 1],
-      [1, -1]
-    ];
-
-    for (
-      const [dr, dc]
-      of directions
-    ) {
-      score += linePotential(
-        currentBoard,
-        row,
-        col,
-        dr,
-        dc,
-        player
-      );
-    }
-
-    return score;
-  }
-
-  function linePotential(
-    currentBoard,
-    row,
-    col,
-    dr,
-    dc,
-    player
-  ) {
-    let count = 1;
-    let open = 0;
-
-    for (
-      const direction of [1, -1]
-    ) {
-      for (
-        let distance = 1;
-        distance <= 4;
-        distance += 1
-      ) {
-        const r =
-          row +
-          dr *
-            distance *
-            direction;
-
-        const c =
-          col +
-          dc *
-            distance *
-            direction;
-
-        if (
-          !isInside(r, c)
-        ) {
-          break;
-        }
-
-        if (
-          currentBoard[r][c] ===
-          player
-        ) {
-          count += 1;
-          continue;
-        }
-
-        if (
-          currentBoard[r][c] ===
-          CONFIG.EMPTY
-        ) {
-          open += 1;
-        }
-
-        break;
-      }
-    }
-
-    if (count >= 5) {
-      return 100000;
-    }
-
-    if (count === 4) {
-      return open === 2
-        ? 5000
-        : open === 1
-          ? 1200
-          : 0;
-    }
-
-    if (count === 3) {
-      return open === 2
-        ? 700
-        : open === 1
-          ? 150
-          : 0;
-    }
-
-    if (count === 2) {
-      return open === 2
-        ? 80
-        : 20;
-    }
-
-    return open * 4;
-  }
-
-  function centerValue(
-    row,
-    col
-  ) {
-    const center =
-      Math.floor(
-        CONFIG.BOARD_SIZE / 2
-      );
-
-    return (
-      14 -
-      Math.abs(
-        row - center
-      ) -
-      Math.abs(
-        col - center
-      )
-    );
-  }
-
-  /* =========================================================
-     AI OS
-     ========================================================= */
-
-  function renderGameSidePanel() {
-    const layout =
-      DOM.gameScreen?.querySelector(
-        ".game-layout"
-      );
-
-    if (!layout) {
-      return;
-    }
-
-    let panel =
-      layout.querySelector(
-        ".gomoku-side-panel"
-      );
-
-    if (!panel) {
-      panel =
-        document.createElement(
-          "aside"
-        );
-
-      panel.className =
-        "gomoku-side-panel";
-
-      layout.appendChild(panel);
-    }
-
-    panel.innerHTML = "";
-
-    if (
-      selectedMode === "local"
-    ) {
-      panel.appendChild(
-        createLocalPanel()
-      );
-    } else {
-      panel.appendChild(
-        createAIPanel()
-      );
-    }
-  }
-
-  function createAIPanel() {
-    const ai =
-      getSelectedAI();
-
-    const panel =
-      document.createElement(
-        "div"
-      );
-
-    panel.className =
-      "gomoku-ai-panel";
-
-    const head =
-      document.createElement(
-        "div"
-      );
-
-    head.className =
-      "gomoku-ai-head";
-
-    const info =
-      document.createElement(
-        "div"
-      );
-
-    const name =
-      document.createElement(
-        "div"
-      );
-
-    name.className =
-      "gomoku-ai-name";
-
-    name.textContent =
-      getLocalized(
-        ai.name
-      );
-
-    const description =
-      document.createElement(
-        "div"
-      );
-
-    description.className =
-      "gomoku-ai-description";
-
-    description.textContent =
-      getLocalized(
-        ai.description
-      );
-
-    info.append(
-      name,
-      description
-    );
-
-    head.appendChild(
-      info
-    );
-
-    const badge =
-      document.createElement(
-        "span"
-      );
-
-    badge.className =
-      "gomoku-mode-badge";
-
-    badge.textContent =
-      text("ai");
-
-    head.appendChild(
-      badge
-    );
-
-    panel.appendChild(
-      head
-    );
-
-    const status =
-      document.createElement(
-        "div"
-      );
-
-    status.className =
-      "gomoku-ai-status";
-
-    const label =
-      document.createElement(
-        "div"
-      );
-
-    label.className =
-      "gomoku-ai-status-label";
-
-    label.textContent =
-      text("os");
-
-    const os =
-      document.createElement(
-        "div"
-      );
-
-    os.className =
-      "gomoku-ai-os";
-
-    os.dataset.aiOs =
-      "true";
-
-    os.textContent =
-      getLastAIOS(ai);
-
-    status.append(
-      label,
-      os
-    );
-
-    panel.appendChild(
-      status
-    );
-
-    const select =
-      document.createElement(
-        "select"
-      );
-
-    select.className =
-      "gomoku-ai-select";
-
-    select.setAttribute(
-      "aria-label",
-      "AI"
-    );
-
-    Object.values(
-      AI_CHARACTERS
-    ).forEach(
-      character => {
-        const option =
-          document.createElement(
-            "option"
-          );
-
-        option.value =
-          character.id;
-
-        option.textContent =
-          getLocalized(
-            character.name
-          );
-
-        option.selected =
-          character.id ===
-          selectedAI;
-
-        select.appendChild(
-          option
-        );
-      }
-    );
-
-    select.addEventListener(
-      "change",
-      () => {
-        if (
-          selectedAI ===
-          select.value
-        ) {
-          return;
-        }
-
-        selectedAI =
-          select.value;
-
-        restartGame();
-      }
-    );
-
-    panel.appendChild(
-      select
-    );
-
-    const aiStats =
-      ensureAIStats(
-        selectedAI
-      );
-
-    const statsBox =
-      document.createElement(
-        "div"
-      );
-
-    statsBox.className =
-      "gomoku-ai-stats";
-
-    statsBox.append(
-      createAIStat(
-        text("wins"),
-        aiStats.losses
-      ),
-      createAIStat(
-        text("losses"),
-        aiStats.wins
-      )
-    );
-
-    panel.appendChild(
-      statsBox
-    );
-
-    return panel;
-  }
-
-  function createAIStat(
-    label,
-    value
-  ) {
-    const box =
-      document.createElement(
-        "div"
-      );
-
-    box.className =
-      "gomoku-ai-stat";
-
-    const labelElement =
-      document.createElement(
-        "span"
-      );
-
-    labelElement.textContent =
-      label;
-
-    const valueElement =
-      document.createElement(
-        "strong"
-      );
-
-    valueElement.textContent =
-      String(value);
-
-    box.append(
-      labelElement,
-      valueElement
-    );
-
-    return box;
-  }
-
-  function createLocalPanel() {
-    const panel =
-      document.createElement(
-        "div"
-      );
-
-    panel.className =
-      "gomoku-local-info";
-
-    const title =
-      document.createElement(
-        "div"
-      );
-
-    title.className =
-      "gomoku-local-title";
-
-    title.textContent =
-      text("local");
-
-    const subtitle =
-      document.createElement(
-        "div"
-      );
-
-    subtitle.className =
-      "gomoku-local-subtitle";
-
-    subtitle.textContent =
-      "Player 1 · Player 2";
-
-    const turn =
-      document.createElement(
-        "div"
-      );
-
-    turn.className =
-      "gomoku-local-turn";
-
-    turn.textContent =
-      currentPlayer ===
-      CONFIG.BLACK
-        ? text("player1Turn")
-        : text("player2Turn");
-
-    panel.append(
-      title,
-      subtitle,
-      turn
-    );
-
-    return panel;
-  }
-
-  function showAIOS(
-    type,
-    ai = getSelectedAI()
-  ) {
-    if (
-      selectedMode !== "ai"
-    ) {
-      return;
-    }
-
-    const panel =
-      DOM.gameScreen?.querySelector(
-        ".gomoku-ai-panel"
-      );
-
-    const os =
-      panel?.querySelector(
-        "[data-ai-os]"
-      );
-
-    if (!os) {
-      return;
-    }
-
-    const messages =
-      ai.os[type] ||
-      ai.os.thinking;
-
-    const message =
-      messages[
-        Math.floor(
-          Math.random() *
-          messages.length
-        )
-      ];
-
-    if (
-      settings.motion
-    ) {
-      os.style.opacity = "0";
-
-      setTimeout(
-        () => {
-          os.textContent =
-            message;
-
-          os.style.opacity = "1";
-        },
-        100
-      );
-    } else {
-      os.textContent =
-        message;
-    }
-  }
-
-  function getLastAIOS(ai) {
-    const messages =
-      ai.os.thinking;
-
-    return messages[0];
-  }
-
-  function classifyAIMove(
-    row,
-    col,
-    beforeBoard,
-    player
-  ) {
-    const opponentPlayer =
-      opponent(player);
-
-    const win =
-      findImmediateMove(
-        beforeBoard,
-        player,
-        [
-          {
-            row,
-            col
-          }
-        ]
-      );
-
-    if (win) {
-      return "winning";
-    }
-
-    const block =
-      findImmediateMove(
-        beforeBoard,
-        opponentPlayer,
-        [
-          {
-            row,
-            col
-          }
-        ]
-      );
-
-    if (block) {
-      return "defend";
-    }
-
-    const ownScore =
-      localScore(
-        beforeBoard,
-        row,
-        col,
-        player
-      );
-
-    const enemyScore =
-      localScore(
-        beforeBoard,
-        row,
-        col,
-        opponentPlayer
-      );
-
-    if (
-      enemyScore >
-      ownScore * 1.2
-    ) {
-      return "defend";
-    }
-
-    if (
-      ownScore >
-      250
-    ) {
-      return "attack";
-    }
-
-    return "thinking";
-  }
-
-  /* =========================================================
-     TURN UI
-     ========================================================= */
-
-  function updateTurnUI() {
-    if (!DOM.turnStone) {
-      return;
-    }
-
-    const isBlack =
-      currentPlayer ===
-      CONFIG.BLACK;
-
-    DOM.turnStone.className =
-      `status-stone ${
-        isBlack
-          ? "black-stone"
-          : "white-stone"
-      }`;
-
-    if (
-      selectedMode === "local"
-    ) {
-      DOM.turnLabel.textContent =
-        currentPlayer ===
-        CONFIG.BLACK
-          ? text("player1Turn")
-          : text("player2Turn");
-
-      DOM.turnPlayer.textContent =
-        currentPlayer ===
-        CONFIG.BLACK
-          ? text("black")
-          : text("white");
-
-      DOM.thinkingIndicator.hidden =
-        true;
-
-      return;
-    }
-
-    const human =
-      getHumanSide();
-
-    if (
-      currentPlayer ===
-      human
-    ) {
-      DOM.turnLabel.textContent =
-        text("yourTurn");
-
-      DOM.turnPlayer.textContent =
-        currentPlayer ===
-        CONFIG.BLACK
-          ? text("black")
-          : text("white");
-
-      DOM.thinkingIndicator.hidden =
-        true;
-    } else {
-      const ai =
-        getSelectedAI();
-
-      DOM.turnLabel.textContent =
-        getLocalized(
-          ai.name
-        );
-
-      DOM.turnPlayer.textContent =
-        currentPlayer ===
-        CONFIG.BLACK
-          ? text("black")
-          : text("white");
-
-      DOM.thinkingIndicator.hidden =
-        !aiThinking;
-    }
-  }
-
-  /* =========================================================
-     UNDO
-     ========================================================= */
-
-  function undoMove() {
-    if (
-      gameOver ||
-      aiThinking ||
-      moveHistory.length === 0
-    ) {
-      showToast(
-        text("cannotUndo")
-      );
-
-      return;
-    }
-
-    invalidateWorker();
-
-    if (
-      selectedMode === "local"
-    ) {
-      removeLastMove();
-
-      currentPlayer =
-        moveHistory.length %
-          2 ===
-        0
-          ? CONFIG.BLACK
-          : CONFIG.WHITE;
-    } else {
-      const human =
-        getHumanSide();
-
-      while (
-        moveHistory.length
-      ) {
-        const last =
-          moveHistory[
-            moveHistory.length - 1
-          ];
-
-        removeLastMove();
-
-        if (
-          last.player ===
-          human
-        ) {
-          break;
-        }
-      }
-
-      currentPlayer =
-        human;
-    }
-
-    winningLine = [];
-    gameOver = false;
-    aiThinking = false;
-
-    boardVersion += 1;
-
-    updateTurnUI();
-    renderGameSidePanel();
-    drawBoard();
-    saveCurrentGame();
-  }
-
-  function removeLastMove() {
-    const move =
-      moveHistory.pop();
-
-    if (!move) {
-      return;
-    }
-
-    board[
-      move.row
-    ][
-      move.col
-    ] = CONFIG.EMPTY;
-
-    lastMove =
-      moveHistory[
-        moveHistory.length - 1
-      ] || null;
-
-    boardVersion += 1;
-  }
-
-  /* =========================================================
-     WIN DETECTION
-     ========================================================= */
 
   function findWinningLine(
     currentBoard,
@@ -2988,7 +1798,8 @@
       ];
 
       for (
-        const sign of [1, -1]
+        const sign of
+        [1, -1]
       ) {
         let distance = 1;
 
@@ -3006,28 +1817,22 @@
               sign;
 
           if (
-            !isInside(r, c) ||
+            !isInside(
+              r,
+              c
+            ) ||
             currentBoard[r][c] !==
               player
           ) {
             break;
           }
 
-          if (
-            sign === 1
-          ) {
-            line.push({
-              row: r,
-              col: c
-            });
-          } else {
-            line.unshift({
-              row: r,
-              col: c
-            });
-          }
+          line.push({
+            row: r,
+            col: c
+          });
 
-          distance += 1;
+          distance++;
         }
       }
 
@@ -3035,12 +1840,19 @@
         line.length >=
         CONFIG.WIN_LENGTH
       ) {
+        line.sort(
+          (a, b) =>
+            a.row - b.row ||
+            a.col - b.col
+        );
+
         return line;
       }
     }
 
     return null;
   }
+
 
   function isBoardFull() {
     for (
@@ -3058,234 +1870,1800 @@
     return true;
   }
 
+
   /* =========================================================
-     FINISH GAME
+     AI
      ========================================================= */
 
-  function finishGame(result) {
+  function createWorker() {
+    if (
+      typeof Worker ===
+      "undefined"
+    ) {
+      return null;
+    }
+
+    try {
+      const instance =
+        new Worker(
+          CONFIG.AI_WORKER
+        );
+
+      instance.addEventListener(
+        "message",
+        handleAIMessage
+      );
+
+      instance.addEventListener(
+        "error",
+        handleAIError
+      );
+
+      return instance;
+    } catch {
+      return null;
+    }
+  }
+
+
+  function requestAIMove() {
+    if (
+      gameOver ||
+      aiThinking ||
+      selectedMode !== "ai"
+    ) {
+      return;
+    }
+
+    const aiPlayer =
+      opponent(
+        playerSide
+      );
+
+    if (
+      currentPlayer !==
+      aiPlayer
+    ) {
+      return;
+    }
+
+    aiThinking = true;
+
+    updateTurnUI();
+
+    const ai =
+      getSelectedAI();
+
+    showOS(
+      "thinking",
+      ai
+    );
+
+    const requestId =
+      ++workerRequestId;
+
+    const thinkTime =
+      randomInt(
+        CONFIG.THINKING_MIN,
+        CONFIG.THINKING_MAX
+      );
+
+    const workerConfig =
+      getWorkerConfig();
+
+    if (!worker) {
+      worker =
+        createWorker();
+    }
+
+    if (!worker) {
+      fallbackAIMove(
+        aiPlayer,
+        thinkTime
+      );
+
+      return;
+    }
+
+    const payload = {
+      board:
+        cloneBoard(
+          board
+        ),
+
+      player:
+        aiPlayer,
+
+      config:
+        workerConfig,
+
+      thinkTime,
+
+      requestId
+    };
+
+    try {
+      worker.postMessage(
+        payload
+      );
+    } catch {
+      fallbackAIMove(
+        aiPlayer,
+        thinkTime
+      );
+    }
+  }
+
+
+  function getWorkerConfig() {
+    const ai =
+      getSelectedAI();
+
+    const difficulty =
+      selectedDifficulty;
+
+    const base =
+      ai.worker;
+
+    if (
+      difficulty ===
+      "easy"
+    ) {
+      return {
+        depth: Math.min(
+          1,
+          base.depth
+        ),
+        radius: 2,
+        randomTop:
+          Math.max(
+            2,
+            base.randomTop
+          )
+      };
+    }
+
+    if (
+      difficulty ===
+      "hard"
+    ) {
+      return {
+        depth: Math.min(
+          3,
+          Math.max(
+            2,
+            base.depth
+          )
+        ),
+        radius: 2,
+        randomTop:
+          Math.min(
+            1,
+            base.randomTop
+          )
+      };
+    }
+
+    return {
+      depth: base.depth,
+      radius: base.radius,
+      randomTop:
+        base.randomTop
+    };
+  }
+
+
+  function handleAIMessage(
+    event
+  ) {
+    if (
+      !aiThinking ||
+      gameOver
+    ) {
+      return;
+    }
+
+    const data =
+      event.data || {};
+
+    const row =
+      Number.isInteger(
+        data.row
+      )
+        ? data.row
+        : null;
+
+    const col =
+      Number.isInteger(
+        data.col
+      )
+        ? data.col
+        : null;
+
+    const aiPlayer =
+      opponent(
+        playerSide
+      );
+
+    if (
+      row === null ||
+      col === null ||
+      !isInside(
+        row,
+        col
+      ) ||
+      board[row][col] !==
+        CONFIG.EMPTY
+    ) {
+      fallbackAIMove(
+        aiPlayer,
+        data.thinkTime ||
+          CONFIG.THINKING_MIN
+      );
+
+      return;
+    }
+
+    const delay =
+      Math.max(
+        180,
+        Number(
+          data.thinkTime
+        ) || 500
+      );
+
+    setTimeout(
+      () => {
+        if (
+          gameOver ||
+          !aiThinking
+        ) {
+          return;
+        }
+
+        aiThinking = false;
+
+        const move =
+          playMove(
+            row,
+            col,
+            aiPlayer
+          );
+
+        if (!move) {
+          fallbackAIMove(
+            aiPlayer,
+            180
+          );
+
+          return;
+        }
+
+        updateAIMessageAfterMove();
+
+      },
+      Math.min(
+        delay,
+        1400
+      )
+    );
+  }
+
+
+  function handleAIError() {
+    if (
+      gameOver ||
+      !aiThinking
+    ) {
+      return;
+    }
+
+    fallbackAIMove(
+      opponent(
+        playerSide
+      ),
+      300
+    );
+  }
+
+
+  function fallbackAIMove(
+    player,
+    delay
+  ) {
+    const candidates =
+      getFallbackCandidates();
+
+    if (
+      !candidates.length
+    ) {
+      aiThinking = false;
+      return;
+    }
+
+    const move =
+      chooseFallbackMove(
+        candidates,
+        player
+      );
+
+    setTimeout(
+      () => {
+        if (
+          gameOver ||
+          !aiThinking
+        ) {
+          return;
+        }
+
+        aiThinking = false;
+
+        playMove(
+          move.row,
+          move.col,
+          player
+        );
+
+        updateAIMessageAfterMove();
+      },
+      Math.max(
+        180,
+        Math.min(
+          900,
+          delay || 350
+        )
+      )
+    );
+  }
+
+
+  function getFallbackCandidates() {
+    const occupied = [];
+
+    for (
+      let row = 0;
+      row < CONFIG.BOARD_SIZE;
+      row++
+    ) {
+      for (
+        let col = 0;
+        col < CONFIG.BOARD_SIZE;
+        col++
+      ) {
+        if (
+          board[row][col] !==
+          CONFIG.EMPTY
+        ) {
+          occupied.push([
+            row,
+            col
+          ]);
+        }
+      }
+    }
+
+    if (
+      occupied.length ===
+      0
+    ) {
+      return [
+        {
+          row: 7,
+          col: 7
+        }
+      ];
+    }
+
+    const set =
+      new Set();
+
+    for (
+      const [
+        row,
+        col
+      ] of occupied
+    ) {
+      for (
+        let dr = -2;
+        dr <= 2;
+        dr++
+      ) {
+        for (
+          let dc = -2;
+          dc <= 2;
+          dc++
+        ) {
+          const r =
+            row + dr;
+
+          const c =
+            col + dc;
+
+          if (
+            isInside(
+              r,
+              c
+            ) &&
+            board[r][c] ===
+              CONFIG.EMPTY
+          ) {
+            set.add(
+              `${r},${c}`
+            );
+          }
+        }
+      }
+    }
+
+    return [
+      ...set
+    ].map(
+      key => {
+        const [
+          row,
+          col
+        ] =
+          key
+            .split(",")
+            .map(Number);
+
+        return {
+          row,
+          col
+        };
+      }
+    );
+  }
+
+
+  function chooseFallbackMove(
+    candidates,
+    player
+  ) {
+    const enemy =
+      opponent(player);
+
+    /* Immediate win */
+    for (
+      const move of
+      candidates
+    ) {
+      board[
+        move.row
+      ][
+        move.col
+      ] = player;
+
+      const win =
+        Boolean(
+          findWinningLine(
+            board,
+            move.row,
+            move.col,
+            player
+          )
+        );
+
+      board[
+        move.row
+      ][
+        move.col
+      ] =
+        CONFIG.EMPTY;
+
+      if (win) {
+        return move;
+      }
+    }
+
+    /* Immediate block */
+    for (
+      const move of
+      candidates
+    ) {
+      board[
+        move.row
+      ][
+        move.col
+      ] = enemy;
+
+      const win =
+        Boolean(
+          findWinningLine(
+            board,
+            move.row,
+            move.col,
+            enemy
+          )
+        );
+
+      board[
+        move.row
+      ][
+        move.col
+      ] =
+        CONFIG.EMPTY;
+
+      if (win) {
+        return move;
+      }
+    }
+
+    /* Position score */
+    let bestScore =
+      -Infinity;
+
+    let bestMoves = [];
+
+    const center =
+      (CONFIG.BOARD_SIZE - 1) /
+      2;
+
+    for (
+      const move of
+      candidates
+    ) {
+      const distance =
+        Math.abs(
+          move.row -
+            center
+        ) +
+        Math.abs(
+          move.col -
+            center
+        );
+
+      const score =
+        100 -
+        distance * 5 +
+        Math.random() *
+          15;
+
+      if (
+        score >
+        bestScore
+      ) {
+        bestScore =
+          score;
+
+        bestMoves = [
+          move
+        ];
+      } else if (
+        score ===
+        bestScore
+      ) {
+        bestMoves.push(
+          move
+        );
+      }
+    }
+
+    return (
+      bestMoves[
+        Math.floor(
+          Math.random() *
+            bestMoves.length
+        )
+      ] ||
+      candidates[0]
+    );
+  }
+
+
+  function updateAIMessageAfterMove() {
     if (gameOver) {
       return;
     }
 
-    gameOver = true;
-    aiThinking = false;
+    const ai =
+      getSelectedAI();
 
-    invalidateWorker();
+    const category =
+      analyzeLastAIMove();
 
-    winningLine =
-      result.line || [];
+    showOS(
+      category,
+      ai
+    );
+  }
 
-    clearSavedGame();
 
-    if (
-      result.type === "draw"
-    ) {
-      stats.draws += 1;
-      stats.total += 1;
-
-      addRecord({
-        mode: selectedMode,
-        result: "draw",
-        winner: CONFIG.EMPTY,
-        ai:
-          selectedMode === "ai"
-            ? selectedAI
-            : null
-      });
-    } else if (
-      selectedMode === "local"
-    ) {
-      stats.total += 1;
-
-      addRecord({
-        mode: "local",
-        result:
-          result.winner ===
-          CONFIG.BLACK
-            ? "player1"
-            : "player2",
-        winner:
-          result.winner,
-        ai: null
-      });
-    } else {
-      const human =
-        getHumanSide();
-
-      const won =
-        result.winner ===
-        human;
-
-      if (won) {
-        stats.wins += 1;
-      } else {
-        stats.losses += 1;
-      }
-
-      stats.total += 1;
-
-      const aiStats =
-        ensureAIStats(
-          selectedAI
-        );
-
-      if (won) {
-        aiStats.losses += 1;
-      } else {
-        aiStats.wins += 1;
-      }
-
-      addRecord({
-        mode: "ai",
-        result:
-          won
-            ? "win"
-            : "loss",
-        winner:
-          result.winner,
-        ai:
-          selectedAI
-      });
+  function analyzeLastAIMove() {
+    if (!lastMove) {
+      return "thinking";
     }
 
-    saveStats();
-    renderStats();
+    const aiPlayer =
+      opponent(
+        playerSide
+      );
+
+    if (
+      lastMove.player !==
+      aiPlayer
+    ) {
+      return "thinking";
+    }
+
+    const danger =
+      hasImmediateThreat(
+        board,
+        playerSide
+      );
+
+    if (danger) {
+      return "defend";
+    }
+
+    return Math.random() >
+      0.55
+      ? "attack"
+      : "thinking";
+  }
+
+
+  function hasImmediateThreat(
+    currentBoard,
+    player
+  ) {
+    for (
+      let row = 0;
+      row < CONFIG.BOARD_SIZE;
+      row++
+    ) {
+      for (
+        let col = 0;
+        col < CONFIG.BOARD_SIZE;
+        col++
+      ) {
+        if (
+          currentBoard[row][col] !==
+          CONFIG.EMPTY
+        ) {
+          continue;
+        }
+
+        currentBoard[row][col] =
+          player;
+
+        const win =
+          Boolean(
+            findWinningLine(
+              currentBoard,
+              row,
+              col,
+              player
+            )
+          );
+
+        currentBoard[row][col] =
+          CONFIG.EMPTY;
+
+        if (win) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+
+  /* =========================================================
+     AI PANEL
+     ========================================================= */
+
+  function createGamePanel() {
+    if (
+      !DOM.gameScreen
+    ) {
+      return;
+    }
+
+    const existing =
+      document.querySelector(
+        "#aiGamePanel"
+      );
+
+    if (existing) {
+      existing.remove();
+    }
+
+    aiPanel =
+      document.createElement(
+        "aside"
+      );
+
+    aiPanel.id =
+      "aiGamePanel";
+
+    aiPanel.className =
+      "ai-game-panel";
+
+    aiPanel.innerHTML = `
+      <div class="ai-panel-header">
+        <span class="ai-panel-label">
+          AI
+        </span>
+
+        <strong
+          class="ai-panel-name"
+          id="aiPanelName"
+        >
+          Sora
+        </strong>
+      </div>
+
+      <div
+        class="ai-panel-description"
+        id="aiPanelDescription"
+      >
+        冷靜、平衡型
+      </div>
+
+      <div class="ai-os">
+        <div class="ai-os-title">
+          OS
+        </div>
+
+        <p
+          class="ai-os-message"
+          id="aiOSMessage"
+        >
+          等待你的第一步。
+        </p>
+      </div>
+
+      <div class="ai-panel-stats">
+
+        <div>
+          <span>勝</span>
+          <strong id="aiPanelWins">0</strong>
+        </div>
+
+        <div>
+          <span>負</span>
+          <strong id="aiPanelLosses">0</strong>
+        </div>
+
+      </div>
+    `;
+
+    const layout =
+      DOM.gameScreen.querySelector(
+        ".game-layout"
+      );
+
+    if (layout) {
+      layout.appendChild(
+        aiPanel
+      );
+    }
+
+    updateAIPanel();
+  }
+
+
+  function updateAIPanel() {
+    if (!aiPanel) {
+      return;
+    }
+
+    if (
+      selectedMode !==
+      "ai"
+    ) {
+      aiPanel.hidden =
+        true;
+
+      return;
+    }
+
+    aiPanel.hidden =
+      false;
+
+    const ai =
+      getSelectedAI();
+
+    const language =
+      settings.language;
+
+    const name =
+      ai.name[
+        language
+      ] ||
+      ai.name["en"];
+
+    const description =
+      ai.description[
+        language
+      ] ||
+      ai.description["en"];
+
+    const wins =
+      stats.ai[
+        ai.id
+      ]?.wins || 0;
+
+    const losses =
+      stats.ai[
+        ai.id
+      ]?.losses || 0;
+
+    const nameElement =
+      aiPanel.querySelector(
+        "#aiPanelName"
+      );
+
+    const descriptionElement =
+      aiPanel.querySelector(
+        "#aiPanelDescription"
+      );
+
+    const winsElement =
+      aiPanel.querySelector(
+        "#aiPanelWins"
+      );
+
+    const lossesElement =
+      aiPanel.querySelector(
+        "#aiPanelLosses"
+      );
+
+    if (nameElement) {
+      nameElement.textContent =
+        name;
+    }
+
+    if (
+      descriptionElement
+    ) {
+      descriptionElement.textContent =
+        description;
+    }
+
+    if (winsElement) {
+      winsElement.textContent =
+        wins;
+    }
+
+    if (lossesElement) {
+      lossesElement.textContent =
+        losses;
+    }
+  }
+
+
+  function showOS(
+    category,
+    ai
+  ) {
+    if (
+      !aiPanel ||
+      selectedMode !==
+        "ai"
+    ) {
+      return;
+    }
+
+    const element =
+      aiPanel.querySelector(
+        "#aiOSMessage"
+      );
+
+    if (!element) {
+      return;
+    }
+
+    const language =
+      settings.language;
+
+    const messages =
+      ai.os[
+        category
+      ] ||
+      ai.os.thinking;
+
+    const message =
+      messages[
+        Math.floor(
+          Math.random() *
+            messages.length
+        )
+      ];
+
+    element.textContent =
+      message;
+
+    if (
+      settings.motion
+    ) {
+      element.animate(
+        [
+          {
+            opacity: 0.35,
+            transform:
+              "translateY(3px)"
+          },
+          {
+            opacity: 1,
+            transform:
+              "translateY(0)"
+          }
+        ],
+        {
+          duration: 220,
+          easing:
+            "ease-out"
+        }
+      );
+    }
+  }
+
+
+  function getSelectedAI() {
+    return (
+      AI_CHARACTERS[
+        selectedAI
+      ] ||
+      AI_CHARACTERS.sora
+    );
+  }
+
+
+  /* =========================================================
+     UNDO
+     ========================================================= */
+
+  function undoMove() {
+    if (
+      gameOver ||
+      aiThinking ||
+      !moveHistory.length
+    ) {
+      return;
+    }
+
+    if (
+      selectedMode ===
+      "local"
+    ) {
+      undoLocal();
+    } else {
+      undoAI();
+    }
+
+    winningLine = [];
+
+    lastMove =
+      moveHistory[
+        moveHistory.length - 1
+      ] || null;
+
+    gameOver = false;
+
+    aiThinking = false;
 
     drawBoard();
 
-    showResult(result);
+    updateTurnUI();
+
+    saveCurrentGame();
+
+    showToast(
+      getText(
+        "game.undo"
+      )
+    );
   }
 
-  function showResult(result) {
+
+  function undoLocal() {
+    const move =
+      moveHistory.pop();
+
+    if (!move) return;
+
+    board[
+      move.row
+    ][
+      move.col
+    ] =
+      CONFIG.EMPTY;
+
+    currentPlayer =
+      move.player;
+  }
+
+
+  function undoAI() {
+    /* Remove AI move first */
+    const last =
+      moveHistory[
+        moveHistory.length - 1
+      ];
+
     if (
-      result.type === "draw"
+      last &&
+      last.player !==
+        playerSide
     ) {
-      DOM.resultMark.className =
-        "result-mark draw";
+      board[
+        last.row
+      ][
+        last.col
+      ] =
+        CONFIG.EMPTY;
 
-      DOM.resultKicker.textContent =
-        text("draw");
-
-      DOM.resultTitle.textContent =
-        text("draw");
-
-      DOM.resultDescription.textContent =
-        text("drawDesc");
-    } else if (
-      selectedMode === "local"
-    ) {
-      const player1 =
-        result.winner ===
-        CONFIG.BLACK;
-
-      DOM.resultMark.className =
-        `result-mark ${
-          player1
-            ? "win"
-            : "lose"
-        }`;
-
-      DOM.resultKicker.textContent =
-        player1
-          ? text("black")
-          : text("white");
-
-      DOM.resultTitle.textContent =
-        player1
-          ? text("player1Win")
-          : text("player2Win");
-
-      DOM.resultDescription.textContent =
-        text(
-          "localWinDesc",
-          {
-            player:
-              player1
-                ? text("player1Turn")
-                    .replace(
-                      " 的回合",
-                      ""
-                    )
-                    .replace(
-                      "'s turn",
-                      ""
-                    )
-                : text("player2Turn")
-                    .replace(
-                      " 的回合",
-                      ""
-                    )
-                    .replace(
-                      "'s turn",
-                      ""
-                    )
-          }
-        );
-    } else {
-      const human =
-        getHumanSide();
-
-      const won =
-        result.winner ===
-        human;
-
-      const ai =
-        getSelectedAI();
-
-      DOM.resultMark.className =
-        `result-mark ${
-          won
-            ? "win"
-            : "lose"
-        }`;
-
-      DOM.resultKicker.textContent =
-        getLocalized(
-          ai.name
-        );
-
-      DOM.resultTitle.textContent =
-        won
-          ? text("win")
-          : text("lose");
-
-      DOM.resultDescription.textContent =
-        won
-          ? text(
-              "playerWinDesc",
-              {
-                name:
-                  getLocalized(
-                    ai.name
-                  )
-              }
-            )
-          : text(
-              "playerLoseDesc",
-              {
-                name:
-                  getLocalized(
-                    ai.name
-                  )
-              }
-            );
+      moveHistory.pop();
     }
 
-    showScreen("result");
+    /* Remove player's move */
+    const playerMove =
+      moveHistory[
+        moveHistory.length - 1
+      ];
+
+    if (
+      playerMove &&
+      playerMove.player ===
+        playerSide
+    ) {
+      board[
+        playerMove.row
+      ][
+        playerMove.col
+      ] =
+        CONFIG.EMPTY;
+
+      moveHistory.pop();
+    }
+
+    currentPlayer =
+      playerSide;
   }
 
+
   /* =========================================================
-     STATISTICS
+     GAME START
+     ========================================================= */
+
+  function startNewGame() {
+    board =
+      createBoard();
+
+    moveHistory = [];
+
+    winningLine = [];
+
+    lastMove = null;
+
+    gameOver = false;
+
+    aiThinking = false;
+
+    currentPlayer =
+      CONFIG.BLACK;
+
+    clearSavedGame();
+
+    updateAIPanel();
+
+    showScreen(
+      "game"
+    );
+
+    resizeCanvas();
+
+    updateTurnUI();
+
+    drawBoard();
+
+    saveCurrentGame();
+
+    if (
+      selectedMode ===
+        "ai" &&
+      playerSide ===
+        CONFIG.WHITE
+    ) {
+      requestAIMove();
+    }
+  }
+
+
+  /* =========================================================
+     RESULT
+     ========================================================= */
+
+  function finishGame(
+    result
+  ) {
+    gameOver = true;
+
+    aiThinking = false;
+
+    clearSavedGame();
+
+    recordResult(
+      result
+    );
+
+    updateStatsUI();
+
+    updateAIPanel();
+
+    renderResult(
+      result
+    );
+
+    showScreen(
+      "result"
+    );
+  }
+
+
+  function recordResult(
+    result
+  ) {
+    stats.total++;
+
+    const record = {
+      mode:
+        selectedMode,
+
+      ai:
+        selectedAI,
+
+      result,
+
+      playerSide,
+
+      date:
+        new Date()
+          .toLocaleString(
+            settings.language ||
+              "zh-TW"
+          )
+    };
+
+    if (
+      result ===
+      "win"
+    ) {
+      stats.wins++;
+
+      ensureAIStats();
+
+      stats.ai[
+        selectedAI
+      ].losses++;
+    }
+
+    if (
+      result ===
+      "loss"
+    ) {
+      stats.losses++;
+
+      ensureAIStats();
+
+      stats.ai[
+        selectedAI
+      ].wins++;
+    }
+
+    if (
+      result ===
+      "draw"
+    ) {
+      stats.draws++;
+    }
+
+    stats.records.unshift(
+      record
+    );
+
+    stats.records =
+      stats.records.slice(
+        0,
+        50
+      );
+
+    saveStats();
+  }
+
+
+  function renderResult(
+    result
+  ) {
+    if (!DOM.resultTitle) {
+      return;
+    }
+
+    DOM.resultMark.className =
+      "result-mark";
+
+    if (
+      result === "win"
+    ) {
+      DOM.resultMark.classList.add(
+        "win"
+      );
+
+      DOM.resultKicker.textContent =
+        "GOMOKU";
+
+      DOM.resultTitle.textContent =
+        getText(
+          "records.wins"
+        );
+
+      DOM.resultDescription.textContent =
+        getText(
+          "result.again"
+        );
+    } else if (
+      result === "loss"
+    ) {
+      DOM.resultMark.classList.add(
+        "lose"
+      );
+
+      DOM.resultKicker.textContent =
+        "GOMOKU";
+
+      DOM.resultTitle.textContent =
+        getText(
+          "records.losses"
+        );
+
+      DOM.resultDescription.textContent =
+        getText(
+          "result.again"
+        );
+    } else if (
+      result === "draw"
+    ) {
+      DOM.resultMark.classList.add(
+        "draw"
+      );
+
+      DOM.resultKicker.textContent =
+        "GOMOKU";
+
+      DOM.resultTitle.textContent =
+        getText(
+          "records.draws"
+        );
+
+      DOM.resultDescription.textContent =
+        getText(
+          "result.again"
+        );
+    } else if (
+      result === "black"
+    ) {
+      DOM.resultMark.classList.add(
+        "win"
+      );
+
+      DOM.resultKicker.textContent =
+        "GOMOKU";
+
+      DOM.resultTitle.textContent =
+        getText(
+          "side.black"
+        );
+    } else {
+      DOM.resultMark.classList.add(
+        "win"
+      );
+
+      DOM.resultKicker.textContent =
+        "GOMOKU";
+
+      DOM.resultTitle.textContent =
+        getText(
+          "side.white"
+        );
+    }
+  }
+
+
+  /* =========================================================
+     TURN UI
+     ========================================================= */
+
+  function updateTurnUI() {
+    if (
+      !DOM.turnPlayer
+    ) {
+      return;
+    }
+
+    const player =
+      currentPlayer;
+
+    DOM.turnPlayer.textContent =
+      player ===
+      CONFIG.BLACK
+        ? getText(
+            "side.black"
+          )
+        : getText(
+            "side.white"
+          );
+
+    if (
+      selectedMode ===
+      "local"
+    ) {
+      DOM.turnLabel.textContent =
+        player ===
+        CONFIG.BLACK
+          ? getLocalTurnText(
+              "black"
+            )
+          : getLocalTurnText(
+              "white"
+            );
+    } else {
+      if (
+        player ===
+        playerSide
+      ) {
+        DOM.turnLabel.textContent =
+          "你的回合";
+      } else {
+        DOM.turnLabel.textContent =
+          getText(
+            "game.thinking"
+          );
+      }
+    }
+
+    if (
+      DOM.turnStone
+    ) {
+      DOM.turnStone.classList.toggle(
+        "black-stone",
+        player ===
+          CONFIG.BLACK
+      );
+
+      DOM.turnStone.classList.toggle(
+        "white-stone",
+        player ===
+          CONFIG.WHITE
+      );
+    }
+
+    if (
+      DOM.thinkingIndicator
+    ) {
+      DOM.thinkingIndicator.hidden =
+        !aiThinking;
+    }
+
+    if (canvas) {
+      canvas.style.cursor =
+        gameOver ||
+        aiThinking ||
+        (
+          selectedMode ===
+            "ai" &&
+          currentPlayer !==
+            playerSide
+        )
+          ? "default"
+          : "pointer";
+    }
+  }
+
+
+  function getLocalTurnText(
+    side
+  ) {
+    const language =
+      settings.language;
+
+    const map = {
+      "zh-TW": {
+        black: "黑棋回合",
+        white: "白棋回合"
+      },
+      "zh-CN": {
+        black: "黑棋回合",
+        white: "白棋回合"
+      },
+      en: {
+        black: "Black's turn",
+        white: "White's turn"
+      },
+      ja: {
+        black: "黒の番",
+        white: "白の番"
+      },
+      ko: {
+        black: "흑 차례",
+        white: "백 차례"
+      }
+    };
+
+    return (
+      map[
+        language
+      ]?.[side] ||
+      map.en[side]
+    );
+  }
+
+
+  /* =========================================================
+     SETUP
+     ========================================================= */
+
+  function setupGameControls() {
+
+    DOM.modeControl?.addEventListener(
+      "click",
+      event => {
+        const button =
+          event.target.closest(
+            "[data-mode]"
+          );
+
+        if (!button) {
+          return;
+        }
+
+        selectedMode =
+          button.dataset.mode ||
+          "ai";
+
+        document
+          .querySelectorAll(
+            "[data-mode]"
+          )
+          .forEach(
+            item => {
+              const active =
+                item.dataset.mode ===
+                selectedMode;
+
+              item.classList.toggle(
+                "selected",
+                active
+              );
+
+              item.setAttribute(
+                "aria-pressed",
+                String(
+                  active
+                )
+              );
+            }
+          );
+
+        if (
+          DOM.difficultyGroup
+        ) {
+          DOM.difficultyGroup.hidden =
+            selectedMode !==
+            "ai";
+        }
+
+        updateAIPanel();
+      }
+    );
+
+
+    document
+      .querySelectorAll(
+        "[data-difficulty]"
+      )
+      .forEach(
+        button => {
+          button.addEventListener(
+            "click",
+            () => {
+              selectedDifficulty =
+                button.dataset
+                  .difficulty ||
+                "normal";
+
+              document
+                .querySelectorAll(
+                  "[data-difficulty]"
+                )
+                .forEach(
+                  item => {
+                    item.classList.toggle(
+                      "selected",
+                      item ===
+                        button
+                    );
+
+                    item.setAttribute(
+                      "aria-pressed",
+                      String(
+                        item ===
+                          button
+                      )
+                    );
+                  }
+                );
+            }
+          );
+        }
+      );
+
+
+    document
+      .querySelectorAll(
+        "[data-side]"
+      )
+      .forEach(
+        button => {
+          button.addEventListener(
+            "click",
+            () => {
+              playerSide =
+                button.dataset
+                  .side ===
+                "white"
+                  ? CONFIG.WHITE
+                  : CONFIG.BLACK;
+
+              document
+                .querySelectorAll(
+                  "[data-side]"
+                )
+                .forEach(
+                  item => {
+                    item.classList.toggle(
+                      "selected",
+                      item ===
+                        button
+                    );
+
+                    item.setAttribute(
+                      "aria-pressed",
+                      String(
+                        item ===
+                          button
+                      )
+                    );
+                  }
+                );
+            }
+          );
+        }
+      );
+
+
+    DOM.beginGameButton?.addEventListener(
+      "click",
+      startNewGame
+    );
+  }
+
+
+  /* =========================================================
+     NAVIGATION
+     ========================================================= */
+
+  function showScreen(
+    name
+  ) {
+    const screens = {
+      home:
+        DOM.homeScreen,
+
+      setup:
+        DOM.setupScreen,
+
+      game:
+        DOM.gameScreen,
+
+      result:
+        DOM.resultScreen,
+
+      records:
+        DOM.recordsScreen,
+
+      settings:
+        DOM.settingsScreen
+    };
+
+    Object.entries(
+      screens
+    ).forEach(
+      ([
+        key,
+        screen
+      ]) => {
+        if (!screen) {
+          return;
+        }
+
+        screen.classList.toggle(
+          "active",
+          key === name
+        );
+      }
+    );
+
+    if (
+      name ===
+      "game"
+    ) {
+      requestAnimationFrame(
+        resizeCanvas
+      );
+    }
+
+    if (
+      name ===
+      "records"
+    ) {
+      renderStats();
+    }
+  }
+
+
+  function setupNavigation() {
+    DOM.startButton?.addEventListener(
+      "click",
+      () => {
+        showScreen(
+          "setup"
+        );
+      }
+    );
+
+
+    DOM.recordsButton?.addEventListener(
+      "click",
+      () => {
+        renderStats();
+
+        showScreen(
+          "records"
+        );
+      }
+    );
+
+
+    DOM.settingsButton?.addEventListener(
+      "click",
+      () => {
+        showScreen(
+          "settings"
+        );
+      }
+    );
+
+
+    DOM.resumeButton?.addEventListener(
+      "click",
+      resumeGame
+    );
+
+
+    DOM.playAgainButton?.addEventListener(
+      "click",
+      startNewGame
+    );
+
+
+    DOM.resultHomeButton?.addEventListener(
+      "click",
+      () => {
+        showScreen(
+          "home"
+        );
+
+        checkResumeGame();
+      }
+    );
+
+
+    DOM.gameMenuButton?.addEventListener(
+      "click",
+      () => {
+        showScreen(
+          "home"
+        );
+
+        checkResumeGame();
+      }
+    );
+
+
+    DOM.restartButton?.addEventListener(
+      "click",
+      () => {
+        startNewGame();
+      }
+    );
+
+
+    DOM.undoButton?.addEventListener(
+      "click",
+      undoMove
+    );
+
+
+    const backButton =
+      document.querySelector(
+        "#backButton"
+      );
+
+    backButton?.addEventListener(
+      "click",
+      () => {
+        if (
+          DOM.gameScreen?.classList.contains(
+            "active"
+          )
+        ) {
+          showScreen(
+            "home"
+          );
+
+          return;
+        }
+
+        if (
+          DOM.setupScreen?.classList.contains(
+            "active"
+          )
+        ) {
+          showScreen(
+            "home"
+          );
+
+          return;
+        }
+
+        showScreen(
+          "home"
+        );
+      }
+    );
+
+
+    const menuButton =
+      document.querySelector(
+        "#menuButton"
+      );
+
+    menuButton?.addEventListener(
+      "click",
+      () => {
+        showScreen(
+          "settings"
+        );
+      }
+    );
+  }
+
+
+  /* =========================================================
+     STATS
      ========================================================= */
 
   function createDefaultStats() {
-    const ai = {};
+    const aiStats = {};
 
     Object.keys(
       AI_CHARACTERS
     ).forEach(
       id => {
-        ai[id] = {
+        aiStats[id] = {
           wins: 0,
           losses: 0
         };
@@ -3293,16 +3671,20 @@
     );
 
     return {
+      total: 0,
       wins: 0,
       losses: 0,
       draws: 0,
-      total: 0,
-      ai,
+      ai: aiStats,
       records: []
     };
   }
 
+
   function loadStats() {
+    const defaults =
+      createDefaultStats();
+
     try {
       const raw =
         localStorage.getItem(
@@ -3310,118 +3692,187 @@
         );
 
       if (!raw) {
-        return createDefaultStats();
+        return defaults;
       }
 
       const parsed =
         JSON.parse(raw);
 
-      const base =
-        createDefaultStats();
-
-      return {
-        ...base,
-        ...parsed,
-        ai: {
-          ...base.ai,
-          ...(parsed.ai || {})
-        },
-        records:
-          Array.isArray(
-            parsed.records
-          )
-            ? parsed.records
-            : []
-      };
+      return normalizeStats(
+        parsed
+      );
     } catch {
-      return createDefaultStats();
+      return defaults;
     }
   }
+
+
+  function normalizeStats(
+    data
+  ) {
+    const defaults =
+      createDefaultStats();
+
+    const result = {
+      ...defaults,
+      ...data
+    };
+
+    result.ai =
+      {
+        ...defaults.ai,
+        ...(data.ai || {})
+      };
+
+    Object.keys(
+      AI_CHARACTERS
+    ).forEach(
+      id => {
+        result.ai[id] = {
+          wins:
+            Number(
+              result.ai[id]
+                ?.wins
+            ) || 0,
+
+          losses:
+            Number(
+              result.ai[id]
+                ?.losses
+            ) || 0
+        };
+      }
+    );
+
+    result.records =
+      Array.isArray(
+        data.records
+      )
+        ? data.records.slice(
+            0,
+            50
+          )
+        : [];
+
+    result.total =
+      Number(
+        result.total
+      ) || 0;
+
+    result.wins =
+      Number(
+        result.wins
+      ) || 0;
+
+    result.losses =
+      Number(
+        result.losses
+      ) || 0;
+
+    result.draws =
+      Number(
+        result.draws
+      ) || 0;
+
+    return result;
+  }
+
+
+  function ensureAIStats() {
+    if (
+      !stats.ai
+    ) {
+      stats.ai = {};
+    }
+
+    Object.keys(
+      AI_CHARACTERS
+    ).forEach(
+      id => {
+        if (
+          !stats.ai[id]
+        ) {
+          stats.ai[id] = {
+            wins: 0,
+            losses: 0
+          };
+        }
+      }
+    );
+  }
+
 
   function saveStats() {
     try {
       localStorage.setItem(
         CONFIG.STORAGE_KEY,
-        JSON.stringify(stats)
+        JSON.stringify(
+          stats
+        )
       );
     } catch {}
   }
 
-  function ensureAIStats(
-    id
-  ) {
+
+  function updateStatsUI() {
     if (
-      !stats.ai[id]
+      DOM.statGames
     ) {
-      stats.ai[id] = {
-        wins: 0,
-        losses: 0
-      };
+      DOM.statGames.textContent =
+        stats.total;
     }
 
-    return stats.ai[id];
-  }
-
-  function addRecord(record) {
-    stats.records.push({
-      ...record,
-      date:
-        new Date().toLocaleString(
-          settings.language
-        )
-    });
+    if (
+      DOM.statWins
+    ) {
+      DOM.statWins.textContent =
+        stats.wins;
+    }
 
     if (
-      stats.records.length >
-      100
+      DOM.statLosses
     ) {
-      stats.records =
-        stats.records.slice(
-          -100
-        );
+      DOM.statLosses.textContent =
+        stats.losses;
+    }
+
+    if (
+      DOM.statDraws
+    ) {
+      DOM.statDraws.textContent =
+        stats.draws;
     }
   }
+
 
   function renderStats() {
-    if (!DOM.statGames) {
+    updateStatsUI();
+
+    if (
+      !DOM.recordList
+    ) {
       return;
     }
 
-    DOM.statGames.textContent =
-      String(stats.total);
-
-    DOM.statWins.textContent =
-      String(stats.wins);
-
-    DOM.statLosses.textContent =
-      String(stats.losses);
-
-    DOM.statDraws.textContent =
-      String(stats.draws);
-
-    renderRecordList();
-  }
-
-  function renderRecordList() {
-    if (!DOM.recordList) {
-      return;
-    }
-
-    DOM.recordList.innerHTML = "";
+    DOM.recordList.innerHTML =
+      "";
 
     if (
       !stats.records.length
     ) {
       const empty =
         document.createElement(
-          "p"
+          "div"
         );
 
-      empty.textContent =
-        text("noRecords");
-
       empty.style.opacity =
-        ".55";
+        "0.5";
+
+      empty.style.padding =
+        "20px 0";
+
+      empty.textContent =
+        "目前還沒有棋局記錄。";
 
       DOM.recordList.appendChild(
         empty
@@ -3430,142 +3881,203 @@
       return;
     }
 
-    stats.records
-      .slice(-30)
-      .reverse()
-      .forEach(
-        record => {
-          const item =
-            document.createElement(
-              "div"
-            );
+    stats.records.forEach(
+      record => {
+        const item =
+          document.createElement(
+            "div"
+          );
 
-          item.className =
-            "record-item";
+        item.style.cssText =
+          `
+          display:flex;
+          justify-content:space-between;
+          align-items:center;
+          gap:12px;
+          padding:12px 0;
+          border-bottom:1px solid rgba(80,60,40,.1);
+          `;
 
-          const left =
-            document.createElement(
-              "div"
-            );
+        const left =
+          document.createElement(
+            "div"
+          );
 
-          const title =
-            document.createElement(
-              "strong"
-            );
+        const title =
+          document.createElement(
+            "strong"
+          );
 
-          if (
-            record.mode === "local"
-          ) {
-            title.textContent =
-              text("recordLocal");
-          } else if (
-            record.ai &&
+        if (
+          record.mode ===
+          "local"
+        ) {
+          title.textContent =
+            "雙人對戰";
+        } else {
+          const ai =
             AI_CHARACTERS[
               record.ai
-            ]
-          ) {
-            title.textContent =
-              getLocalized(
-                AI_CHARACTERS[
-                  record.ai
-                ].name
-              );
-          } else {
-            title.textContent =
-              "Gomoku";
-          }
+            ] ||
+            AI_CHARACTERS.sora;
 
-          const date =
-            document.createElement(
-              "small"
-            );
-
-          date.textContent =
-            record.date || "";
-
-          left.append(
-            title,
-            date
-          );
-
-          const result =
-            document.createElement(
-              "strong"
-            );
-
-          if (
-            record.result ===
-            "win" ||
-            record.result ===
-            "player1"
-          ) {
-            result.textContent =
-              text("recordWin");
-
-            result.className =
-              "record-result win";
-          } else if (
-            record.result ===
-            "loss" ||
-            record.result ===
-            "player2"
-          ) {
-            result.textContent =
-              text("recordLoss");
-
-            result.className =
-              "record-result loss";
-          } else {
-            result.textContent =
-              text("recordDraw");
-
-            result.className =
-              "record-result draw";
-          }
-
-          item.append(
-            left,
-            result
-          );
-
-          DOM.recordList.appendChild(
-            item
-          );
+          title.textContent =
+            ai.name[
+              settings.language
+            ] ||
+            ai.name.en;
         }
-      );
-  }
 
-  function setupRecordsControls() {
-    DOM.clearRecordsButton?.addEventListener(
-      "click",
-      () => {
-        stats =
-          createDefaultStats();
+        const date =
+          document.createElement(
+            "div"
+          );
 
-        saveStats();
-        renderStats();
+        date.style.cssText =
+          `
+          font-size:11px;
+          opacity:.5;
+          margin-top:2px;
+          `;
 
-        showToast(
-          text("recordsCleared")
+        date.textContent =
+          record.date ||
+          "";
+
+        left.append(
+          title,
+          date
+        );
+
+        const result =
+          document.createElement(
+            "strong"
+          );
+
+        result.textContent =
+          resultLabel(
+            record.result
+          );
+
+        item.append(
+          left,
+          result
+        );
+
+        DOM.recordList.appendChild(
+          item
         );
       }
     );
   }
 
+
+  function resultLabel(
+    result
+  ) {
+    const language =
+      settings.language;
+
+    const labels = {
+      "zh-TW": {
+        win: "勝利",
+        loss: "失敗",
+        draw: "和局",
+        black: "黑棋勝",
+        white: "白棋勝"
+      },
+
+      "zh-CN": {
+        win: "胜利",
+        loss: "失败",
+        draw: "和局",
+        black: "黑棋胜",
+        white: "白棋胜"
+      },
+
+      en: {
+        win: "Win",
+        loss: "Loss",
+        draw: "Draw",
+        black: "Black wins",
+        white: "White wins"
+      },
+
+      ja: {
+        win: "勝ち",
+        loss: "負け",
+        draw: "引き分け",
+        black: "黒の勝ち",
+        white: "白の勝ち"
+      },
+
+      ko: {
+        win: "승리",
+        loss: "패배",
+        draw: "무승부",
+        black: "흑 승리",
+        white: "백 승리"
+      }
+    };
+
+    return (
+      labels[
+        language
+      ]?.[result] ||
+      labels.en[
+        result
+      ] ||
+      result
+    );
+  }
+
+
+  /* =========================================================
+     RECORD CLEAR
+     ========================================================= */
+
+  function setupRecordControls() {
+    DOM.clearRecordsButton?.addEventListener(
+      "click",
+      () => {
+        const confirmed =
+          window.confirm(
+            "確定要清除所有棋局記錄嗎？"
+          );
+
+        if (!confirmed) {
+          return;
+        }
+
+        stats =
+          createDefaultStats();
+
+        saveStats();
+
+        renderStats();
+
+        updateAIPanel();
+
+        showToast(
+          "棋局記錄已清除"
+        );
+      }
+    );
+  }
+
+
   /* =========================================================
      SETTINGS
      ========================================================= */
 
-  function createDefaultSettings() {
-    return {
+  function loadSettings() {
+    const defaults = {
       language: "zh-TW",
       sound: true,
       motion: true,
       theme: "system"
     };
-  }
 
-  function loadSettings() {
     try {
       const raw =
         localStorage.getItem(
@@ -3573,81 +4085,64 @@
         );
 
       if (!raw) {
-        return createDefaultSettings();
+        return defaults;
       }
 
       return {
-        ...createDefaultSettings(),
+        ...defaults,
         ...JSON.parse(raw)
       };
     } catch {
-      return createDefaultSettings();
+      return defaults;
     }
   }
+
 
   function saveSettings() {
     settings = {
       language:
-        DOM.languageSelect?.value ||
-        settings.language ||
+        DOM.languageSelect
+          ?.value ||
         "zh-TW",
 
       sound:
-        DOM.soundToggle?.checked ??
-        settings.sound,
+        DOM.soundToggle
+          ?.checked ??
+        true,
 
       motion:
-        DOM.motionToggle?.checked ??
-        settings.motion,
+        DOM.motionToggle
+          ?.checked ??
+        true,
 
       theme:
-        DOM.themeSelect?.value ||
-        settings.theme ||
+        DOM.themeSelect
+          ?.value ||
         "system"
     };
 
     try {
       localStorage.setItem(
         CONFIG.SETTINGS_KEY,
-        JSON.stringify(settings)
+        JSON.stringify(
+          settings
+        )
       );
     } catch {}
 
     applySettings();
+
+    applyTranslations();
+
+    updateAIPanel();
+
+    updateTurnUI();
+
+    renderStats();
+
+    checkResumeGame();
   }
 
-  function setupSettingsControls() {
-    DOM.languageSelect?.addEventListener(
-      "change",
-      () => {
-        saveSettings();
-
-        applyTranslations();
-        renderStats();
-        updateSetupUI();
-        updateTurnUI();
-        renderGameSidePanel();
-        checkResumeGame();
-      }
-    );
-
-    DOM.soundToggle?.addEventListener(
-      "change",
-      saveSettings
-    );
-
-    DOM.motionToggle?.addEventListener(
-      "change",
-      saveSettings
-    );
-
-    DOM.themeSelect?.addEventListener(
-      "change",
-      saveSettings
-    );
-
-    setupRecordsControls();
-  }
 
   function applySettings() {
     if (
@@ -3678,6 +4173,11 @@
         settings.theme;
     }
 
+    applyTheme();
+  }
+
+
+  function applyTheme() {
     if (
       settings.theme ===
       "system"
@@ -3685,20 +4185,27 @@
       document.documentElement.removeAttribute(
         "data-theme"
       );
-    } else {
-      document.documentElement.setAttribute(
-        "data-theme",
-        settings.theme
-      );
+
+      return;
     }
 
-    applyTranslations();
+    document.documentElement.setAttribute(
+      "data-theme",
+      settings.theme
+    );
   }
 
+
   function applyTranslations() {
+    const language =
+      settings.language;
+
+    document.documentElement.lang =
+      language;
+
     const dictionary =
       I18N[
-        settings.language
+        language
       ] ||
       I18N["zh-TW"];
 
@@ -3709,88 +4216,23 @@
       .forEach(
         element => {
           const key =
-            element.dataset.i18n;
-
-          const value =
-            dictionary[
-              convertI18NKey(
-                key
-              )
-            ];
+            element.dataset
+              .i18n;
 
           if (
-            value !== undefined
+            dictionary[key] !==
+            undefined
           ) {
             element.textContent =
-              value;
+              dictionary[key];
           }
         }
       );
   }
 
-  function convertI18NKey(key) {
-    const map = {
-      "app.title": "title",
-      "home.subtitle": "subtitle",
-      "home.start": "start",
-      "home.records": "records",
-      "home.settings": "settings",
-      "home.resumeLabel": "unfinished",
-      "home.resume": "resume",
 
-      "setup.title": "setup",
-      "setup.mode": "mode",
-      "setup.ai": "ai",
-      "setup.local": "local",
-      "setup.difficulty": "difficulty",
-      "difficulty.easy": "easy",
-      "difficulty.normal": "normal",
-      "difficulty.hard": "hard",
-      "difficulty.easyDescription": "easyDesc",
-      "difficulty.normalDescription": "normalDesc",
-      "difficulty.hardDescription": "hardDesc",
-      "setup.side": "side",
-      "side.black": "black",
-      "side.white": "white",
-      "side.first": "first",
-      "side.second": "second",
-      "setup.begin": "begin",
-
-      "game.thinking": "thinking",
-      "game.undo": "undo",
-      "game.restart": "restart",
-      "game.menu": "menu",
-
-      "result.again": "again",
-      "result.home": "home",
-
-      "records.title": "records",
-      "records.games": "games",
-      "records.wins": "wins",
-      "records.losses": "losses",
-      "records.draws": "draws",
-      "records.clear": "clear",
-
-      "settings.title": "settings",
-      "settings.language": "language",
-      "settings.languageDescription": "languageDesc",
-      "settings.sound": "sound",
-      "settings.soundDescription": "soundDesc",
-      "settings.motion": "motion",
-      "settings.motionDescription": "motionDesc",
-      "settings.theme": "theme",
-      "settings.themeDescription": "themeDesc"
-    };
-
-    return (
-      map[key] ||
-      key
-    );
-  }
-
-  function text(
-    key,
-    variables = {}
+  function getText(
+    key
   ) {
     const dictionary =
       I18N[
@@ -3798,45 +4240,36 @@
       ] ||
       I18N["zh-TW"];
 
-    let value =
-      dictionary[key] ??
-      I18N["zh-TW"][key] ??
-      key;
-
-    Object.entries(
-      variables
-    ).forEach(
-      ([name, replacement]) => {
-        value =
-          value.replace(
-            `{${name}}`,
-            String(replacement)
-          );
-      }
-    );
-
-    return value;
-  }
-
-  function getLocalized(
-    value
-  ) {
-    if (
-      typeof value ===
-      "string"
-    ) {
-      return value;
-    }
-
     return (
-      value[
-        settings.language
-      ] ??
-      value["zh-TW"] ??
-      value.en ??
-      ""
+      dictionary[key] ||
+      I18N["zh-TW"][key] ||
+      key
     );
   }
+
+
+  function setupSettingsControls() {
+    DOM.languageSelect?.addEventListener(
+      "change",
+      saveSettings
+    );
+
+    DOM.soundToggle?.addEventListener(
+      "change",
+      saveSettings
+    );
+
+    DOM.motionToggle?.addEventListener(
+      "change",
+      saveSettings
+    );
+
+    DOM.themeSelect?.addEventListener(
+      "change",
+      saveSettings
+    );
+  }
+
 
   /* =========================================================
      SAVE / RESUME
@@ -3850,40 +4283,42 @@
       return;
     }
 
+    const data = {
+      board,
+      currentPlayer,
+      selectedMode,
+      selectedAI,
+      selectedDifficulty,
+      playerSide,
+      moveHistory,
+      lastMove,
+      timestamp:
+        Date.now()
+    };
+
     try {
       localStorage.setItem(
-        CONFIG.GAME_SAVE_KEY,
-        JSON.stringify({
-          version: 3,
-          gameId,
-          board,
-          boardVersion,
-          currentPlayer,
-          selectedMode,
-          selectedAI,
-          selectedDifficulty,
-          playerSide,
-          moveHistory,
-          winningLine,
-          lastMove,
-          timestamp:
-            Date.now()
-        })
+        CONFIG.SAVE_KEY,
+        JSON.stringify(
+          data
+        )
       );
-
-      checkResumeGame();
     } catch {}
+
+    checkResumeGame();
   }
+
 
   function clearSavedGame() {
     try {
       localStorage.removeItem(
-        CONFIG.GAME_SAVE_KEY
+        CONFIG.SAVE_KEY
       );
-
-      checkResumeGame();
     } catch {}
+
+    checkResumeGame();
   }
+
 
   function checkResumeGame() {
     if (
@@ -3896,7 +4331,7 @@
     try {
       const raw =
         localStorage.getItem(
-          CONFIG.GAME_SAVE_KEY
+          CONFIG.SAVE_KEY
         );
 
       if (!raw) {
@@ -3910,11 +4345,17 @@
         JSON.parse(raw);
 
       if (
-        !isValidSavedGame(
-          saved
-        )
+        !Array.isArray(
+          saved.board
+        ) ||
+        !Array.isArray(
+          saved.moveHistory
+        ) ||
+        !saved.moveHistory
+          .length
       ) {
-        clearSavedGame();
+        DOM.resumeCard.hidden =
+          true;
 
         return;
       }
@@ -3924,7 +4365,7 @@
         "local"
       ) {
         DOM.resumeText.textContent =
-          text("resumedLocal");
+          "雙人對戰";
       } else {
         const ai =
           AI_CHARACTERS[
@@ -3933,85 +4374,29 @@
           AI_CHARACTERS.sora;
 
         DOM.resumeText.textContent =
-          text(
-            "resumedAI",
-            {
-              name:
-                getLocalized(
-                  ai.name
-                )
-            }
-          );
+          `對戰 ${
+            ai.name[
+              settings.language
+            ] ||
+            ai.name.en
+          }`;
       }
 
       DOM.resumeCard.hidden =
         false;
+
     } catch {
       DOM.resumeCard.hidden =
         true;
     }
   }
 
-  function isValidSavedGame(
-    saved
-  ) {
-    if (
-      !saved ||
-      !Array.isArray(
-        saved.board
-      ) ||
-      saved.board.length !==
-        CONFIG.BOARD_SIZE
-    ) {
-      return false;
-    }
-
-    if (
-      !Array.isArray(
-        saved.moveHistory
-      )
-    ) {
-      return false;
-    }
-
-    for (
-      const row of saved.board
-    ) {
-      if (
-        !Array.isArray(row) ||
-        row.length !==
-          CONFIG.BOARD_SIZE
-      ) {
-        return false;
-      }
-
-      if (
-        row.some(
-          value =>
-            ![
-              CONFIG.EMPTY,
-              CONFIG.BLACK,
-              CONFIG.WHITE
-            ].includes(value)
-        )
-      ) {
-        return false;
-      }
-    }
-
-    return (
-      saved.selectedMode ===
-        "ai" ||
-      saved.selectedMode ===
-        "local"
-    );
-  }
 
   function resumeGame() {
     try {
       const raw =
         localStorage.getItem(
-          CONFIG.GAME_SAVE_KEY
+          CONFIG.SAVE_KEY
         );
 
       if (!raw) {
@@ -4022,35 +4407,29 @@
         JSON.parse(raw);
 
       if (
-        !isValidSavedGame(
-          saved
-        )
+        !Array.isArray(
+          saved.board
+        ) ||
+        saved.board.length !==
+          CONFIG.BOARD_SIZE
       ) {
-        clearSavedGame();
-
         return;
       }
 
-      invalidateWorker();
-
       board =
-        cloneBoard(
-          saved.board
-        );
-
-      gameId =
-        saved.gameId ||
-        createId();
-
-      boardVersion =
-        saved.boardVersion ||
-        0;
+        saved.board;
 
       currentPlayer =
-        saved.currentPlayer;
+        saved.currentPlayer ===
+        CONFIG.WHITE
+          ? CONFIG.WHITE
+          : CONFIG.BLACK;
 
       selectedMode =
-        saved.selectedMode;
+        saved.selectedMode ===
+        "local"
+          ? "local"
+          : "ai";
 
       selectedAI =
         AI_CHARACTERS[
@@ -4060,714 +4439,170 @@
           : "sora";
 
       selectedDifficulty =
-        DIFFICULTIES[
+        [
+          "easy",
+          "normal",
+          "hard"
+        ].includes(
           saved.selectedDifficulty
-        ]
+        )
           ? saved.selectedDifficulty
           : "normal";
 
       playerSide =
         saved.playerSide ===
-        "white"
-          ? "white"
-          : "black";
+        CONFIG.WHITE
+          ? CONFIG.WHITE
+          : CONFIG.BLACK;
 
       moveHistory =
-        saved.moveHistory;
-
-      winningLine =
         Array.isArray(
-          saved.winningLine
+          saved.moveHistory
         )
-          ? saved.winningLine
+          ? saved.moveHistory
           : [];
 
       lastMove =
         saved.lastMove ||
-        moveHistory[
-          moveHistory.length - 1
-        ] ||
         null;
 
+      winningLine = [];
+
       gameOver = false;
+
       aiThinking = false;
 
-      showScreen("game");
+      syncSetupUI();
 
-      updateSetupUI();
-      updateTurnUI();
-      renderGameSidePanel();
-      drawBoard();
+      showScreen(
+        "game"
+      );
 
-      if (
-        selectedMode === "ai" &&
-        isAITurn()
-      ) {
-        runAITurn();
-      }
-    } catch {
-      clearSavedGame();
-    }
-  }
-
-  /* =========================================================
-     BOARD DRAWING
-     ========================================================= */
-
-  function createBoard() {
-    return Array.from(
-      {
-        length:
-          CONFIG.BOARD_SIZE
-      },
-      () =>
-        Array(
-          CONFIG.BOARD_SIZE
-        ).fill(
-          CONFIG.EMPTY
-        )
-    );
-  }
-
-  function cloneBoard(
-    source
-  ) {
-    return source.map(
-      row =>
-        row.slice()
-    );
-  }
-
-  function scheduleResize() {
-    cancelAnimationFrame(
-      resizeFrame
-    );
-
-    resizeFrame =
       requestAnimationFrame(
         () => {
           resizeCanvas();
           drawBoard();
+          updateTurnUI();
+
+          if (
+            selectedMode ===
+              "ai" &&
+            currentPlayer !==
+              playerSide
+          ) {
+            requestAIMove();
+          }
         }
       );
+
+    } catch {
+      showToast(
+        "無法恢復棋局"
+      );
+    }
   }
 
-  function resizeCanvas() {
-    if (
-      !canvas ||
-      !ctx
-    ) {
-      return;
-    }
 
-    const wrapper =
-      canvas.parentElement;
+  function syncSetupUI() {
+    document
+      .querySelectorAll(
+        "[data-mode]"
+      )
+      .forEach(
+        button => {
+          const active =
+            button.dataset.mode ===
+            selectedMode;
 
-    if (!wrapper) {
-      return;
-    }
-
-    const rect =
-      wrapper.getBoundingClientRect();
-
-    const width =
-      Math.max(
-        1,
-        rect.width
-      );
-
-    const height =
-      Math.max(
-        1,
-        rect.height
-      );
-
-    let size =
-      Math.min(
-        width,
-        height
-      );
-
-    if (
-      !isScreenActive("game")
-    ) {
-      size =
-        Math.min(
-          width,
-          760
-        );
-    }
-
-    size =
-      Math.max(
-        220,
-        Math.floor(size)
-      );
-
-    const dpr =
-      Math.min(
-        window.devicePixelRatio ||
-          1,
-        3
-      );
-
-    canvas.style.width =
-      `${size}px`;
-
-    canvas.style.height =
-      `${size}px`;
-
-    canvas.width =
-      Math.round(
-        size * dpr
-      );
-
-    canvas.height =
-      Math.round(
-        size * dpr
-      );
-
-    ctx.setTransform(
-      dpr,
-      0,
-      0,
-      dpr,
-      0,
-      0
-    );
-
-    boardSizePx =
-      size;
-
-    boardOrigin =
-      size *
-      0.075;
-
-    cellSize =
-      (
-        size -
-        boardOrigin * 2
-      ) /
-      (CONFIG.BOARD_SIZE - 1);
-
-    boardRect =
-      canvas.getBoundingClientRect();
-  }
-
-  function drawBoard() {
-    if (
-      !ctx ||
-      !canvas ||
-      boardSizePx <= 0
-    ) {
-      return;
-    }
-
-    boardRect =
-      canvas.getBoundingClientRect();
-
-    ctx.clearRect(
-      0,
-      0,
-      boardSizePx,
-      boardSizePx
-    );
-
-    drawBoardBackground();
-    drawGrid();
-    drawStars();
-    drawStones();
-    drawLastMove();
-    drawWinningLine();
-  }
-
-  function drawBoardBackground() {
-    const gradient =
-      ctx.createLinearGradient(
-        0,
-        0,
-        boardSizePx,
-        boardSizePx
-      );
-
-    gradient.addColorStop(
-      0,
-      "#e2c58e"
-    );
-
-    gradient.addColorStop(
-      1,
-      CONFIG.COLORS.board
-    );
-
-    ctx.fillStyle =
-      gradient;
-
-    ctx.fillRect(
-      0,
-      0,
-      boardSizePx,
-      boardSizePx
-    );
-  }
-
-  function drawGrid() {
-    ctx.save();
-
-    ctx.strokeStyle =
-      CONFIG.COLORS.grid;
-
-    ctx.lineWidth =
-      Math.max(
-        0.8,
-        cellSize * 0.025
-      );
-
-    for (
-      let index = 0;
-      index <
-      CONFIG.BOARD_SIZE;
-      index += 1
-    ) {
-      const position =
-        boardOrigin +
-        index *
-          cellSize;
-
-      ctx.beginPath();
-      ctx.moveTo(
-        boardOrigin,
-        position
-      );
-      ctx.lineTo(
-        boardOrigin +
-          cellSize *
-            (CONFIG.BOARD_SIZE - 1),
-        position
-      );
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.moveTo(
-        position,
-        boardOrigin
-      );
-      ctx.lineTo(
-        position,
-        boardOrigin +
-          cellSize *
-            (CONFIG.BOARD_SIZE - 1)
-      );
-      ctx.stroke();
-    }
-
-    ctx.restore();
-  }
-
-  function drawStars() {
-    const stars = [
-      [3, 3],
-      [3, 11],
-      [7, 7],
-      [11, 3],
-      [11, 11]
-    ];
-
-    ctx.save();
-
-    ctx.fillStyle =
-      CONFIG.COLORS.star;
-
-    for (
-      const [row, col]
-      of stars
-    ) {
-      const point =
-        boardToCanvas(
-          row,
-          col
-        );
-
-      ctx.beginPath();
-
-      ctx.arc(
-        point.x,
-        point.y,
-        Math.max(
-          2,
-          cellSize * 0.075
-        ),
-        0,
-        Math.PI * 2
-      );
-
-      ctx.fill();
-    }
-
-    ctx.restore();
-  }
-
-  function drawStones() {
-    const radius =
-      cellSize *
-      0.43;
-
-    for (
-      let row = 0;
-      row <
-      CONFIG.BOARD_SIZE;
-      row += 1
-    ) {
-      for (
-        let col = 0;
-        col <
-        CONFIG.BOARD_SIZE;
-        col += 1
-      ) {
-        const player =
-          board[row][col];
-
-        if (
-          player ===
-          CONFIG.EMPTY
-        ) {
-          continue;
-        }
-
-        const point =
-          boardToCanvas(
-            row,
-            col
+          button.classList.toggle(
+            "selected",
+            active
           );
 
-        drawStone(
-          point.x,
-          point.y,
-          radius,
-          player
-        );
-      }
-    }
-  }
-
-  function drawStone(
-    x,
-    y,
-    radius,
-    player
-  ) {
-    ctx.save();
-
-    ctx.shadowColor =
-      "rgba(30, 20, 10, .25)";
-
-    ctx.shadowBlur =
-      radius * 0.18;
-
-    ctx.shadowOffsetY =
-      radius * 0.08;
-
-    let gradient;
-
-    if (
-      player ===
-      CONFIG.BLACK
-    ) {
-      gradient =
-        ctx.createRadialGradient(
-          x -
-            radius *
-              0.32,
-          y -
-            radius *
-              0.35,
-          radius *
-            0.05,
-          x,
-          y,
-          radius
-        );
-
-      gradient.addColorStop(
-        0,
-        CONFIG.COLORS.blackHighlight
+          button.setAttribute(
+            "aria-pressed",
+            String(
+              active
+            )
+          );
+        }
       );
 
-      gradient.addColorStop(
-        0.35,
-        "#292929"
+    document
+      .querySelectorAll(
+        "[data-difficulty]"
+      )
+      .forEach(
+        button => {
+          const active =
+            button.dataset
+              .difficulty ===
+            selectedDifficulty;
+
+          button.classList.toggle(
+            "selected",
+            active
+          );
+
+          button.setAttribute(
+            "aria-pressed",
+            String(
+              active
+            )
+          );
+        }
       );
 
-      gradient.addColorStop(
-        1,
-        CONFIG.COLORS.black
-      );
-    } else {
-      gradient =
-        ctx.createRadialGradient(
-          x -
-            radius *
-              0.32,
-          y -
-            radius *
-              0.35,
-          radius *
-            0.05,
-          x,
-          y,
-          radius
-        );
+    document
+      .querySelectorAll(
+        "[data-side]"
+      )
+      .forEach(
+        button => {
+          const side =
+            button.dataset
+              .side ===
+            "white"
+              ? CONFIG.WHITE
+              : CONFIG.BLACK;
 
-      gradient.addColorStop(
-        0,
-        "#ffffff"
-      );
+          const active =
+            side ===
+            playerSide;
 
-      gradient.addColorStop(
-        0.7,
-        CONFIG.COLORS.white
-      );
+          button.classList.toggle(
+            "selected",
+            active
+          );
 
-      gradient.addColorStop(
-        1,
-        CONFIG.COLORS.whiteShadow
-      );
-    }
-
-    ctx.fillStyle =
-      gradient;
-
-    ctx.beginPath();
-
-    ctx.arc(
-      x,
-      y,
-      radius,
-      0,
-      Math.PI * 2
-    );
-
-    ctx.fill();
-
-    if (
-      player ===
-      CONFIG.WHITE
-    ) {
-      ctx.strokeStyle =
-        "rgba(0,0,0,.08)";
-
-      ctx.lineWidth =
-        Math.max(
-          0.7,
-          radius * 0.025
-        );
-
-      ctx.stroke();
-    }
-
-    ctx.restore();
-  }
-
-  function drawLastMove() {
-    if (!lastMove) {
-      return;
-    }
-
-    const point =
-      boardToCanvas(
-        lastMove.row,
-        lastMove.col
-      );
-
-    ctx.save();
-
-    ctx.strokeStyle =
-      CONFIG.COLORS.lastMove;
-
-    ctx.lineWidth =
-      Math.max(
-        1.5,
-        cellSize * 0.055
-      );
-
-    const size =
-      cellSize *
-      0.16;
-
-    ctx.beginPath();
-
-    ctx.moveTo(
-      point.x - size,
-      point.y
-    );
-
-    ctx.lineTo(
-      point.x + size,
-      point.y
-    );
-
-    ctx.moveTo(
-      point.x,
-      point.y - size
-    );
-
-    ctx.lineTo(
-      point.x,
-      point.y + size
-    );
-
-    ctx.stroke();
-
-    ctx.restore();
-  }
-
-  function drawWinningLine() {
-    if (
-      winningLine.length <
-      CONFIG.WIN_LENGTH
-    ) {
-      return;
-    }
-
-    const first =
-      boardToCanvas(
-        winningLine[0].row,
-        winningLine[0].col
-      );
-
-    const last =
-      boardToCanvas(
-        winningLine[
-          winningLine.length - 1
-        ].row,
-        winningLine[
-          winningLine.length - 1
-        ].col
-      );
-
-    ctx.save();
-
-    ctx.strokeStyle =
-      CONFIG.COLORS.winning;
-
-    ctx.lineWidth =
-      Math.max(
-        3,
-        cellSize * 0.12
-      );
-
-    ctx.lineCap =
-      "round";
-
-    ctx.globalAlpha =
-      0.88;
-
-    ctx.beginPath();
-
-    ctx.moveTo(
-      first.x,
-      first.y
-    );
-
-    ctx.lineTo(
-      last.x,
-      last.y
-    );
-
-    ctx.stroke();
-
-    ctx.restore();
-  }
-
-  function boardToCanvas(
-    row,
-    col
-  ) {
-    return {
-      x:
-        boardOrigin +
-        col *
-          cellSize,
-
-      y:
-        boardOrigin +
-        row *
-          cellSize
-    };
-  }
-
-  function canvasToBoard(
-    event
-  ) {
-    if (
-      !canvas ||
-      !boardRect
-    ) {
-      return null;
-    }
-
-    const x =
-      event.clientX -
-      boardRect.left;
-
-    const y =
-      event.clientY -
-      boardRect.top;
-
-    const col =
-      Math.round(
-        (x - boardOrigin) /
-          cellSize
-      );
-
-    const row =
-      Math.round(
-        (y - boardOrigin) /
-          cellSize
+          button.setAttribute(
+            "aria-pressed",
+            String(
+              active
+            )
+          );
+        }
       );
 
     if (
-      !isInside(row, col)
+      DOM.difficultyGroup
     ) {
-      return null;
+      DOM.difficultyGroup.hidden =
+        selectedMode !==
+        "ai";
     }
-
-    const point =
-      boardToCanvas(
-        row,
-        col
-      );
-
-    const distance =
-      Math.hypot(
-        x - point.x,
-        y - point.y
-      );
-
-    if (
-      distance >
-      cellSize * 0.5
-    ) {
-      return null;
-    }
-
-    return {
-      row,
-      col
-    };
   }
+
 
   /* =========================================================
-     AUDIO
+     SOUND
      ========================================================= */
 
-  function playStoneSound(
-    player
-  ) {
+  function ensureAudio() {
     if (
       !settings.sound
     ) {
-      return;
+      return null;
     }
 
     try {
@@ -4781,36 +4616,56 @@
           )();
       }
 
+      if (
+        audioContext.state ===
+        "suspended"
+      ) {
+        audioContext.resume();
+      }
+
+      return audioContext;
+    } catch {
+      return null;
+    }
+  }
+
+
+  function playStoneSound() {
+    const audio =
+      ensureAudio();
+
+    if (!audio) {
+      return;
+    }
+
+    try {
       const oscillator =
-        audioContext.createOscillator();
+        audio.createOscillator();
 
       const gain =
-        audioContext.createGain();
+        audio.createGain();
 
       oscillator.type =
         "sine";
 
       oscillator.frequency.value =
-        player ===
-        CONFIG.BLACK
-          ? 150
-          : 210;
+        180;
 
       gain.gain.setValueAtTime(
         0.0001,
-        audioContext.currentTime
+        audio.currentTime
       );
 
       gain.gain.exponentialRampToValueAtTime(
-        0.045,
-        audioContext.currentTime +
+        0.06,
+        audio.currentTime +
           0.008
       );
 
       gain.gain.exponentialRampToValueAtTime(
         0.0001,
-        audioContext.currentTime +
-          0.08
+        audio.currentTime +
+          0.09
       );
 
       oscillator.connect(
@@ -4818,17 +4673,19 @@
       );
 
       gain.connect(
-        audioContext.destination
+        audio.destination
       );
 
       oscillator.start();
 
       oscillator.stop(
-        audioContext.currentTime +
-          0.09
+        audio.currentTime +
+          0.1
       );
+
     } catch {}
   }
+
 
   /* =========================================================
      TOAST
@@ -4837,28 +4694,25 @@
   function showToast(
     message
   ) {
-    const toast =
-      $("#toast");
-
-    if (!toast) {
+    if (!DOM.toast) {
       return;
     }
 
-    toast.textContent =
+    DOM.toast.textContent =
       message;
 
-    toast.classList.add(
+    DOM.toast.classList.add(
       "show"
     );
 
     clearTimeout(
-      toastTimer
+      showToast.timer
     );
 
-    toastTimer =
+    showToast.timer =
       setTimeout(
         () => {
-          toast.classList.remove(
+          DOM.toast.classList.remove(
             "show"
           );
         },
@@ -4866,92 +4720,125 @@
       );
   }
 
+
   /* =========================================================
-     SERVICE WORKER
+     UTILITIES
      ========================================================= */
 
-  function registerServiceWorker() {
+  function randomInt(
+    min,
+    max
+  ) {
+    return Math.floor(
+      Math.random() *
+        (
+          max -
+          min +
+          1
+        )
+    ) + min;
+  }
+
+
+  function debounce(
+    callback,
+    delay
+  ) {
+    let timer = null;
+
+    return (...args) => {
+      clearTimeout(
+        timer
+      );
+
+      timer =
+        setTimeout(
+          () => {
+            callback(
+              ...args
+            );
+          },
+          delay
+        );
+    };
+  }
+
+
+  /* =========================================================
+     INITIALIZATION
+     ========================================================= */
+
+  function initialize() {
+    cacheDOM();
+
+    applySettings();
+
+    applyTranslations();
+
+    setupCanvas();
+
+    setupGameControls();
+
+    setupNavigation();
+
+    setupSettingsControls();
+
+    setupRecordControls();
+
+    updateStatsUI();
+
+    renderStats();
+
+    syncSetupUI();
+
+    updateTurnUI();
+
+    checkResumeGame();
+
+    updateAIPanel();
+
     if (
-      !("serviceWorker" in navigator)
+      "serviceWorker" in
+      navigator
     ) {
-      return;
+      window.addEventListener(
+        "load",
+        () => {
+          navigator.serviceWorker
+            .register(
+              "./sw.js"
+            )
+            .catch(
+              () => {}
+            );
+        }
+      );
     }
 
     window.addEventListener(
-      "load",
+      "pageshow",
       () => {
-        navigator.serviceWorker
-          .register(
-            "./sw.js"
-          )
-          .catch(
-            () => {}
-          );
+        requestAnimationFrame(
+          resizeCanvas
+        );
       }
     );
   }
 
-  /* =========================================================
-     HELPERS
-     ========================================================= */
 
-  function getSelectedAI() {
-    return (
-      AI_CHARACTERS[
-        selectedAI
-      ] ||
-      AI_CHARACTERS.sora
-    );
-  }
-
-  function isInside(
-    row,
-    col
+  if (
+    document.readyState ===
+    "loading"
   ) {
-    return (
-      row >= 0 &&
-      row <
-        CONFIG.BOARD_SIZE &&
-      col >= 0 &&
-      col <
-        CONFIG.BOARD_SIZE
+    document.addEventListener(
+      "DOMContentLoaded",
+      initialize,
+      {
+        once: true
+      }
     );
+  } else {
+    initialize();
   }
 
-  function wait(ms) {
-    return new Promise(
-      resolve =>
-        setTimeout(
-          resolve,
-          ms
-        )
-    );
-  }
-
-  function createId() {
-    if (
-      typeof crypto !==
-        "undefined" &&
-      typeof crypto.randomUUID ===
-        "function"
-    ) {
-      return crypto.randomUUID();
-    }
-
-    return (
-      Date.now().toString(36) +
-      Math.random()
-        .toString(36)
-        .slice(2)
-    );
-  }
-
-  /* =========================================================
-     START
-     ========================================================= */
-
-  document.addEventListener(
-    "DOMContentLoaded",
-    init
-  );
 })();
