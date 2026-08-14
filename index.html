@@ -2,320 +2,837 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#e8d5ad">
-  <meta name="description" content="A refined offline Gomoku game.">
 
-  <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
+  >
+
+  <meta
+    name="theme-color"
+    content="#e8d5ad"
+  >
+
+  <meta
+    name="description"
+    content="A refined offline Gomoku game."
+  >
+
+  <link
+    rel="icon"
+    type="image/png"
+    sizes="192x192"
+    href="./icons/icon-192.png"
+  >
+
+  <link
+    rel="icon"
+    type="image/png"
+    sizes="512x512"
+    href="./icons/icon-512.png"
+  >
+
+  <link
+    rel="apple-touch-icon"
+    sizes="180x180"
+    href="./icons/apple-touch-icon.png"
+  >
+
+  <link
+    rel="manifest"
+    href="./manifest.webmanifest"
+  >
 
   <title>Gomoku</title>
 
-  <link rel="stylesheet" href="./style.css">
+  <link
+    rel="stylesheet"
+    href="./style.css"
+  >
 </head>
 
 <body>
-  <div class="app-shell">
 
-    <header class="topbar">
-      <button class="icon-button" id="backButton" type="button" aria-label="Back">
-        <span aria-hidden="true">‹</span>
-      </button>
+<div class="app-shell">
 
-      <div class="brand">
-        <span class="brand-mark" aria-hidden="true"></span>
-        <span class="brand-name">Gomoku</span>
+  <header class="topbar">
+
+    <button
+      class="icon-button"
+      id="backButton"
+      type="button"
+      aria-label="Back"
+    >
+      <span aria-hidden="true">‹</span>
+    </button>
+
+    <div class="brand">
+      <span
+        class="brand-mark"
+        aria-hidden="true"
+      ></span>
+
+      <span class="brand-name">
+        Gomoku
+      </span>
+    </div>
+
+    <button
+      class="icon-button"
+      id="menuButton"
+      type="button"
+      aria-label="Menu"
+    >
+      <span aria-hidden="true">•••</span>
+    </button>
+
+  </header>
+
+  <main>
+
+    <!-- HOME -->
+
+    <section
+      class="screen active"
+      id="homeScreen"
+    >
+
+      <div class="home-content">
+
+        <div
+          class="hero-mark"
+          aria-hidden="true"
+        >
+          <div class="hero-stone hero-black"></div>
+          <div class="hero-stone hero-white"></div>
+        </div>
+
+        <h1>
+          五子棋
+        </h1>
+
+        <p class="subtitle">
+          簡單的規則，沒有簡單的棋局。
+        </p>
+
+        <div class="home-actions">
+
+          <button
+            class="primary-button"
+            id="startButton"
+            type="button"
+          >
+            開始遊戲
+          </button>
+
+          <button
+            class="secondary-button"
+            id="recordsButton"
+            type="button"
+          >
+            棋局記錄
+          </button>
+
+          <button
+            class="secondary-button"
+            id="settingsButton"
+            type="button"
+          >
+            設定
+          </button>
+
+        </div>
+
+        <div
+          class="home-status"
+          id="resumeCard"
+          hidden
+        >
+
+          <div>
+
+            <span class="status-label">
+              未完成棋局
+            </span>
+
+            <strong id="resumeText"></strong>
+
+          </div>
+
+          <button
+            class="text-button"
+            id="resumeButton"
+            type="button"
+          >
+            繼續
+          </button>
+
+        </div>
+
       </div>
 
-      <button class="icon-button" id="menuButton" type="button" aria-label="Menu">
-        <span aria-hidden="true">•••</span>
-      </button>
-    </header>
+    </section>
 
-    <main>
 
-      <!-- HOME -->
+    <!-- SETUP -->
 
-      <section class="screen active" id="homeScreen" aria-labelledby="homeTitle">
-        <div class="home-content">
-          <div class="hero-mark" aria-hidden="true">
-            <div class="hero-stone hero-black"></div>
-            <div class="hero-stone hero-white"></div>
+    <section
+      class="screen"
+      id="setupScreen"
+    >
+
+      <div class="screen-content">
+
+        <h2>
+          開始遊戲
+        </h2>
+
+        <div class="settings-group">
+
+          <h3>
+            對戰方式
+          </h3>
+
+          <div
+            class="segmented-control"
+            id="modeControl"
+          >
+
+            <button
+              type="button"
+              class="segment selected"
+              data-mode="ai"
+            >
+              人機
+            </button>
+
+            <button
+              type="button"
+              class="segment"
+              data-mode="local"
+            >
+              雙人
+            </button>
+
           </div>
 
-          <h1 id="homeTitle" data-i18n="app.title">五子棋</h1>
-          <p class="subtitle" data-i18n="home.subtitle">
-            簡單的規則，沒有簡單的棋局。
-          </p>
+        </div>
 
-          <div class="home-actions">
-            <button class="primary-button" id="startButton" type="button" data-i18n="home.start">
-              開始遊戲
+
+        <div
+          class="settings-group"
+          id="difficultyGroup"
+        >
+
+          <h3>
+            難度
+          </h3>
+
+          <div class="difficulty-grid">
+
+            <button
+              class="difficulty-card selected"
+              type="button"
+              data-difficulty="easy"
+            >
+              <strong>
+                初級
+              </strong>
+
+              <span>
+                適合第一次玩
+              </span>
             </button>
 
-            <button class="secondary-button" id="recordsButton" type="button" data-i18n="home.records">
-              棋局記錄
+            <button
+              class="difficulty-card"
+              type="button"
+              data-difficulty="normal"
+            >
+              <strong>
+                中級
+              </strong>
+
+              <span>
+                開始認真下棋
+              </span>
             </button>
 
-            <button class="secondary-button" id="settingsButton" type="button" data-i18n="home.settings">
-              設定
+            <button
+              class="difficulty-card"
+              type="button"
+              data-difficulty="hard"
+            >
+              <strong>
+                高級
+              </strong>
+
+              <span>
+                需要真正思考
+              </span>
             </button>
+
           </div>
 
-          <div class="home-status" id="resumeCard" hidden>
+        </div>
+
+
+        <div
+          class="settings-group"
+          id="characterGroup"
+        >
+
+          <h3>
+            AI 對手
+          </h3>
+
+          <div
+            class="difficulty-grid"
+            id="characterControl"
+          >
+
+            <button
+              class="difficulty-card selected"
+              type="button"
+              data-character="mio"
+            >
+              <strong>
+                Mio
+              </strong>
+
+              <span>
+                溫和、防守型
+              </span>
+            </button>
+
+            <button
+              class="difficulty-card"
+              type="button"
+              data-character="rin"
+            >
+              <strong>
+                Rin
+              </strong>
+
+              <span>
+                積極、進攻型
+              </span>
+            </button>
+
+            <button
+              class="difficulty-card"
+              type="button"
+              data-character="sora"
+            >
+              <strong>
+                Sora
+              </strong>
+
+              <span>
+                冷靜、平衡型
+              </span>
+            </button>
+
+            <button
+              class="difficulty-card"
+              type="button"
+              data-character="kuro"
+            >
+              <strong>
+                Kuro
+              </strong>
+
+              <span>
+                狡猾、反擊型
+              </span>
+            </button>
+
+          </div>
+
+        </div>
+
+
+        <div class="settings-group">
+
+          <h3>
+            你的棋子
+          </h3>
+
+          <div class="side-picker">
+
+            <button
+              class="side-card selected"
+              type="button"
+              data-side="black"
+            >
+
+              <span
+                class="preview-stone black-stone"
+              ></span>
+
+              <strong>
+                黑棋
+              </strong>
+
+              <span>
+                先手
+              </span>
+
+            </button>
+
+            <button
+              class="side-card"
+              type="button"
+              data-side="white"
+            >
+
+              <span
+                class="preview-stone white-stone"
+              ></span>
+
+              <strong>
+                白棋
+              </strong>
+
+              <span>
+                後手
+              </span>
+
+            </button>
+
+          </div>
+
+        </div>
+
+
+        <button
+          class="primary-button full-button"
+          id="beginGameButton"
+          type="button"
+        >
+          開始
+        </button>
+
+      </div>
+
+    </section>
+
+
+    <!-- GAME -->
+
+    <section
+      class="screen game-screen"
+      id="gameScreen"
+    >
+
+      <div class="game-layout">
+
+        <div class="game-status">
+
+          <div class="player-indicator">
+
+            <span
+              class="status-stone black-stone"
+              id="turnStone"
+            ></span>
+
             <div>
-              <span class="status-label" data-i18n="home.resumeLabel">未完成棋局</span>
-              <strong id="resumeText"></strong>
+
+              <span
+                class="status-label"
+                id="turnLabel"
+              >
+                你的回合
+              </span>
+
+              <strong
+                id="turnPlayer"
+              >
+                黑棋
+              </strong>
+
             </div>
-            <button class="text-button" id="resumeButton" type="button" data-i18n="home.resume">
-              繼續
-            </button>
+
           </div>
+
+
+          <div
+            class="thinking-indicator"
+            id="thinkingIndicator"
+            hidden
+          >
+
+            <span class="thinking-dot"></span>
+
+            <span>
+              思考中
+            </span>
+
+          </div>
+
         </div>
-      </section>
 
 
-      <!-- SETUP -->
+        <!-- AI OS -->
 
-      <section class="screen" id="setupScreen" aria-labelledby="setupTitle">
-        <div class="screen-content">
-          <h2 id="setupTitle" data-i18n="setup.title">開始遊戲</h2>
+        <div
+          class="ai-os"
+          id="aiOS"
+          hidden
+        >
 
-          <div class="settings-group">
-            <h3 data-i18n="setup.mode">對戰方式</h3>
-
-            <div class="segmented-control" id="modeControl">
-              <button type="button" class="segment selected" data-mode="ai" data-i18n="setup.ai">
-                人機
-              </button>
-              <button type="button" class="segment" data-mode="local" data-i18n="setup.local">
-                雙人
-              </button>
-            </div>
+          <div class="ai-os-avatar">
+            <span id="aiOSAvatar">
+              M
+            </span>
           </div>
 
-          <div class="settings-group" id="difficultyGroup">
-            <h3 data-i18n="setup.difficulty">難度</h3>
+          <div class="ai-os-content">
 
-            <div class="difficulty-grid">
-              <button class="difficulty-card selected" type="button" data-difficulty="easy">
-                <strong data-i18n="difficulty.easy">初級</strong>
-                <span data-i18n="difficulty.easyDescription">適合第一次玩</span>
-              </button>
+            <div class="ai-os-header">
 
-              <button class="difficulty-card" type="button" data-difficulty="normal">
-                <strong data-i18n="difficulty.normal">中級</strong>
-                <span data-i18n="difficulty.normalDescription">開始認真下棋</span>
-              </button>
+              <strong id="aiOSName">
+                Mio
+              </strong>
 
-              <button class="difficulty-card" type="button" data-difficulty="hard">
-                <strong data-i18n="difficulty.hard">高級</strong>
-                <span data-i18n="difficulty.hardDescription">需要真正思考</span>
-              </button>
+              <span>
+                OS
+              </span>
+
             </div>
+
+            <p id="aiOSText">
+              嗯……先看看這裡。
+            </p>
+
           </div>
 
-          <div class="settings-group">
-            <h3 data-i18n="setup.side">你的棋子</h3>
+        </div>
 
-            <div class="side-picker">
-              <button class="side-card selected" type="button" data-side="black">
-                <span class="preview-stone black-stone"></span>
-                <strong data-i18n="side.black">黑棋</strong>
-                <span data-i18n="side.first">先手</span>
-              </button>
 
-              <button class="side-card" type="button" data-side="white">
-                <span class="preview-stone white-stone"></span>
-                <strong data-i18n="side.white">白棋</strong>
-                <span data-i18n="side.second">後手</span>
-              </button>
-            </div>
-          </div>
+        <div class="board-wrapper">
 
-          <button class="primary-button full-button" id="beginGameButton" type="button" data-i18n="setup.begin">
-            開始
+          <canvas
+            id="boardCanvas"
+            aria-label="Gomoku board"
+            role="application"
+            tabindex="0"
+          ></canvas>
+
+        </div>
+
+
+        <div class="game-actions">
+
+          <button
+            class="game-action"
+            id="undoButton"
+            type="button"
+          >
+            <span aria-hidden="true">
+              ↶
+            </span>
+
+            <span>
+              悔棋
+            </span>
           </button>
-        </div>
-      </section>
 
 
-      <!-- GAME -->
+          <button
+            class="game-action"
+            id="restartButton"
+            type="button"
+          >
+            <span aria-hidden="true">
+              ↻
+            </span>
 
-      <section class="screen game-screen" id="gameScreen" aria-labelledby="turnStatus">
-        <div class="game-layout">
-
-          <div class="game-status">
-            <div class="player-indicator">
-              <span class="status-stone black-stone" id="turnStone"></span>
-              <div>
-                <span class="status-label" id="turnLabel">你的回合</span>
-                <strong id="turnPlayer">黑棋</strong>
-              </div>
-            </div>
-
-            <div class="thinking-indicator" id="thinkingIndicator" hidden>
-              <span class="thinking-dot"></span>
-              <span data-i18n="game.thinking">思考中</span>
-            </div>
-          </div>
-
-          <div class="board-wrapper">
-            <canvas
-              id="boardCanvas"
-              aria-label="Gomoku board"
-              role="application"
-              tabindex="0">
-            </canvas>
-          </div>
-
-          <div class="game-actions">
-            <button class="game-action" id="undoButton" type="button">
-              <span aria-hidden="true">↶</span>
-              <span data-i18n="game.undo">悔棋</span>
-            </button>
-
-            <button class="game-action" id="restartButton" type="button">
-              <span aria-hidden="true">↻</span>
-              <span data-i18n="game.restart">重新開始</span>
-            </button>
-
-            <button class="game-action" id="gameMenuButton" type="button">
-              <span aria-hidden="true">•••</span>
-              <span data-i18n="game.menu">選單</span>
-            </button>
-          </div>
-
-        </div>
-      </section>
-
-
-      <!-- RESULT -->
-
-      <section class="screen" id="resultScreen" aria-labelledby="resultTitle">
-        <div class="result-content">
-          <div class="result-mark" id="resultMark" aria-hidden="true">
-            <span></span>
-          </div>
-
-          <p class="result-kicker" id="resultKicker"></p>
-          <h2 id="resultTitle"></h2>
-          <p id="resultDescription"></p>
-
-          <div class="result-actions">
-            <button class="primary-button" id="playAgainButton" type="button" data-i18n="result.again">
-              再來一局
-            </button>
-
-            <button class="secondary-button" id="resultHomeButton" type="button" data-i18n="result.home">
-              返回首頁
-            </button>
-          </div>
-        </div>
-      </section>
-
-
-      <!-- RECORDS -->
-
-      <section class="screen" id="recordsScreen" aria-labelledby="recordsTitle">
-        <div class="screen-content">
-          <h2 id="recordsTitle" data-i18n="records.title">棋局記錄</h2>
-
-          <div class="stats-grid">
-            <div class="stat-card">
-              <span data-i18n="records.games">對局</span>
-              <strong id="statGames">0</strong>
-            </div>
-
-            <div class="stat-card">
-              <span data-i18n="records.wins">勝利</span>
-              <strong id="statWins">0</strong>
-            </div>
-
-            <div class="stat-card">
-              <span data-i18n="records.losses">失敗</span>
-              <strong id="statLosses">0</strong>
-            </div>
-
-            <div class="stat-card">
-              <span data-i18n="records.draws">平局</span>
-              <strong id="statDraws">0</strong>
-            </div>
-          </div>
-
-          <div class="record-list" id="recordList"></div>
-
-          <button class="secondary-button full-button" id="clearRecordsButton" type="button" data-i18n="records.clear">
-            清除記錄
+            <span>
+              重新開始
+            </span>
           </button>
+
+
+          <button
+            class="game-action"
+            id="gameMenuButton"
+            type="button"
+          >
+            <span aria-hidden="true">
+              •••
+            </span>
+
+            <span>
+              選單
+            </span>
+          </button>
+
         </div>
-      </section>
+
+      </div>
+
+    </section>
 
 
-      <!-- SETTINGS -->
+    <!-- RESULT -->
 
-      <section class="screen" id="settingsScreen" aria-labelledby="settingsTitle">
-        <div class="screen-content">
-          <h2 id="settingsTitle" data-i18n="settings.title">設定</h2>
+    <section
+      class="screen"
+      id="resultScreen"
+    >
 
-          <div class="settings-list">
+      <div class="result-content">
 
-            <label class="setting-row">
-              <span>
-                <strong data-i18n="settings.language">語言</strong>
-                <small data-i18n="settings.languageDescription">選擇介面語言</small>
-              </span>
+        <div
+          class="result-mark"
+          id="resultMark"
+          aria-hidden="true"
+        >
+          <span></span>
+        </div>
 
-              <select id="languageSelect">
-                <option value="zh-TW">繁體中文</option>
-                <option value="zh-CN">简体中文</option>
-                <option value="en">English</option>
-                <option value="ja">日本語</option>
-                <option value="ko">한국어</option>
-              </select>
-            </label>
+        <p
+          class="result-kicker"
+          id="resultKicker"
+        ></p>
 
-            <label class="setting-row">
-              <span>
-                <strong data-i18n="settings.sound">音效</strong>
-                <small data-i18n="settings.soundDescription">落子與遊戲音效</small>
-              </span>
+        <h2
+          id="resultTitle"
+        ></h2>
 
-              <input id="soundToggle" type="checkbox" checked>
-            </label>
+        <p
+          id="resultDescription"
+        ></p>
 
-            <label class="setting-row">
-              <span>
-                <strong data-i18n="settings.motion">動畫</strong>
-                <small data-i18n="settings.motionDescription">啟用遊戲動畫</small>
-              </span>
+        <div class="result-actions">
 
-              <input id="motionToggle" type="checkbox" checked>
-            </label>
+          <button
+            class="primary-button"
+            id="playAgainButton"
+            type="button"
+          >
+            再來一局
+          </button>
 
-            <label class="setting-row">
-              <span>
-                <strong data-i18n="settings.theme">外觀</strong>
-                <small data-i18n="settings.themeDescription">使用系統外觀</small>
-              </span>
+          <button
+            class="secondary-button"
+            id="resultHomeButton"
+            type="button"
+          >
+            返回首頁
+          </button>
 
-              <select id="themeSelect">
-                <option value="system">System</option>
-                <option value="light">Light</option>
-                <option value="dark">Dark</option>
-              </select>
-            </label>
+        </div>
 
+      </div>
+
+    </section>
+
+
+    <!-- RECORDS -->
+
+    <section
+      class="screen"
+      id="recordsScreen"
+    >
+
+      <div class="screen-content">
+
+        <h2>
+          棋局記錄
+        </h2>
+
+        <div class="stats-grid">
+
+          <div class="stat-card">
+            <span>對局</span>
+            <strong id="statGames">0</strong>
           </div>
+
+          <div class="stat-card">
+            <span>勝利</span>
+            <strong id="statWins">0</strong>
+          </div>
+
+          <div class="stat-card">
+            <span>失敗</span>
+            <strong id="statLosses">0</strong>
+          </div>
+
+          <div class="stat-card">
+            <span>平局</span>
+            <strong id="statDraws">0</strong>
+          </div>
+
         </div>
-      </section>
 
-    </main>
 
-    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+        <div
+          class="record-list"
+          id="recordList"
+        ></div>
 
-  </div>
 
-  <script src="./app.js"></script>
+        <button
+          class="secondary-button full-button"
+          id="clearRecordsButton"
+          type="button"
+        >
+          清除記錄
+        </button>
+
+      </div>
+
+    </section>
+
+
+    <!-- SETTINGS -->
+
+    <section
+      class="screen"
+      id="settingsScreen"
+    >
+
+      <div class="screen-content">
+
+        <h2>
+          設定
+        </h2>
+
+        <div class="settings-list">
+
+          <label class="setting-row">
+
+            <span>
+              <strong>
+                語言
+              </strong>
+
+              <small>
+                選擇介面語言
+              </small>
+            </span>
+
+            <select id="languageSelect">
+
+              <option value="zh-TW">
+                繁體中文
+              </option>
+
+              <option value="zh-CN">
+                简体中文
+              </option>
+
+              <option value="en">
+                English
+              </option>
+
+              <option value="ja">
+                日本語
+              </option>
+
+              <option value="ko">
+                한국어
+              </option>
+
+            </select>
+
+          </label>
+
+
+          <label class="setting-row">
+
+            <span>
+              <strong>
+                音效
+              </strong>
+
+              <small>
+                落子與遊戲音效
+              </small>
+            </span>
+
+            <input
+              id="soundToggle"
+              type="checkbox"
+              checked
+            >
+
+          </label>
+
+
+          <label class="setting-row">
+
+            <span>
+              <strong>
+                動畫
+              </strong>
+
+              <small>
+                啟用遊戲動畫
+              </small>
+            </span>
+
+            <input
+              id="motionToggle"
+              type="checkbox"
+              checked
+            >
+
+          </label>
+
+
+          <label class="setting-row">
+
+            <span>
+              <strong>
+                外觀
+              </strong>
+
+              <small>
+                使用系統外觀
+              </small>
+            </span>
+
+            <select id="themeSelect">
+
+              <option value="system">
+                System
+              </option>
+
+              <option value="light">
+                Light
+              </option>
+
+              <option value="dark">
+                Dark
+              </option>
+
+            </select>
+
+          </label>
+
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+
+  <div
+    class="toast"
+    id="toast"
+    role="status"
+    aria-live="polite"
+  ></div>
+
+</div>
+
+
+<script src="./app.js"></script>
+
 </body>
 </html>
