@@ -1,13 +1,28 @@
 "use strict";
 
-/* =========================================================
-   GOMOKU AI WORKER
-   ========================================================= */
+/*
+ * =========================================================
+ * GOMOKU AI WORKER
+ * Offline minimax AI
+ * =========================================================
+ */
 
-const BOARD_SIZE = 15;
+const SIZE = 15;
+
 const EMPTY = 0;
 const BLACK = 1;
 const WHITE = 2;
+
+const DIRECTIONS = [
+  [1, 0],
+  [0, 1],
+  [1, 1],
+  [1, -1]
+];
+
+/* =========================================================
+   BASIC
+   ========================================================= */
 
 function opponent(player) {
   return player === BLACK
@@ -18,20 +33,33 @@ function opponent(player) {
 function isInside(row, col) {
   return (
     row >= 0 &&
-    row < BOARD_SIZE &&
+    row < SIZE &&
     col >= 0 &&
-    col < BOARD_SIZE
+    col < SIZE
   );
 }
 
 function cloneBoard(board) {
-  return board.map(row => row.slice());
+  return board.map(
+    row => row.slice()
+  );
 }
 
 function isFull(board) {
-  for (let r = 0; r < BOARD_SIZE; r++) {
-    for (let c = 0; c < BOARD_SIZE; c++) {
-      if (board[r][c] === EMPTY) {
+  for (
+    let row = 0;
+    row < SIZE;
+    row += 1
+  ) {
+    for (
+      let col = 0;
+      col < SIZE;
+      col += 1
+    ) {
+      if (
+        board[row][col] ===
+        EMPTY
+      ) {
         return false;
       }
     }
@@ -40,19 +68,30 @@ function isFull(board) {
   return true;
 }
 
-function hasWin(board, row, col, player) {
-  const directions = [
-    [1, 0],
-    [0, 1],
-    [1, 1],
-    [1, -1]
-  ];
+/* =========================================================
+   WIN
+   ========================================================= */
 
-  for (const [dr, dc] of directions) {
+function hasWin(
+  board,
+  row,
+  col,
+  player
+) {
+  for (
+    const [dr, dc]
+    of DIRECTIONS
+  ) {
     let count = 1;
 
-    for (const sign of [1, -1]) {
-      for (let distance = 1; distance < 5; distance++) {
+    for (
+      const sign of [1, -1]
+    ) {
+      for (
+        let distance = 1;
+        distance < 5;
+        distance += 1
+      ) {
         const r =
           row +
           dr *
@@ -67,16 +106,19 @@ function hasWin(board, row, col, player) {
 
         if (
           !isInside(r, c) ||
-          board[r][c] !== player
+          board[r][c] !==
+            player
         ) {
           break;
         }
 
-        count++;
+        count += 1;
       }
     }
 
-    if (count >= 5) {
+    if (
+      count >= 5
+    ) {
       return true;
     }
   }
@@ -84,16 +126,34 @@ function hasWin(board, row, col, player) {
   return false;
 }
 
+/* =========================================================
+   CANDIDATES
+   ========================================================= */
+
 function candidateMoves(
   board,
-  radius = 2
+  radius
 ) {
   const occupied = [];
 
-  for (let r = 0; r < BOARD_SIZE; r++) {
-    for (let c = 0; c < BOARD_SIZE; c++) {
-      if (board[r][c] !== EMPTY) {
-        occupied.push([r, c]);
+  for (
+    let row = 0;
+    row < SIZE;
+    row += 1
+  ) {
+    for (
+      let col = 0;
+      col < SIZE;
+      col += 1
+    ) {
+      if (
+        board[row][col] !==
+        EMPTY
+      ) {
+        occupied.push({
+          row,
+          col
+        });
       }
     }
   }
@@ -102,209 +162,303 @@ function candidateMoves(
     return [
       {
         row: 7,
-        col: 7,
-        score: 100000
+        col: 7
       }
     ];
   }
 
-  const set = new Set();
+  const map =
+    new Map();
 
-  for (const [r, c] of occupied) {
+  for (
+    const stone of occupied
+  ) {
     for (
       let dr = -radius;
       dr <= radius;
-      dr++
+      dr += 1
     ) {
       for (
         let dc = -radius;
         dc <= radius;
-        dc++
+        dc += 1
       ) {
-        const row = r + dr;
-        const col = c + dc;
+        const row =
+          stone.row + dr;
+
+        const col =
+          stone.col + dc;
 
         if (
-          !isInside(row, col) ||
-          board[row][col] !== EMPTY
+          !isInside(
+            row,
+            col
+          )
         ) {
           continue;
         }
 
-        set.add(
-          `${row},${col}`
+        if (
+          board[row][col] !==
+          EMPTY
+        ) {
+          continue;
+        }
+
+        map.set(
+          `${row},${col}`,
+          {
+            row,
+            col
+          }
         );
       }
     }
   }
 
-  return [...set].map(key => {
-    const [row, col] =
-      key.split(",").map(Number);
-
-    return {
-      row,
-      col,
-      score: 0
-    };
-  });
+  return [
+    ...map.values()
+  ];
 }
 
-function lineScore(
+/* =========================================================
+   PATTERN SCORE
+   ========================================================= */
+
+function countDirection(
+  board,
+  row,
+  col,
+  dr,
+  dc,
+  player
+) {
+  let count = 0;
+
+  for (
+    let distance = 1;
+    distance <= 4;
+    distance += 1
+  ) {
+    const r =
+      row +
+      dr *
+        distance;
+
+    const c =
+      col +
+      dc *
+        distance;
+
+    if (
+      !isInside(r, c) ||
+      board[r][c] !==
+        player
+    ) {
+      break;
+    }
+
+    count += 1;
+  }
+
+  return count;
+}
+
+function openEnds(
+  board,
+  row,
+  col,
+  dr,
+  dc,
+  player
+) {
+  let open = 0;
+
+  const forward =
+    countDirection(
+      board,
+      row,
+      col,
+      dr,
+      dc,
+      player
+    );
+
+  const backward =
+    countDirection(
+      board,
+      row,
+      col,
+      -dr,
+      -dc,
+      player
+    );
+
+  const frontRow =
+    row +
+    dr *
+      (forward + 1);
+
+  const frontCol =
+    col +
+    dc *
+      (forward + 1);
+
+  if (
+    isInside(
+      frontRow,
+      frontCol
+    ) &&
+    board[
+      frontRow
+    ][
+      frontCol
+    ] === EMPTY
+  ) {
+    open += 1;
+  }
+
+  const backRow =
+    row -
+    dr *
+      (backward + 1);
+
+  const backCol =
+    col -
+    dc *
+      (backward + 1);
+
+  if (
+    isInside(
+      backRow,
+      backCol
+    ) &&
+    board[
+      backRow
+    ][
+      backCol
+    ] === EMPTY
+  ) {
+    open += 1;
+  }
+
+  return open;
+}
+
+function patternValue(
   count,
-  openEnds
+  open
 ) {
   if (count >= 5) {
     return 1000000;
   }
 
-  if (count === 4) {
-    if (openEnds === 2) {
-      return 100000;
-    }
-
-    if (openEnds === 1) {
-      return 12000;
-    }
-
-    return 0;
+  if (
+    count === 4 &&
+    open === 2
+  ) {
+    return 100000;
   }
 
-  if (count === 3) {
-    if (openEnds === 2) {
-      return 6000;
-    }
-
-    if (openEnds === 1) {
-      return 700;
-    }
-
-    return 0;
+  if (
+    count === 4 &&
+    open === 1
+  ) {
+    return 12000;
   }
 
-  if (count === 2) {
-    if (openEnds === 2) {
-      return 350;
-    }
-
-    if (openEnds === 1) {
-      return 60;
-    }
-
-    return 0;
+  if (
+    count === 3 &&
+    open === 2
+  ) {
+    return 4000;
   }
 
-  if (count === 1) {
-    return openEnds === 2
-      ? 8
-      : 2;
+  if (
+    count === 3 &&
+    open === 1
+  ) {
+    return 500;
   }
 
-  return 0;
+  if (
+    count === 2 &&
+    open === 2
+  ) {
+    return 300;
+  }
+
+  if (
+    count === 2 &&
+    open === 1
+  ) {
+    return 60;
+  }
+
+  return 5;
 }
 
-function evaluateLine(
-  board,
-  row,
-  col,
-  player,
-  dr,
-  dc
-) {
-  if (
-    board[row][col] !== player
-  ) {
-    return 0;
-  }
-
-  let count = 1;
-  let openEnds = 0;
-
-  let r = row + dr;
-  let c = col + dc;
-
-  while (
-    isInside(r, c) &&
-    board[r][c] === player
-  ) {
-    count++;
-    r += dr;
-    c += dc;
-  }
-
-  if (
-    isInside(r, c) &&
-    board[r][c] === EMPTY
-  ) {
-    openEnds++;
-  }
-
-  r = row - dr;
-  c = col - dc;
-
-  while (
-    isInside(r, c) &&
-    board[r][c] === player
-  ) {
-    count++;
-    r -= dr;
-    c -= dc;
-  }
-
-  if (
-    isInside(r, c) &&
-    board[r][c] === EMPTY
-  ) {
-    openEnds++;
-  }
-
-  return lineScore(
-    count,
-    openEnds
-  );
-}
-
-function evaluatePosition(
+function evaluatePoint(
   board,
   row,
   col,
   player
 ) {
-  const directions = [
-    [1, 0],
-    [0, 1],
-    [1, 1],
-    [1, -1]
-  ];
+  if (
+    board[row][col] !==
+    EMPTY
+  ) {
+    return -Infinity;
+  }
 
   let score = 0;
 
-  for (const [dr, dc] of directions) {
-    score += evaluateLine(
-      board,
-      row,
-      col,
-      player,
-      dr,
-      dc
-    );
+  for (
+    const [dr, dc]
+    of DIRECTIONS
+  ) {
+    const count =
+      1 +
+      countDirection(
+        board,
+        row,
+        col,
+        dr,
+        dc,
+        player
+      ) +
+      countDirection(
+        board,
+        row,
+        col,
+        -dr,
+        -dc,
+        player
+      );
+
+    const open =
+      openEnds(
+        board,
+        row,
+        col,
+        dr,
+        dc,
+        player
+      );
+
+    score +=
+      patternValue(
+        count,
+        open
+      );
   }
-
-  const center =
-    (BOARD_SIZE - 1) / 2;
-
-  const distance =
-    Math.abs(row - center) +
-    Math.abs(col - center);
-
-  score +=
-    Math.max(
-      0,
-      30 - distance * 3
-    );
 
   return score;
 }
+
+/* =========================================================
+   POSITION EVALUATION
+   ========================================================= */
 
 function evaluateBoard(
   board,
@@ -315,25 +469,39 @@ function evaluateBoard(
 
   let score = 0;
 
-  for (let r = 0; r < BOARD_SIZE; r++) {
-    for (let c = 0; c < BOARD_SIZE; c++) {
-      if (board[r][c] === player) {
-        score += evaluatePosition(
-          board,
-          r,
-          c,
-          player
-        );
-      }
-
-      if (board[r][c] === enemy) {
-        score -=
-          evaluatePosition(
+  for (
+    let row = 0;
+    row < SIZE;
+    row += 1
+  ) {
+    for (
+      let col = 0;
+      col < SIZE;
+      col += 1
+    ) {
+      if (
+        board[row][col] ===
+        player
+      ) {
+        score +=
+          evaluateOccupied(
             board,
-            r,
-            c,
+            row,
+            col,
+            player
+          );
+      } else if (
+        board[row][col] ===
+        enemy
+      ) {
+        score -=
+          evaluateOccupied(
+            board,
+            row,
+            col,
             enemy
-          ) * 1.05;
+          ) *
+          0.94;
       }
     }
   }
@@ -341,14 +509,203 @@ function evaluateBoard(
   return score;
 }
 
+function evaluateOccupied(
+  board,
+  row,
+  col,
+  player
+) {
+  let score = 0;
+
+  for (
+    const [dr, dc]
+    of DIRECTIONS
+  ) {
+    let count = 1;
+
+    count +=
+      countDirection(
+        board,
+        row,
+        col,
+        dr,
+        dc,
+        player
+      );
+
+    count +=
+      countDirection(
+        board,
+        row,
+        col,
+        -dr,
+        -dc,
+        player
+      );
+
+    const open =
+      openEnds(
+        board,
+        row,
+        col,
+        dr,
+        dc,
+        player
+      );
+
+    score +=
+      patternValue(
+        count,
+        open
+      );
+  }
+
+  return score;
+}
+
+/* =========================================================
+   MOVE ORDER
+   ========================================================= */
+
+function centerScore(
+  row,
+  col
+) {
+  return (
+    20 -
+    Math.abs(
+      row - 7
+    ) -
+    Math.abs(
+      col - 7
+    )
+  );
+}
+
+function moveScore(
+  board,
+  move,
+  player,
+  style
+) {
+  const enemy =
+    opponent(player);
+
+  const attack =
+    evaluatePoint(
+      board,
+      move.row,
+      move.col,
+      player
+    );
+
+  const defense =
+    evaluatePoint(
+      board,
+      move.row,
+      move.col,
+      enemy
+    );
+
+  let score =
+    attack +
+    defense * 0.95 +
+    centerScore(
+      move.row,
+      move.col
+    );
+
+  if (
+    style ===
+    "attack"
+  ) {
+    score +=
+      attack * 0.18;
+  }
+
+  if (
+    style ===
+    "defense"
+  ) {
+    score +=
+      defense * 0.18;
+  }
+
+  if (
+    style ===
+    "counter"
+  ) {
+    score +=
+      defense * 0.12;
+  }
+
+  if (
+    style ===
+    "tricky"
+  ) {
+    score +=
+      centerScore(
+        move.row,
+        move.col
+      ) *
+      0.8;
+  }
+
+  if (
+    style ===
+    "master"
+  ) {
+    score +=
+      attack * 0.08 +
+      defense * 0.08;
+  }
+
+  return score;
+}
+
+function orderMoves(
+  board,
+  moves,
+  player,
+  style
+) {
+  return moves
+    .map(
+      move => ({
+        ...move,
+        score:
+          moveScore(
+            board,
+            move,
+            player,
+            style
+          )
+      })
+    )
+    .sort(
+      (a, b) =>
+        b.score -
+        a.score
+    );
+}
+
+/* =========================================================
+   IMMEDIATE THREATS
+   ========================================================= */
+
 function immediateWinningMove(
   board,
   player,
   moves
 ) {
-  for (const move of moves) {
-    board[move.row][move.col] =
-      player;
+  for (
+    const move of moves
+  ) {
+    board[
+      move.row
+    ][
+      move.col
+    ] = player;
 
     const win =
       hasWin(
@@ -358,8 +715,11 @@ function immediateWinningMove(
         player
       );
 
-    board[move.row][move.col] =
-      EMPTY;
+    board[
+      move.row
+    ][
+      move.col
+    ] = EMPTY;
 
     if (win) {
       return move;
@@ -369,128 +729,105 @@ function immediateWinningMove(
   return null;
 }
 
-function orderMoves(
-  board,
-  player,
-  moves
-) {
-  const enemy =
-    opponent(player);
-
-  return moves
-    .map(move => {
-      board[move.row][move.col] =
-        player;
-
-      const attack =
-        evaluatePosition(
-          board,
-          move.row,
-          move.col,
-          player
-        );
-
-      board[move.row][move.col] =
-        enemy;
-
-      const defense =
-        evaluatePosition(
-          board,
-          move.row,
-          move.col,
-          enemy
-        );
-
-      board[move.row][move.col] =
-        EMPTY;
-
-      return {
-        ...move,
-        score:
-          attack +
-          defense * 0.95
-      };
-    })
-    .sort(
-      (a, b) =>
-        b.score - a.score
-    );
-}
+/* =========================================================
+   MINIMAX
+   ========================================================= */
 
 function minimax(
   board,
   depth,
   alpha,
   beta,
-  maximizingPlayer,
-  rootPlayer
+  turn,
+  root,
+  style,
+  radius
 ) {
-  if (depth <= 0) {
+  if (
+    depth <= 0
+  ) {
     return evaluateBoard(
       board,
-      rootPlayer
+      root
     );
-  }
-
-  if (isFull(board)) {
-    return 0;
   }
 
   const moves =
     orderMoves(
       board,
-      maximizingPlayer,
       candidateMoves(
         board,
-        2
-      )
-    ).slice(0, 14);
+        radius
+      ),
+      turn,
+      style
+    ).slice(
+      0,
+      depth >= 3
+        ? 18
+        : depth === 2
+          ? 14
+          : 10
+    );
 
   if (!moves.length) {
     return 0;
   }
 
-  const isMax =
-    maximizingPlayer === rootPlayer;
+  const maximizing =
+    turn === root;
 
-  if (isMax) {
-    let best =
-      -Infinity;
+  let best =
+    maximizing
+      ? -Infinity
+      : Infinity;
 
-    for (const move of moves) {
-      board[move.row][move.col] =
-        maximizingPlayer;
+  for (
+    const move of moves
+  ) {
+    board[
+      move.row
+    ][
+      move.col
+    ] = turn;
 
-      let score;
+    let score;
 
-      if (
-        hasWin(
+    if (
+      hasWin(
+        board,
+        move.row,
+        move.col,
+        turn
+      )
+    ) {
+      score =
+        turn === root
+          ? 10000000 +
+            depth
+          : -10000000 -
+            depth;
+    } else {
+      score =
+        minimax(
           board,
-          move.row,
-          move.col,
-          maximizingPlayer
-        )
-      ) {
-        score =
-          9000000 +
-          depth * 1000;
-      } else {
-        score =
-          minimax(
-            board,
-            depth - 1,
-            alpha,
-            beta,
-            opponent(
-              maximizingPlayer
-            ),
-            rootPlayer
-          );
-      }
+          depth - 1,
+          alpha,
+          beta,
+          opponent(turn),
+          root,
+          style,
+          radius
+        );
+    }
 
-      board[move.row][move.col] =
-        EMPTY;
+    board[
+      move.row
+    ][
+      move.col
+    ] = EMPTY;
 
+    if (maximizing) {
       best =
         Math.max(
           best,
@@ -502,65 +839,23 @@ function minimax(
           alpha,
           best
         );
-
-      if (beta <= alpha) {
-        break;
-      }
-    }
-
-    return best;
-  }
-
-  let best =
-    Infinity;
-
-  for (const move of moves) {
-    board[move.row][move.col] =
-      maximizingPlayer;
-
-    let score;
-
-    if (
-      hasWin(
-        board,
-        move.row,
-        move.col,
-        maximizingPlayer
-      )
-    ) {
-      score =
-        -9000000 -
-        depth * 1000;
     } else {
-      score =
-        minimax(
-          board,
-          depth - 1,
-          alpha,
+      best =
+        Math.min(
+          best,
+          score
+        );
+
+      beta =
+        Math.min(
           beta,
-          opponent(
-            maximizingPlayer
-          ),
-          rootPlayer
+          best
         );
     }
 
-    board[move.row][move.col] =
-      EMPTY;
-
-    best =
-      Math.min(
-        best,
-        score
-      );
-
-    beta =
-      Math.min(
-        beta,
-        best
-      );
-
-    if (beta <= alpha) {
+    if (
+      beta <= alpha
+    ) {
       break;
     }
   }
@@ -568,15 +863,29 @@ function minimax(
   return best;
 }
 
+/* =========================================================
+   CHOOSE MOVE
+   ========================================================= */
+
 function chooseMove(
   board,
   player,
   config
 ) {
+  const radius =
+    Math.max(
+      1,
+      config.radius || 2
+    );
+
+  const style =
+    config.style ||
+    "balanced";
+
   let moves =
     candidateMoves(
       board,
-      config.radius
+      radius
     );
 
   if (!moves.length) {
@@ -608,23 +917,50 @@ function chooseMove(
   moves =
     orderMoves(
       board,
+      moves,
       player,
-      moves
-    ).slice(
+      style
+    );
+
+  const maxCandidates =
+    config.depth === 1
+      ? 12
+      : config.depth === 2
+        ? 16
+        : 20;
+
+  moves =
+    moves.slice(
       0,
-      config.depth === 1
-        ? 12
-        : config.depth === 2
-          ? 16
-          : 20
+      maxCandidates
     );
 
   const evaluated =
-    moves.map(move => {
-      board[move.row][move.col] =
-        player;
+    [];
 
-      let score =
+  for (
+    const move of moves
+  ) {
+    board[
+      move.row
+    ][
+      move.col
+    ] = player;
+
+    let score;
+
+    if (
+      hasWin(
+        board,
+        move.row,
+        move.col,
+        player
+      )
+    ) {
+      score =
+        10000000;
+    } else {
+      score =
         evaluateBoard(
           board,
           player
@@ -640,40 +976,60 @@ function chooseMove(
             -Infinity,
             Infinity,
             opponent(player),
-            player
+            player,
+            style,
+            radius
           );
       }
+    }
 
-      board[move.row][move.col] =
-        EMPTY;
+    board[
+      move.row
+    ][
+      move.col
+    ] = EMPTY;
 
-      return {
-        ...move,
-        score
-      };
+    evaluated.push({
+      ...move,
+      score
     });
+  }
 
   evaluated.sort(
     (a, b) =>
-      b.score - a.score
+      b.score -
+      a.score
   );
+
+  const randomTop =
+    Math.max(
+      0,
+      config.randomTop || 0
+    );
 
   const topCount =
     Math.min(
-      config.randomTop + 1,
+      randomTop + 1,
       evaluated.length
     );
 
-  const selectedIndex =
-    Math.floor(
-      Math.random() *
-      topCount
-    );
+  const selected =
+    evaluated[
+      Math.floor(
+        Math.random() *
+          topCount
+      )
+    ];
 
-  return evaluated[
-    selectedIndex
-  ];
+  return (
+    selected ||
+    evaluated[0]
+  );
 }
+
+/* =========================================================
+   MESSAGE
+   ========================================================= */
 
 self.addEventListener(
   "message",
@@ -681,9 +1037,20 @@ self.addEventListener(
     const {
       board,
       player,
-      config,
-      thinkTime
-    } = event.data;
+      config
+    } = event.data || {};
+
+    if (
+      !Array.isArray(board) ||
+      !Number.isInteger(player)
+    ) {
+      self.postMessage({
+        row: null,
+        col: null
+      });
+
+      return;
+    }
 
     const workingBoard =
       cloneBoard(board);
@@ -692,13 +1059,17 @@ self.addEventListener(
       chooseMove(
         workingBoard,
         player,
-        config
+        config || {}
       );
 
     self.postMessage({
-      row: move?.row ?? null,
-      col: move?.col ?? null,
-      thinkTime
+      row:
+        move?.row ??
+        null,
+
+      col:
+        move?.col ??
+        null
     });
   }
 );
