@@ -3,7 +3,7 @@
 
   /*
    * =========================================================
-   * GOMOKU 1.1
+   * GOMOKU 1.2
    * =========================================================
    *
    * Human vs Human
@@ -15,8 +15,14 @@
    * LocalStorage
    * Responsive Canvas
    *
-   * UI SFX
+   * Official UI SFX
    * Organic 06
+   *
+   * Official:
+   * https://uisfx.com/
+   *
+   * npm:
+   * https://www.npmjs.com/package/uisfx
    * =========================================================
    */
 
@@ -35,13 +41,17 @@
     WORKER: "./ai-worker.js",
 
     /*
-     * UI SFX 官方 Organic 06
-     * 透過 ESM CDN 動態載入。
+     * 官方 UI SFX ESM CDN
+     *
+     * UI SFX 本身負責即時合成音效，
+     * 不需要在專案裡放 MP3 / WAV。
      */
     SFX_MODULE:
       "https://esm.unpkg.com/uisfx",
 
     SFX_PACK: "organic",
+
+    SFX_VOLUME: 0.38,
 
     COLORS: {
       board: "#e8d5ad",
@@ -483,36 +493,86 @@
    */
 
   let uiSFX = null;
+
+  let sfxModulePromise = null;
+
   let sfxLoading = false;
+
   let audioUnlocked = false;
 
+  let audioUnlockPromise = null;
+
+
+  /*
+   * 官方 UI SFX semantic cues。
+   */
   const SFX = {
+    hover: "hover",
+
     press: "press",
+    release: "release",
+
     select: "select",
+    deselect: "deselect",
+
+    toggleOn: "toggle-on",
+    toggleOff: "toggle-off",
+
+    delete: "delete",
+
     undo: "undo",
-    start: "start",
+    redo: "redo",
+
+    open: "open",
+    close: "close",
+    back: "back",
+
     success: "success",
     error: "error",
+    warning: "warning",
     info: "info",
+
+    start: "start",
+    stop: "stop",
+
+    progress: "progress-step",
     complete: "complete"
   };
 
 
   /*
-   * 載入 UI SFX。
-   *
-   * 使用動態 import，所以原本 HTML 不需要改成
-   * type="module"。
+   * ---------------------------------------------------------
+   * AUDIO HELPERS
+   * ---------------------------------------------------------
    */
+
+  function loadUISFXModule() {
+
+    if (!sfxModulePromise) {
+
+      sfxModulePromise =
+        import(CONFIG.SFX_MODULE);
+
+    }
+
+    return sfxModulePromise;
+
+  }
+
 
   async function loadUISFX() {
 
-    if (uiSFX || sfxLoading) {
+    if (uiSFX) {
       return uiSFX;
     }
 
-    if (!state.settings.sound) {
-      return null;
+    if (
+      sfxLoading ||
+      !state.settings.sound
+    ) {
+
+      return uiSFX;
+
     }
 
     sfxLoading = true;
@@ -520,21 +580,32 @@
     try {
 
       const module =
-        await import(CONFIG.SFX_MODULE);
+        await loadUISFXModule();
 
       const createUISFX =
         module.createUISFX ||
         module.default?.createUISFX;
 
-      if (!createUISFX) {
+      if (
+        typeof createUISFX !==
+        "function"
+      ) {
+
         throw new Error(
-          "createUISFX unavailable"
+          "createUISFX() was not found."
         );
+
       }
 
       uiSFX =
         createUISFX({
-          pack: CONFIG.SFX_PACK
+
+          pack:
+            CONFIG.SFX_PACK,
+
+          volume:
+            CONFIG.SFX_VOLUME
+
         });
 
       return uiSFX;
@@ -542,7 +613,7 @@
     } catch (error) {
 
       console.warn(
-        "UI SFX failed to load:",
+        "[Gomoku] UI SFX failed to load:",
         error
       );
 
@@ -555,33 +626,153 @@
       sfxLoading = false;
 
     }
+
   }
 
 
+  /*
+   * Native browser audio unlock.
+   *
+   * This does NOT generate the sound itself.
+   * It simply creates/resumes a tiny AudioContext
+   * from a real user gesture so Safari allows audio.
+   */
+  async function unlockBrowserAudio() {
+
+    if (audioUnlocked) {
+      return true;
+    }
+
+    if (audioUnlockPromise) {
+      return audioUnlockPromise;
+    }
+
+    audioUnlockPromise =
+      (async () => {
+
+        try {
+
+          const AudioContextClass =
+            window.AudioContext ||
+            window.webkitAudioContext;
+
+          if (!AudioContextClass) {
+
+            /*
+             * Browser has no Web Audio API.
+             * UI SFX may still be able to handle
+             * its own audio implementation.
+             */
+            return true;
+
+          }
+
+          const context =
+            new AudioContextClass();
+
+          if (
+            context.state ===
+            "suspended"
+          ) {
+
+            await context.resume();
+
+          }
+
+          /*
+           * Create a zero-gain oscillator only to
+           * establish a trusted audio graph.
+           */
+          const gain =
+            context.createGain();
+
+          gain.gain.value = 0;
+
+          const oscillator =
+            context.createOscillator();
+
+          oscillator.connect(gain);
+
+          gain.connect(
+            context.destination
+          );
+
+          oscillator.start();
+
+          oscillator.stop(
+            context.currentTime + 0.01
+          );
+
+          await new Promise(
+            resolve => {
+
+              oscillator.addEventListener(
+                "ended",
+                resolve,
+                {
+                  once: true
+                }
+              );
+
+            }
+          );
+
+          await context.close();
+
+          audioUnlocked = true;
+
+          return true;
+
+        } catch (error) {
+
+          console.warn(
+            "[Gomoku] Browser audio unlock failed:",
+            error
+          );
+
+          return false;
+
+        } finally {
+
+          audioUnlockPromise =
+            null;
+
+        }
+
+      })();
+
+    return audioUnlockPromise;
+
+  }
+
+
+  /*
+   * Unlock + load UI SFX.
+   *
+   * This function is always called from user
+   * interaction handlers before playing a cue.
+   */
   async function unlockAudio() {
 
     if (
-      !state.settings.sound ||
-      audioUnlocked
+      !state.settings.sound
     ) {
-      return;
+
+      return null;
+
     }
 
-    try {
+    await unlockBrowserAudio();
 
-      const ui =
-        await loadUISFX();
+    const ui =
+      await loadUISFX();
 
-      if (ui) {
-        audioUnlocked = true;
-      }
-
-    } catch {}
+    return ui;
 
   }
 
 
-  function playSFX(
+  async function playSFX(
     cue,
     options = {}
   ) {
@@ -589,50 +780,75 @@
     if (
       !state.settings.sound
     ) {
+
+      return;
+
+    }
+
+    const ui =
+      uiSFX ||
+      await unlockAudio();
+
+    if (!ui) {
       return;
     }
 
-    /*
-     * UI SFX 官方的播放模型是：
-     *
-     * ui.play("select")
-     *
-     * one-shot 會自己結束。
-     */
+    try {
 
-    if (uiSFX) {
+      ui.play(
+        cue,
+        options
+      );
 
-      try {
+    } catch (error) {
 
-        uiSFX.play(
-          cue,
-          options
-        );
-
-        return;
-
-      } catch {}
+      console.warn(
+        `[Gomoku] Failed to play "${cue}":`,
+        error
+      );
 
     }
 
-    /*
-     * 如果 CDN 還沒載完，
-     * 不阻塞遊戲。
-     */
+  }
 
-    loadUISFX()
-      .then(ui => {
 
-        if (!ui || !state.settings.sound) {
-          return;
-        }
+  function setSoundEnabled(
+    enabled
+  ) {
 
-        try {
-          ui.play(cue, options);
-        } catch {}
+    state.settings.sound =
+      Boolean(enabled);
 
-      })
-      .catch(() => {});
+    saveSettings();
+
+    if (!uiSFX) {
+      return;
+    }
+
+    try {
+
+      if (
+        typeof uiSFX.setEnabled ===
+        "function"
+      ) {
+
+        uiSFX.setEnabled(
+          state.settings.sound
+        );
+
+      }
+
+      if (
+        !state.settings.sound &&
+        typeof uiSFX.stopAll ===
+        "function"
+      ) {
+
+        uiSFX.stopAll();
+
+      }
+
+    } catch {}
 
   }
 
@@ -870,7 +1086,9 @@
       state.gameOver ||
       state.aiThinking
     ) {
+
       return false;
+
     }
 
     if (
@@ -878,15 +1096,20 @@
       state.board[row][col] !==
         CONFIG.EMPTY
     ) {
+
       playSFX(SFX.error);
+
       return false;
+
     }
 
     if (
       state.mode === "ai" &&
       state.currentPlayer === state.aiSide
     ) {
+
       return false;
+
     }
 
     const player =
@@ -1080,7 +1303,9 @@
       state.aiThinking ||
       state.moves.length === 0
     ) {
+
       return;
+
     }
 
     unlockAudio();
@@ -1343,7 +1568,9 @@
           requestId !==
             state.workerRequest
         ) {
+
           return;
+
         }
 
         requestAIMove(
@@ -2683,6 +2910,10 @@
 
         event.preventDefault();
 
+        /*
+         * This pointerdown is a genuine user gesture.
+         * Unlock browser audio here before any game sound.
+         */
         unlockAudio();
 
         canvas.setPointerCapture?.(
@@ -2736,6 +2967,8 @@
         }
 
         event.preventDefault();
+
+        unlockAudio();
 
       }
     );
@@ -2897,9 +3130,9 @@
 
     DOM.startButton.addEventListener(
       "click",
-      () => {
+      async () => {
 
-        unlockAudio();
+        await unlockAudio();
 
         playSFX(
           SFX.press
@@ -2915,9 +3148,9 @@
 
     DOM.recordsButton.addEventListener(
       "click",
-      () => {
+      async () => {
 
-        unlockAudio();
+        await unlockAudio();
 
         playSFX(
           SFX.press
@@ -2935,9 +3168,9 @@
 
     DOM.settingsButton.addEventListener(
       "click",
-      () => {
+      async () => {
 
-        unlockAudio();
+        await unlockAudio();
 
         playSFX(
           SFX.press
@@ -2953,9 +3186,9 @@
 
     DOM.resumeButton.addEventListener(
       "click",
-      () => {
+      async () => {
 
-        unlockAudio();
+        await unlockAudio();
 
         playSFX(
           SFX.start
@@ -2969,9 +3202,9 @@
 
     DOM.playAgainButton.addEventListener(
       "click",
-      () => {
+      async () => {
 
-        unlockAudio();
+        await unlockAudio();
 
         startNewGame();
 
@@ -2981,11 +3214,12 @@
 
     DOM.resultHomeButton.addEventListener(
       "click",
-      () => {
+      async () => {
+
+        await unlockAudio();
 
         playSFX(
-          SFX.back ||
-          SFX.press
+          SFX.back
         );
 
         showScreen(
@@ -2998,10 +3232,12 @@
 
     DOM.gameMenuButton.addEventListener(
       "click",
-      () => {
+      async () => {
+
+        await unlockAudio();
 
         playSFX(
-          SFX.press
+          SFX.back
         );
 
         saveActiveGame();
@@ -3016,9 +3252,9 @@
 
     DOM.restartButton.addEventListener(
       "click",
-      () => {
+      async () => {
 
-        unlockAudio();
+        await unlockAudio();
 
         playSFX(
           SFX.start
@@ -3032,18 +3268,24 @@
 
     DOM.undoButton.addEventListener(
       "click",
-      undoMove
+      async () => {
+
+        await unlockAudio();
+
+        undoMove();
+
+      }
     );
 
 
     DOM.backButton.addEventListener(
       "click",
-      () => {
+      async () => {
 
-        unlockAudio();
+        await unlockAudio();
 
         playSFX(
-          SFX.press
+          SFX.back
         );
 
         if (
@@ -3055,7 +3297,9 @@
         if (
           state.screen === "game"
         ) {
+
           saveActiveGame();
+
         }
 
         showScreen(
@@ -3068,9 +3312,9 @@
 
     DOM.menuButton.addEventListener(
       "click",
-      () => {
+      async () => {
 
-        unlockAudio();
+        await unlockAudio();
 
         playSFX(
           SFX.press
@@ -3281,9 +3525,9 @@
 
     DOM.beginGameButton.addEventListener(
       "click",
-      () => {
+      async () => {
 
-        unlockAudio();
+        await unlockAudio();
 
         if (
           state.mode === "local"
@@ -3508,7 +3752,9 @@
       if (
         state.mode === "local"
       ) {
+
         state.stats.localDraws++;
+
       }
 
     }
@@ -3778,8 +4024,7 @@
     renderStats();
 
     playSFX(
-      SFX.delete ||
-      SFX.error
+      SFX.delete
     );
 
     showToast(
@@ -4219,25 +4464,24 @@
 
     DOM.soundToggle.addEventListener(
       "change",
-      () => {
+      async () => {
 
-        state.settings.sound =
+        const enabled =
           DOM.soundToggle.checked;
 
-        saveSettings();
+        setSoundEnabled(
+          enabled
+        );
 
-        if (
-          state.settings.sound
-        ) {
+        if (enabled) {
 
           audioUnlocked =
             false;
 
-          unlockAudio();
+          await unlockAudio();
 
-          playSFX(
-            SFX.toggleOn ||
-            SFX.select
+          await playSFX(
+            SFX.toggleOn
           );
 
         }
@@ -4248,12 +4492,14 @@
 
     DOM.motionToggle.addEventListener(
       "change",
-      () => {
+      async () => {
 
         state.settings.motion =
           DOM.motionToggle.checked;
 
         saveSettings();
+
+        await unlockAudio();
 
         playSFX(
           state.settings.motion
@@ -4267,7 +4513,7 @@
 
     DOM.themeSelect.addEventListener(
       "change",
-      () => {
+      async () => {
 
         state.settings.theme =
           DOM.themeSelect.value;
@@ -4275,6 +4521,8 @@
         applyTheme();
 
         saveSettings();
+
+        await unlockAudio();
 
         playSFX(
           SFX.select
@@ -4286,12 +4534,14 @@
 
     DOM.languageSelect.addEventListener(
       "change",
-      () => {
+      async () => {
 
         state.settings.language =
           DOM.languageSelect.value;
 
         saveSettings();
+
+        await unlockAudio();
 
         playSFX(
           SFX.select
@@ -4511,9 +4761,9 @@
       DOM.clearRecordsButton
         .addEventListener(
           "click",
-          () => {
+          async () => {
 
-            unlockAudio();
+            await unlockAudio();
 
             clearRecords();
 
@@ -4523,31 +4773,37 @@
     }
 
     /*
-     * 第一次真正的使用者互動時解鎖音訊。
-     * iOS Safari 對這個很敏感。
+     * First real user interaction.
+     *
+     * This is especially important on iPad/iPhone Safari.
      */
-
     const unlockEvents = [
       "pointerdown",
-      "touchstart",
       "keydown"
     ];
 
     const unlockOnce =
-      () => {
+      async () => {
 
-        unlockAudio();
+        await unlockAudio();
 
-        unlockEvents.forEach(
-          eventName => {
+        if (
+          audioUnlocked ||
+          !state.settings.sound
+        ) {
 
-            document.removeEventListener(
-              eventName,
-              unlockOnce
-            );
+          unlockEvents.forEach(
+            eventName => {
 
-          }
-        );
+              document.removeEventListener(
+                eventName,
+                unlockOnce
+              );
+
+            }
+          );
+
+        }
 
       };
 
