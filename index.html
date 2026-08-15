@@ -55,8 +55,6 @@
 
 <div class="app-shell">
 
-  <!-- TOP BAR -->
-
   <header class="topbar">
 
     <button
@@ -108,8 +106,13 @@
           class="hero-mark"
           aria-hidden="true"
         >
-          <div class="hero-stone hero-black"></div>
-          <div class="hero-stone hero-white"></div>
+          <div
+            class="hero-stone hero-black"
+          ></div>
+
+          <div
+            class="hero-stone hero-white"
+          ></div>
         </div>
 
         <h1>
@@ -148,6 +151,7 @@
 
         </div>
 
+
         <div
           class="home-status"
           id="resumeCard"
@@ -160,7 +164,9 @@
               未完成棋局
             </span>
 
-            <strong id="resumeText"></strong>
+            <strong
+              id="resumeText"
+            ></strong>
 
           </div>
 
@@ -488,7 +494,9 @@
             hidden
           >
 
-            <span class="thinking-dot"></span>
+            <span
+              class="thinking-dot"
+            ></span>
 
             <span>
               思考中
@@ -623,7 +631,9 @@
           id="resultMark"
           aria-hidden="true"
         >
+
           <span></span>
+
         </div>
 
         <p
@@ -638,6 +648,7 @@
         <p
           id="resultDescription"
         ></p>
+
 
         <div class="result-actions">
 
@@ -686,7 +697,9 @@
               對局
             </span>
 
-            <strong id="statGames">
+            <strong
+              id="statGames"
+            >
               0
             </strong>
 
@@ -699,7 +712,9 @@
               勝利
             </span>
 
-            <strong id="statWins">
+            <strong
+              id="statWins"
+            >
               0
             </strong>
 
@@ -712,7 +727,9 @@
               失敗
             </span>
 
-            <strong id="statLosses">
+            <strong
+              id="statLosses"
+            >
               0
             </strong>
 
@@ -725,7 +742,9 @@
               平局
             </span>
 
-            <strong id="statDraws">
+            <strong
+              id="statDraws"
+            >
               0
             </strong>
 
@@ -769,8 +788,6 @@
 
         <div class="settings-list">
 
-          <!-- LANGUAGE -->
-
           <label class="setting-row">
 
             <span>
@@ -786,7 +803,9 @@
             </span>
 
 
-            <select id="languageSelect">
+            <select
+              id="languageSelect"
+            >
 
               <option value="zh-TW">
                 繁體中文
@@ -813,8 +832,6 @@
           </label>
 
 
-          <!-- SOUND -->
-
           <label class="setting-row">
 
             <span>
@@ -838,8 +855,6 @@
 
           </label>
 
-
-          <!-- MOTION -->
 
           <label class="setting-row">
 
@@ -865,8 +880,6 @@
           </label>
 
 
-          <!-- THEME -->
-
           <label class="setting-row">
 
             <span>
@@ -882,7 +895,9 @@
             </span>
 
 
-            <select id="themeSelect">
+            <select
+              id="themeSelect"
+            >
 
               <option value="system">
                 System
@@ -900,69 +915,6 @@
 
           </label>
 
-
-          <!-- EXPORT -->
-
-          <div class="setting-row">
-
-            <span>
-
-              <strong>
-                匯出資料
-              </strong>
-
-              <small>
-                匯出你的棋局記錄與遊戲設定
-              </small>
-
-            </span>
-
-
-            <button
-              class="secondary-button"
-              id="exportButton"
-              type="button"
-            >
-              匯出
-            </button>
-
-          </div>
-
-
-          <!-- IMPORT -->
-
-          <div class="setting-row">
-
-            <span>
-
-              <strong>
-                匯入資料
-              </strong>
-
-              <small>
-                從備份檔案恢復棋局記錄與設定
-              </small>
-
-            </span>
-
-
-            <button
-              class="secondary-button"
-              id="importButton"
-              type="button"
-            >
-              匯入
-            </button>
-
-            <input
-              id="importFileInput"
-              type="file"
-              accept=".json,application/json"
-              hidden
-            >
-
-          </div>
-
         </div>
 
       </div>
@@ -971,8 +923,6 @@
 
   </main>
 
-
-  <!-- TOAST -->
 
   <div
     class="toast"
@@ -985,20 +935,15 @@
 
 
 <!--
-  Script order is intentional.
-
-  1. i18n.js
-     建立語言系統與 GomokuI18n
-
-  2. export.js
-     建立獨立匯出 / 匯入系統
-
-  3. app.js
-     遊戲本體
+  IMPORTANT:
+  i18n.js must be loaded before audio.js
+  because audio.js listens for its language-change event.
 -->
 
 <script src="./js/i18n.js"></script>
-<script src="./js/export.js"></script>
+
+<script src="./js/audio.js"></script>
+
 <script src="./app.js"></script>
 
 </body>
