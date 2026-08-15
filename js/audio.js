@@ -5,28 +5,49 @@ import {
   SFX
 } from "./config.js";
 
+import {
+  state
+} from "./state.js";
 
-let uiSFX = null;
-let sfxModulePromise = null;
-let sfxLoading = false;
+import {
+  saveSettings
+} from "./storage.js";
 
-let audioUnlocked = false;
 
-let nativeAudioContext = null;
-let nativeMasterGain = null;
+let uiSFX =
+  null;
 
-const lastSfxAt = new Map();
+let sfxModulePromise =
+  null;
+
+let sfxLoading =
+  false;
+
+let audioUnlocked =
+  false;
+
+let nativeAudioContext =
+  null;
+
+let nativeMasterGain =
+  null;
+
+
+const lastSfxAt =
+  new Map();
 
 
 /*
  * =========================================================
- * UI SFX
+ * UI SFX MODULE
  * =========================================================
  */
 
 function loadUISFXModule() {
 
-  if (!sfxModulePromise) {
+  if (
+    !sfxModulePromise
+  ) {
 
     sfxModulePromise =
       import(
@@ -35,7 +56,9 @@ function loadUISFXModule() {
 
   }
 
+
   return sfxModulePromise;
+
 }
 
 
@@ -43,13 +66,17 @@ async function loadUISFX() {
 
   if (
     uiSFX ||
+    !state.settings.sound ||
     sfxLoading
   ) {
+
     return uiSFX;
+
   }
 
 
-  sfxLoading = true;
+  sfxLoading =
+    true;
 
 
   try {
@@ -77,11 +104,13 @@ async function loadUISFX() {
 
     uiSFX =
       createUISFX({
+
         pack:
           CONFIG.SFX_PACK,
 
         volume:
           CONFIG.SFX_VOLUME
+
       });
 
 
@@ -94,13 +123,17 @@ async function loadUISFX() {
       error
     );
 
-    uiSFX = null;
+
+    uiSFX =
+      null;
+
 
     return null;
 
   } finally {
 
-    sfxLoading = false;
+    sfxLoading =
+      false;
 
   }
 
@@ -120,12 +153,18 @@ function ensureNativeAudio() {
     window.webkitAudioContext;
 
 
-  if (!AudioContextClass) {
+  if (
+    !AudioContextClass
+  ) {
+
     return null;
+
   }
 
 
-  if (!nativeAudioContext) {
+  if (
+    !nativeAudioContext
+  ) {
 
     nativeAudioContext =
       new AudioContextClass();
@@ -147,6 +186,7 @@ function ensureNativeAudio() {
 
 
   return nativeAudioContext;
+
 }
 
 
@@ -156,9 +196,12 @@ async function unlockBrowserAudio() {
     ensureNativeAudio();
 
 
-  if (!context) {
+  if (
+    !context
+  ) {
 
-    audioUnlocked = true;
+    audioUnlocked =
+      true;
 
     return true;
 
@@ -181,7 +224,8 @@ async function unlockBrowserAudio() {
       context.createGain();
 
 
-    gain.gain.value = 0;
+    gain.gain.value =
+      0;
 
 
     const oscillator =
@@ -192,7 +236,10 @@ async function unlockBrowserAudio() {
       180;
 
 
-    oscillator.connect(gain);
+    oscillator.connect(
+      gain
+    );
+
 
     gain.connect(
       context.destination
@@ -201,13 +248,16 @@ async function unlockBrowserAudio() {
 
     oscillator.start();
 
+
     oscillator.stop(
       context.currentTime +
       0.008
     );
 
 
-    audioUnlocked = true;
+    audioUnlocked =
+      true;
+
 
     return true;
 
@@ -218,6 +268,7 @@ async function unlockBrowserAudio() {
       error
     );
 
+
     return false;
 
   }
@@ -225,22 +276,19 @@ async function unlockBrowserAudio() {
 }
 
 
-/*
- * =========================================================
- * PUBLIC UNLOCK
- * =========================================================
- */
+export async function unlockAudio() {
 
-export async function unlockAudio(
-  enabled = true
-) {
+  if (
+    !state.settings.sound
+  ) {
 
-  if (!enabled) {
     return null;
+
   }
 
 
   await unlockBrowserAudio();
+
 
   return loadUISFX();
 
@@ -249,11 +297,13 @@ export async function unlockAudio(
 
 /*
  * =========================================================
- * NATIVE CUES
+ * NATIVE CUE
  * =========================================================
  */
 
-function nativeCue(cue) {
+function nativeCue(
+  cue
+) {
 
   const context =
     ensureNativeAudio();
@@ -264,7 +314,9 @@ function nativeCue(cue) {
     !nativeMasterGain ||
     !audioUnlocked
   ) {
+
     return;
+
   }
 
 
@@ -280,13 +332,22 @@ function nativeCue(cue) {
     context.createGain();
 
 
-  let duration = 0.07;
-  let f1 = 220;
-  let f2 = 220;
-  let type = "sine";
+  let duration =
+    0.055;
+
+  let f1 =
+    240;
+
+  let f2 =
+    280;
+
+  let type =
+    "sine";
 
 
-  switch (cue) {
+  switch (
+    cue
+  ) {
 
     case SFX.press:
 
@@ -378,17 +439,44 @@ function nativeCue(cue) {
       break;
 
 
+    case SFX.back:
+
+      duration = 0.08;
+      f1 = 310;
+      f2 = 220;
+      type = "sine";
+
+      break;
+
+
+    case SFX.delete:
+
+      duration = 0.10;
+      f1 = 260;
+      f2 = 140;
+      type = "triangle";
+
+      break;
+
+
     default:
 
-      duration = 0.07;
-      f1 = 220;
-      f2 = 220;
+      duration = 0.055;
+      f1 = 240;
+      f2 = 280;
       type = "sine";
 
   }
 
 
-  oscillator.type = type;
+  const peak =
+    cue === SFX.success
+      ? 0.26
+      : 0.18;
+
+
+  oscillator.type =
+    type;
 
 
   oscillator.frequency.setValueAtTime(
@@ -398,8 +486,12 @@ function nativeCue(cue) {
 
 
   oscillator.frequency.exponentialRampToValueAtTime(
-    Math.max(20, f2),
-    now + duration
+    Math.max(
+      50,
+      f2
+    ),
+    now +
+    duration
   );
 
 
@@ -410,28 +502,42 @@ function nativeCue(cue) {
 
 
   gain.gain.exponentialRampToValueAtTime(
-    0.22,
-    now + 0.008
+    peak,
+    now +
+    Math.min(
+      0.018,
+      duration *
+      0.25
+    )
   );
 
 
   gain.gain.exponentialRampToValueAtTime(
     0.0001,
-    now + duration
+    now +
+    duration
   );
 
 
-  oscillator.connect(gain);
+  oscillator.connect(
+    gain
+  );
+
 
   gain.connect(
     nativeMasterGain
   );
 
 
-  oscillator.start(now);
+  oscillator.start(
+    now
+  );
+
 
   oscillator.stop(
-    now + duration + 0.01
+    now +
+    duration +
+    0.01
   );
 
 }
@@ -439,34 +545,48 @@ function nativeCue(cue) {
 
 /*
  * =========================================================
- * PUBLIC SFX
+ * PUBLIC PLAY
  * =========================================================
  */
 
-export function playSFX(
+export async function playSFX(
   cue,
   options = {}
 ) {
 
-  const cooldownMs =
-    options.cooldownMs ??
-    CONFIG.AUDIO_COOLDOWN_MS;
+  if (
+    !state.settings.sound
+  ) {
+
+    return;
+
+  }
 
 
   const now =
     performance.now();
 
 
+  const cooldown =
+    options.cooldownMs ??
+    CONFIG.AUDIO_COOLDOWN_MS;
+
+
   const last =
-    lastSfxAt.get(cue) ??
-    0;
+    lastSfxAt.get(
+      cue
+    ) ??
+    -Infinity;
 
 
   if (
-    now - last <
-    cooldownMs
+    now -
+    last <
+    cooldown
   ) {
+
     return;
+
   }
 
 
@@ -476,31 +596,40 @@ export function playSFX(
   );
 
 
-  if (uiSFX) {
+  const ui =
+    uiSFX ||
+    await unlockAudio();
+
+
+  if (
+    ui &&
+    typeof ui.play ===
+    "function"
+  ) {
 
     try {
 
-      const play =
-        uiSFX.play ||
-        uiSFX.trigger ||
-        uiSFX;
+      ui.play(
+        cue,
+        {
+
+          retrigger:
+            options.retrigger ||
+            "restart",
+
+          cooldownMs:
+            cooldown
+
+        }
+      );
 
 
-      if (
-        typeof play ===
-        "function"
-      ) {
-
-        play(cue);
-
-        return;
-
-      }
+      return;
 
     } catch (error) {
 
       console.warn(
-        "[Gomoku] UI SFX playback failed.",
+        `[Gomoku] UI SFX "${cue}" failed; using native fallback.`,
         error
       );
 
@@ -509,157 +638,171 @@ export function playSFX(
   }
 
 
-  nativeCue(cue);
+  nativeCue(
+    cue
+  );
 
 }
 
 
 /*
  * =========================================================
- * SETTINGS
+ * SOUND SETTING
  * =========================================================
  */
 
-export function setAudioEnabled(
+export function setSoundEnabled(
   enabled
 ) {
 
-  if (!enabled) {
+  state.settings.sound =
+    Boolean(
+      enabled
+    );
+
+
+  saveSettings(
+    state.settings
+  );
+
+
+  if (
+    !state.settings.sound
+  ) {
 
     if (
-      nativeMasterGain &&
-      nativeAudioContext
+      uiSFX?.stopAll
     ) {
 
-      nativeMasterGain.gain.setTargetAtTime(
-        0,
-        nativeAudioContext.currentTime,
-        0.01
-      );
+      try {
+
+        uiSFX.stopAll();
+
+      } catch {}
 
     }
+
 
     return;
 
   }
 
 
-  if (
-    nativeMasterGain &&
-    nativeAudioContext
-  ) {
-
-    nativeMasterGain.gain.setTargetAtTime(
-      CONFIG.SFX_VOLUME,
-      nativeAudioContext.currentTime,
-      0.01
-    );
-
-  }
+  audioUnlocked =
+    false;
 
 }
 
 
 /*
  * =========================================================
- * BUTTON DECORATION
+ * BUTTON MICRO INTERACTIONS
  * =========================================================
  */
 
 export function decorateButtons() {
 
   document
-    .querySelectorAll("button")
-    .forEach(button => {
+    .querySelectorAll(
+      "button"
+    )
+    .forEach(
+      button => {
 
-      button.classList.add(
-        "gomoku-pressable"
-      );
+        button.classList.add(
+          "gomoku-pressable"
+        );
 
 
-      if (
-        button.dataset.gomokuDecorated ===
-        "1"
-      ) {
-        return;
+        if (
+          button.dataset.gomokuDecorated ===
+          "1"
+        ) {
+
+          return;
+
+        }
+
+
+        button.dataset.gomokuDecorated =
+          "1";
+
+
+        button.addEventListener(
+          "pointerdown",
+          () => {
+
+            if (
+              !button.disabled
+            ) {
+
+              playSFX(
+                SFX.press,
+                {
+                  cooldownMs:
+                    80
+                }
+              );
+
+            }
+
+          },
+          {
+            passive: true
+          }
+        );
+
+
+        button.addEventListener(
+          "pointerup",
+          () => {
+
+            if (
+              !button.disabled
+            ) {
+
+              playSFX(
+                SFX.release,
+                {
+                  cooldownMs:
+                    80
+                }
+              );
+
+            }
+
+          },
+          {
+            passive: true
+          }
+        );
+
+
+        button.addEventListener(
+          "pointercancel",
+          () => {
+
+            if (
+              !button.disabled
+            ) {
+
+              playSFX(
+                SFX.release,
+                {
+                  cooldownMs:
+                    80
+                }
+              );
+
+            }
+
+          },
+          {
+            passive: true
+          }
+        );
+
       }
-
-
-      button.dataset.gomokuDecorated =
-        "1";
-
-
-      button.addEventListener(
-        "pointerdown",
-        () => {
-
-          if (
-            !button.disabled
-          ) {
-
-            playSFX(
-              SFX.press,
-              {
-                cooldownMs: 80
-              }
-            );
-
-          }
-
-        },
-        {
-          passive: true
-        }
-      );
-
-
-      button.addEventListener(
-        "pointerup",
-        () => {
-
-          if (
-            !button.disabled
-          ) {
-
-            playSFX(
-              SFX.release,
-              {
-                cooldownMs: 80
-              }
-            );
-
-          }
-
-        },
-        {
-          passive: true
-        }
-      );
-
-
-      button.addEventListener(
-        "pointercancel",
-        () => {
-
-          if (
-            !button.disabled
-          ) {
-
-            playSFX(
-              SFX.release,
-              {
-                cooldownMs: 80
-              }
-            );
-
-          }
-
-        },
-        {
-          passive: true
-        }
-      );
-
-    });
+    );
 
 }
