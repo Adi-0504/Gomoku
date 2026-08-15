@@ -6,22 +6,34 @@
    * GOMOKU I18N
    * =========================================================
    *
-   * 支援：
-   * zh-TW / zh-CN / en / ja / ko
+   * Supported:
+   * - zh-TW
+   * - zh-CN
+   * - en
+   * - ja
+   * - ko
    *
-   * 特點：
-   * - 不要求 HTML 加 data-i18n
-   * - 直接支援目前 Gomoku index.html
-   * - 支援 PWA
-   * - 語言保存於 localStorage
-   * - 切換語言立即更新 UI
-   * - 支援動態 DOM
-   * - 不依賴 app.js
-   * - 不會呼叫不存在的 updateNativeUI()
+   * Features:
+   * - Existing HTML supported
+   * - No need to add data-i18n everywhere
+   * - Language persisted in localStorage
+   * - PWA compatible
+   * - Dynamic DOM support
+   * - Safe button translation
+   * - No duplicated button text
+   * - No MutationObserver loop
+   * =========================================================
+   */
+
+
+  /*
+   * =========================================================
+   * CONFIG
    * =========================================================
    */
 
   const STORAGE_KEY = "gomoku-language";
+
   const DEFAULT_LANGUAGE = "zh-TW";
 
   const SUPPORTED_LANGUAGES = [
@@ -97,10 +109,8 @@
 
       "game.yourTurn": "你的回合",
       "game.opponentTurn": "對手回合",
-
       "game.black": "黑棋",
       "game.white": "白棋",
-
       "game.thinking": "思考中",
 
       "game.undo": "悔棋",
@@ -118,7 +128,6 @@
       "records.clear": "清除記錄",
 
       "settings.title": "設定",
-
       "settings.language": "語言",
       "settings.language.desc": "選擇介面語言",
 
@@ -135,14 +144,6 @@
       "theme.light": "淺色",
       "theme.dark": "深色",
 
-      "language.zh-TW": "繁體中文",
-      "language.zh-CN": "简体中文",
-      "language.en": "English",
-      "language.ja": "日本語",
-      "language.ko": "한국어",
-
-      "board.label": "五子棋棋盤",
-
       "review.title": "這局回顧",
       "review.kicker": "GAME REVIEW",
       "review.first": "最前",
@@ -155,12 +156,16 @@
       "review.current": "目前",
       "review.moment": "局面",
       "review.open": "這局回顧",
+
       "review.start": "開局，棋盤還沒有落子。",
       "review.black": "黑棋",
       "review.white": "白棋",
-      "review.move": "第 {move} 手，{player} 落在 {coordinate}。",
-      "review.win": "第 {move} 手，{player} 在 {coordinate} 完成五連，這就是勝負手。"
 
+      "review.move":
+        "第 {move} 手，{player} 落在 {coordinate}。",
+
+      "review.win":
+        "第 {move} 手，{player} 在 {coordinate} 完成五連，這就是勝負手。"
     },
 
 
@@ -220,10 +225,8 @@
 
       "game.yourTurn": "你的回合",
       "game.opponentTurn": "对手回合",
-
       "game.black": "黑棋",
       "game.white": "白棋",
-
       "game.thinking": "思考中",
 
       "game.undo": "悔棋",
@@ -241,7 +244,6 @@
       "records.clear": "清除记录",
 
       "settings.title": "设置",
-
       "settings.language": "语言",
       "settings.language.desc": "选择界面语言",
 
@@ -258,14 +260,6 @@
       "theme.light": "浅色",
       "theme.dark": "深色",
 
-      "language.zh-TW": "繁體中文",
-      "language.zh-CN": "简体中文",
-      "language.en": "English",
-      "language.ja": "日本語",
-      "language.ko": "한국어",
-
-      "board.label": "五子棋棋盘",
-
       "review.title": "这局回顾",
       "review.kicker": "GAME REVIEW",
       "review.first": "最前",
@@ -278,12 +272,16 @@
       "review.current": "目前",
       "review.moment": "局面",
       "review.open": "这局回顾",
+
       "review.start": "开局，棋盘还没有落子。",
       "review.black": "黑棋",
       "review.white": "白棋",
-      "review.move": "第 {move} 手，{player} 落在 {coordinate}。",
-      "review.win": "第 {move} 手，{player} 在 {coordinate} 完成五连，这就是胜负手。"
 
+      "review.move":
+        "第 {move} 手，{player} 落在 {coordinate}。",
+
+      "review.win":
+        "第 {move} 手，{player} 在 {coordinate} 完成五连，这就是胜负手。"
     },
 
 
@@ -343,10 +341,8 @@
 
       "game.yourTurn": "Your Turn",
       "game.opponentTurn": "Opponent's Turn",
-
       "game.black": "Black",
       "game.white": "White",
-
       "game.thinking": "Thinking",
 
       "game.undo": "Undo",
@@ -364,7 +360,6 @@
       "records.clear": "Clear Records",
 
       "settings.title": "Settings",
-
       "settings.language": "Language",
       "settings.language.desc": "Choose interface language",
 
@@ -381,14 +376,6 @@
       "theme.light": "Light",
       "theme.dark": "Dark",
 
-      "language.zh-TW": "繁體中文",
-      "language.zh-CN": "简体中文",
-      "language.en": "English",
-      "language.ja": "日本語",
-      "language.ko": "한국어",
-
-      "board.label": "Gomoku board",
-
       "review.title": "Game Review",
       "review.kicker": "GAME REVIEW",
       "review.first": "First",
@@ -401,12 +388,16 @@
       "review.current": "Current",
       "review.moment": "Position",
       "review.open": "Review Game",
+
       "review.start": "The game begins with an empty board.",
       "review.black": "Black",
       "review.white": "White",
-      "review.move": "Move {move}: {player} at {coordinate}.",
-      "review.win": "Move {move}: {player} completed five in a row at {coordinate}. This was the winning move."
 
+      "review.move":
+        "Move {move}: {player} at {coordinate}.",
+
+      "review.win":
+        "Move {move}: {player} completed five in a row at {coordinate}. This was the winning move."
     },
 
 
@@ -466,10 +457,8 @@
 
       "game.yourTurn": "あなたの番",
       "game.opponentTurn": "相手の番",
-
       "game.black": "黒",
       "game.white": "白",
-
       "game.thinking": "考え中",
 
       "game.undo": "待った",
@@ -487,7 +476,6 @@
       "records.clear": "記録を削除",
 
       "settings.title": "設定",
-
       "settings.language": "言語",
       "settings.language.desc": "表示言語を選択",
 
@@ -504,14 +492,6 @@
       "theme.light": "ライト",
       "theme.dark": "ダーク",
 
-      "language.zh-TW": "繁體中文",
-      "language.zh-CN": "简体中文",
-      "language.en": "English",
-      "language.ja": "日本語",
-      "language.ko": "한국어",
-
-      "board.label": "五目並べの盤",
-
       "review.title": "対局レビュー",
       "review.kicker": "GAME REVIEW",
       "review.first": "最初",
@@ -524,12 +504,16 @@
       "review.current": "現在",
       "review.moment": "局面",
       "review.open": "この対局を振り返る",
+
       "review.start": "開始時点。まだ石は置かれていません。",
       "review.black": "黒",
       "review.white": "白",
-      "review.move": "{move}手目、{player}が{coordinate}に置きました。",
-      "review.win": "{move}手目、{player}が{coordinate}で五連を完成。勝負を決めた一手です。"
 
+      "review.move":
+        "{move}手目、{player}が{coordinate}に置きました。",
+
+      "review.win":
+        "{move}手目、{player}が{coordinate}で五連を完成。勝負を決めた一手です。"
     },
 
 
@@ -589,10 +573,8 @@
 
       "game.yourTurn": "당신의 차례",
       "game.opponentTurn": "상대의 차례",
-
       "game.black": "흑",
       "game.white": "백",
-
       "game.thinking": "생각 중",
 
       "game.undo": "무르기",
@@ -610,7 +592,6 @@
       "records.clear": "기록 삭제",
 
       "settings.title": "설정",
-
       "settings.language": "언어",
       "settings.language.desc": "인터페이스 언어 선택",
 
@@ -627,14 +608,6 @@
       "theme.light": "라이트",
       "theme.dark": "다크",
 
-      "language.zh-TW": "繁體中文",
-      "language.zh-CN": "简体中文",
-      "language.en": "English",
-      "language.ja": "日本語",
-      "language.ko": "한국어",
-
-      "board.label": "오목판",
-
       "review.title": "대국 리뷰",
       "review.kicker": "GAME REVIEW",
       "review.first": "처음",
@@ -647,12 +620,16 @@
       "review.current": "현재",
       "review.moment": "현재 국면",
       "review.open": "이 대국 돌아보기",
+
       "review.start": "게임 시작. 아직 돌이 놓이지 않았습니다.",
       "review.black": "흑",
       "review.white": "백",
-      "review.move": "{move}번째 수, {player}이(가) {coordinate}에 놓았습니다.",
-      "review.win": "{move}번째 수, {player}이(가) {coordinate}에서 오목을 완성했습니다. 승부를 결정한 수입니다."
 
+      "review.move":
+        "{move}번째 수, {player}이(가) {coordinate}에 놓았습니다.",
+
+      "review.win":
+        "{move}번째 수, {player}이(가) {coordinate}에서 오목을 완성했습니다. 승부를 결정한 수입니다."
     }
 
   };
@@ -665,6 +642,10 @@
    */
 
   let currentLanguage = DEFAULT_LANGUAGE;
+
+  let observer = null;
+
+  let observerScheduled = false;
 
 
   /*
@@ -682,36 +663,32 @@
     }
 
     if (
-      typeof language === "string"
+      typeof language !== "string"
     ) {
+      return DEFAULT_LANGUAGE;
+    }
 
-      const lower = language
-        .trim()
-        .toLowerCase();
+    const lower =
+      language.toLowerCase();
 
-      if (lower.startsWith("zh-cn")) {
-        return "zh-CN";
-      }
+    if (lower.startsWith("zh-cn")) {
+      return "zh-CN";
+    }
 
-      if (lower.startsWith("zh-tw")) {
-        return "zh-TW";
-      }
+    if (lower.startsWith("zh")) {
+      return "zh-TW";
+    }
 
-      if (lower === "zh" || lower.startsWith("zh-")) {
-        return "zh-TW";
-      }
+    if (lower.startsWith("ja")) {
+      return "ja";
+    }
 
-      if (lower.startsWith("ja")) {
-        return "ja";
-      }
+    if (lower.startsWith("ko")) {
+      return "ko";
+    }
 
-      if (lower.startsWith("ko")) {
-        return "ko";
-      }
-
-      if (lower.startsWith("en")) {
-        return "en";
-      }
+    if (lower.startsWith("en")) {
+      return "en";
     }
 
     return DEFAULT_LANGUAGE;
@@ -731,18 +708,17 @@
 
       try {
 
-        const saved =
+        const value =
           localStorage.getItem(key);
 
-        if (saved) {
-          return normalizeLanguage(saved);
+        if (value) {
+          return normalizeLanguage(value);
         }
 
       } catch (error) {
-        console.warn(
-          "[Gomoku I18n] localStorage read failed:",
-          error
-        );
+        /*
+         * localStorage unavailable.
+         */
       }
     }
 
@@ -762,39 +738,46 @@
       );
 
     } catch (error) {
-
-      console.warn(
-        "[Gomoku I18n] localStorage write failed:",
-        error
-      );
-
+      /*
+       * PWA private mode / storage unavailable.
+       */
     }
   }
 
 
   /*
    * =========================================================
-   * TRANSLATE
+   * TRANSLATION
    * =========================================================
    */
 
-  function translate(key, variables = {}) {
+  function translate(
+    key,
+    variables = {}
+  ) {
 
-    const current =
+    const language =
       translations[currentLanguage] ||
       translations[DEFAULT_LANGUAGE];
 
-    let value = current[key];
+    let value =
+      language[key];
 
-    if (value === undefined) {
+    if (
+      value === undefined
+    ) {
 
       value =
         translations[DEFAULT_LANGUAGE][key];
 
     }
 
-    if (value === undefined) {
+    if (
+      value === undefined
+    ) {
+
       return key;
+
     }
 
     return String(value).replace(
@@ -822,130 +805,21 @@
 
   /*
    * =========================================================
-   * GENERIC data-i18n SUPPORT
+   * BASIC DOM HELPERS
    * =========================================================
    */
 
-  function translateDataAttributes() {
-
-    const elements =
-      document.querySelectorAll(
-        "[data-i18n], " +
-        "[data-i18n-placeholder], " +
-        "[data-i18n-aria], " +
-        "[data-i18n-title], " +
-        "[data-i18n-value]"
-      );
-
-    elements.forEach(element => {
-
-      const textKey =
-        element.dataset.i18n;
-
-      if (textKey) {
-
-        element.textContent =
-          translate(textKey);
-
-      }
-
-
-      const placeholderKey =
-        element.dataset.i18nPlaceholder;
-
-      if (placeholderKey) {
-
-        element.setAttribute(
-          "placeholder",
-          translate(placeholderKey)
-        );
-
-      }
-
-
-      const ariaKey =
-        element.dataset.i18nAria;
-
-      if (ariaKey) {
-
-        element.setAttribute(
-          "aria-label",
-          translate(ariaKey)
-        );
-
-      }
-
-
-      const titleKey =
-        element.dataset.i18nTitle;
-
-      if (titleKey) {
-
-        element.setAttribute(
-          "title",
-          translate(titleKey)
-        );
-
-      }
-
-
-      const valueKey =
-        element.dataset.i18nValue;
-
-      if (
-        valueKey &&
-        (
-          element.tagName === "BUTTON" ||
-          element.tagName === "INPUT"
-        )
-      ) {
-
-        element.value =
-          translate(valueKey);
-
-      }
-
-    });
-  }
-
-
-  /*
-   * =========================================================
-   * CURRENT HTML AUTO TRANSLATION
-   * =========================================================
-   */
-
-  const AUTO_MAP = {
-
-    "#backButton": "nav.back",
-    "#menuButton": "nav.menu",
-
-    "#startButton": "home.start",
-    "#recordsButton": "home.records",
-    "#settingsButton": "home.settings",
-    "#resumeButton": "home.resume",
-
-    "#beginGameButton": "setup.begin",
-
-    "#undoButton": "game.undo",
-    "#restartButton": "game.restart",
-    "#gameMenuButton": "game.menu",
-
-    "#playAgainButton": "result.playAgain",
-    "#resultHomeButton": "result.home",
-
-    "#clearRecordsButton": "records.clear"
-
-  };
-
-
-  function setElementText(
-    selector,
+  function setText(
+    selectorOrElement,
     key
   ) {
 
     const element =
-      document.querySelector(selector);
+      typeof selectorOrElement === "string"
+        ? document.querySelector(
+            selectorOrElement
+          )
+        : selectorOrElement;
 
     if (!element) {
       return;
@@ -956,506 +830,791 @@
   }
 
 
-  function translateHome() {
+  function setAttributeText(
+    selectorOrElement,
+    attribute,
+    key
+  ) {
 
-    setElementText(
+    const element =
+      typeof selectorOrElement === "string"
+        ? document.querySelector(
+            selectorOrElement
+          )
+        : selectorOrElement;
+
+    if (!element) {
+      return;
+    }
+
+    element.setAttribute(
+      attribute,
+      translate(key)
+    );
+  }
+
+
+  /*
+   * =========================================================
+   * DATA-I18N SUPPORT
+   * =========================================================
+   */
+
+  function translateElement(
+    element
+  ) {
+
+    if (!element) {
+      return;
+    }
+
+    const key =
+      element.dataset.i18n;
+
+    if (key) {
+
+      element.textContent =
+        translate(key);
+
+    }
+
+
+    const placeholder =
+      element.dataset.i18nPlaceholder;
+
+    if (placeholder) {
+
+      element.placeholder =
+        translate(placeholder);
+
+    }
+
+
+    const aria =
+      element.dataset.i18nAria;
+
+    if (aria) {
+
+      element.setAttribute(
+        "aria-label",
+        translate(aria)
+      );
+
+    }
+
+
+    const title =
+      element.dataset.i18nTitle;
+
+    if (title) {
+
+      element.setAttribute(
+        "title",
+        translate(title)
+      );
+
+    }
+
+
+    const value =
+      element.dataset.i18nValue;
+
+    if (
+      value &&
+      (
+        element.tagName === "INPUT" ||
+        element.tagName === "BUTTON"
+      )
+    ) {
+
+      element.value =
+        translate(value);
+
+    }
+
+  }
+
+
+  function translateDataAttributes(
+    root = document
+  ) {
+
+    const selector =
+      [
+        "[data-i18n]",
+        "[data-i18n-placeholder]",
+        "[data-i18n-aria]",
+        "[data-i18n-title]",
+        "[data-i18n-value]"
+      ].join(",");
+
+
+    if (
+      root.nodeType === Node.ELEMENT_NODE &&
+      root.matches(selector)
+    ) {
+
+      translateElement(root);
+
+    }
+
+
+    root
+      .querySelectorAll?.(selector)
+      .forEach(translateElement);
+
+  }
+
+
+  /*
+   * =========================================================
+   * SAFE BUTTON TRANSLATION
+   * =========================================================
+   */
+
+  const BUTTON_MAP = {
+
+    "#backButton":
+      "nav.back",
+
+    "#menuButton":
+      "nav.menu",
+
+    "#startButton":
+      "home.start",
+
+    "#recordsButton":
+      "home.records",
+
+    "#settingsButton":
+      "home.settings",
+
+    "#resumeButton":
+      "home.resume",
+
+    "#beginGameButton":
+      "setup.begin",
+
+    "#undoButton":
+      "game.undo",
+
+    "#restartButton":
+      "game.restart",
+
+    "#gameMenuButton":
+      "game.menu",
+
+    "#playAgainButton":
+      "result.playAgain",
+
+    "#resultHomeButton":
+      "result.home",
+
+    "#clearRecordsButton":
+      "records.clear"
+
+  };
+
+
+  /*
+   * 只改「文字 span」。
+   *
+   * 不直接修改 button.textContent，
+   * 因此：
+   *
+   * ↶ 悔棋
+   *
+   * 不會變成：
+   *
+   * 悔棋悔棋
+   */
+  function translateButton(
+    element,
+    key
+  ) {
+
+    if (!element) {
+      return;
+    }
+
+
+    /*
+     * 優先找：
+     *
+     * <span>悔棋</span>
+     *
+     * 而且排除：
+     *
+     * <span aria-hidden="true">↶</span>
+     */
+    const textSpan =
+      Array.from(
+        element.children
+      ).find(child => {
+
+        return (
+          child.tagName === "SPAN" &&
+          child.getAttribute(
+            "aria-hidden"
+          ) !== "true"
+        );
+
+      });
+
+
+    if (textSpan) {
+
+      textSpan.textContent =
+        translate(key);
+
+      return;
+
+    }
+
+
+    /*
+     * 沒有 icon / text span 的普通 button。
+     */
+    element.textContent =
+      translate(key);
+
+  }
+
+
+  /*
+   * =========================================================
+   * EXISTING HTML UI
+   * =========================================================
+   */
+
+  function translateExistingUI() {
+
+    /*
+     * -------------------------------------------------------
+     * Main buttons
+     * -------------------------------------------------------
+     */
+
+    Object.entries(
+      BUTTON_MAP
+    ).forEach(
+      ([selector, key]) => {
+
+        const element =
+          document.querySelector(
+            selector
+          );
+
+        if (!element) {
+          return;
+        }
+
+        translateButton(
+          element,
+          key
+        );
+
+      }
+    );
+
+
+    /*
+     * -------------------------------------------------------
+     * HOME
+     * -------------------------------------------------------
+     */
+
+    setText(
       "#homeScreen h1",
       "home.title"
     );
 
-    setElementText(
+    setText(
       "#homeScreen .subtitle",
       "home.subtitle"
     );
 
-    setElementText(
+    setText(
       "#resumeCard .status-label",
       "home.unfinished"
     );
 
-  }
 
+    /*
+     * -------------------------------------------------------
+     * SETUP
+     * -------------------------------------------------------
+     */
 
-  function translateSetup() {
-
-    setElementText(
+    setText(
       "#setupScreen h2",
       "setup.title"
     );
 
-    const groups =
+
+    const setupGroups =
       document.querySelectorAll(
         "#setupScreen .settings-group"
       );
 
-    if (groups[0]) {
 
-      const h3 =
-        groups[0].querySelector("h3");
+    if (setupGroups[0]) {
 
-      if (h3) {
-        h3.textContent =
+      const heading =
+        setupGroups[0].querySelector(
+          "h3"
+        );
+
+      if (heading) {
+
+        heading.textContent =
           translate("setup.mode");
+
       }
 
     }
 
 
-    const difficultyGroup =
+    setText(
+      "#difficultyGroup h3",
+      "setup.difficulty"
+    );
+
+
+    setText(
+      "#characterGroup h3",
+      "setup.character"
+    );
+
+
+    const sidePicker =
       document.querySelector(
-        "#difficultyGroup"
+        ".side-picker"
       );
 
-    if (difficultyGroup) {
 
-      const h3 =
-        difficultyGroup.querySelector("h3");
+    if (sidePicker) {
 
-      if (h3) {
-        h3.textContent =
-          translate("setup.difficulty");
-      }
+      const group =
+        sidePicker.closest(
+          ".settings-group"
+        );
 
-    }
+      const heading =
+        group?.querySelector("h3");
 
+      if (heading) {
 
-    const characterGroup =
-      document.querySelector(
-        "#characterGroup"
-      );
-
-    if (characterGroup) {
-
-      const h3 =
-        characterGroup.querySelector("h3");
-
-      if (h3) {
-        h3.textContent =
-          translate("setup.character");
-      }
-
-    }
-
-
-    const sideGroup =
-      document.querySelectorAll(
-        "#setupScreen .settings-group"
-      )[3];
-
-    if (sideGroup) {
-
-      const h3 =
-        sideGroup.querySelector("h3");
-
-      if (h3) {
-        h3.textContent =
+        heading.textContent =
           translate("setup.side");
+
       }
 
     }
 
 
+    /*
+     * -------------------------------------------------------
+     * GAME MODE
+     * -------------------------------------------------------
+     */
+
     document
-      .querySelectorAll("[data-mode]")
-      .forEach(button => {
+      .querySelectorAll(
+        "[data-mode]"
+      )
+      .forEach(
+        button => {
 
-        const mode =
-          button.dataset.mode;
-
-        button.textContent =
-          translate(
-            mode === "local"
+          const key =
+            button.dataset.mode === "local"
               ? "mode.local"
-              : "mode.ai"
-          );
+              : "mode.ai";
 
-      });
-
-
-    document
-      .querySelectorAll("[data-difficulty]")
-      .forEach(button => {
-
-        const difficulty =
-          button.dataset.difficulty;
-
-        const strong =
-          button.querySelector("strong");
-
-        const span =
-          button.querySelector("span");
-
-        if (strong) {
-
-          strong.textContent =
-            translate(
-              `difficulty.${difficulty}`
-            );
+          button.textContent =
+            translate(key);
 
         }
-
-        if (span) {
-
-          span.textContent =
-            translate(
-              `difficulty.${difficulty}.desc`
-            );
-
-        }
-
-      });
-
-
-    document
-      .querySelectorAll("[data-character]")
-      .forEach(button => {
-
-        const character =
-          button.dataset.character;
-
-        const strong =
-          button.querySelector("strong");
-
-        const span =
-          button.querySelector("span");
-
-        if (strong) {
-
-          strong.textContent =
-            translate(
-              `character.${character}`
-            );
-
-        }
-
-        if (span) {
-
-          span.textContent =
-            translate(
-              `character.${character}.desc`
-            );
-
-        }
-
-      });
-
-
-    document
-      .querySelectorAll("[data-side]")
-      .forEach(button => {
-
-        const side =
-          button.dataset.side;
-
-        const strong =
-          button.querySelector("strong");
-
-        const spans =
-          button.querySelectorAll("span");
-
-        if (strong) {
-
-          strong.textContent =
-            translate(
-              `side.${side}`
-            );
-
-        }
-
-        if (spans.length > 0) {
-
-          spans[spans.length - 1]
-            .textContent =
-            translate(
-              side === "black"
-                ? "side.first"
-                : "side.second"
-            );
-
-        }
-
-      });
-
-  }
-
-
-  function translateGame() {
-
-    const thinking =
-      document.querySelector(
-        "#thinkingIndicator span:last-child"
       );
 
-    if (thinking) {
 
-      thinking.textContent =
-        translate("game.thinking");
+    /*
+     * -------------------------------------------------------
+     * DIFFICULTY
+     * -------------------------------------------------------
+     */
 
-    }
+    document
+      .querySelectorAll(
+        "[data-difficulty]"
+      )
+      .forEach(
+        button => {
+
+          const difficulty =
+            button.dataset.difficulty;
+
+          const title =
+            button.querySelector(
+              "strong"
+            );
+
+          const description =
+            button.querySelector(
+              "span"
+            );
 
 
-    const canvas =
-      document.querySelector(
-        "#boardCanvas"
+          if (title) {
+
+            title.textContent =
+              translate(
+                `difficulty.${difficulty}`
+              );
+
+          }
+
+
+          if (description) {
+
+            description.textContent =
+              translate(
+                `difficulty.${difficulty}.desc`
+              );
+
+          }
+
+        }
       );
 
-    if (canvas) {
 
-      canvas.setAttribute(
-        "aria-label",
-        translate("board.label")
+    /*
+     * -------------------------------------------------------
+     * AI CHARACTERS
+     * -------------------------------------------------------
+     */
+
+    document
+      .querySelectorAll(
+        "[data-character]"
+      )
+      .forEach(
+        button => {
+
+          const character =
+            button.dataset.character;
+
+          const title =
+            button.querySelector(
+              "strong"
+            );
+
+          const description =
+            button.querySelector(
+              "span"
+            );
+
+
+          if (title) {
+
+            title.textContent =
+              translate(
+                `character.${character}`
+              );
+
+          }
+
+
+          if (description) {
+
+            description.textContent =
+              translate(
+                `character.${character}.desc`
+              );
+
+          }
+
+        }
       );
 
-    }
 
-  }
+    /*
+     * -------------------------------------------------------
+     * SIDE PICKER
+     * -------------------------------------------------------
+     */
+
+    document
+      .querySelectorAll(
+        "[data-side]"
+      )
+      .forEach(
+        button => {
+
+          const side =
+            button.dataset.side;
+
+          const strong =
+            button.querySelector(
+              "strong"
+            );
 
 
-  function translateRecords() {
+          if (strong) {
 
-    setElementText(
+            strong.textContent =
+              translate(
+                `side.${side}`
+              );
+
+          }
+
+
+          const spans =
+            button.querySelectorAll(
+              "span"
+            );
+
+
+          /*
+           * 第一個 span 是棋子預覽。
+           * 最後一個 span 是先手 / 後手。
+           */
+          if (
+            spans.length >= 2
+          ) {
+
+            spans[
+              spans.length - 1
+            ].textContent =
+              translate(
+                side === "black"
+                  ? "side.first"
+                  : "side.second"
+              );
+
+          }
+
+        }
+      );
+
+
+    /*
+     * -------------------------------------------------------
+     * GAME STATUS
+     * -------------------------------------------------------
+     */
+
+    setText(
+      "#thinkingIndicator span:last-child",
+      "game.thinking"
+    );
+
+
+    /*
+     * turnLabel / turnPlayer
+     *
+     * turnPlayer 是遊戲狀態，
+     * 不在這裡硬寫。
+     */
+
+
+    /*
+     * -------------------------------------------------------
+     * RECORDS
+     * -------------------------------------------------------
+     */
+
+    setText(
       "#recordsScreen h2",
       "records.title"
     );
 
-    const stats =
+
+    const statCards =
       document.querySelectorAll(
         "#recordsScreen .stat-card"
       );
 
-    if (stats[0]) {
-      const span = stats[0].querySelector("span");
-      if (span) span.textContent = translate("records.games");
+
+    if (statCards.length >= 4) {
+
+      setText(
+        statCards[0].querySelector("span"),
+        "records.games"
+      );
+
+      setText(
+        statCards[1].querySelector("span"),
+        "records.wins"
+      );
+
+      setText(
+        statCards[2].querySelector("span"),
+        "records.losses"
+      );
+
+      setText(
+        statCards[3].querySelector("span"),
+        "records.draws"
+      );
+
     }
 
-    if (stats[1]) {
-      const span = stats[1].querySelector("span");
-      if (span) span.textContent = translate("records.wins");
-    }
 
-    if (stats[2]) {
-      const span = stats[2].querySelector("span");
-      if (span) span.textContent = translate("records.losses");
-    }
+    /*
+     * -------------------------------------------------------
+     * SETTINGS
+     * -------------------------------------------------------
+     */
 
-    if (stats[3]) {
-      const span = stats[3].querySelector("span");
-      if (span) span.textContent = translate("records.draws");
-    }
-
-  }
-
-
-  function translateSettings() {
-
-    setElementText(
+    setText(
       "#settingsScreen h2",
       "settings.title"
     );
 
 
-    const settings = [
-      {
-        selector: "#languageSelect",
-        title: "settings.language",
-        desc: "settings.language.desc"
-      },
-      {
-        selector: "#soundToggle",
-        title: "settings.sound",
-        desc: "settings.sound.desc"
-      },
-      {
-        selector: "#motionToggle",
-        title: "settings.motion",
-        desc: "settings.motion.desc"
-      },
-      {
-        selector: "#themeSelect",
-        title: "settings.theme",
-        desc: "settings.theme.desc"
-      }
-    ];
+    translateSetting(
+      "#languageSelect",
+      "settings.language",
+      "settings.language.desc"
+    );
 
 
-    settings.forEach(item => {
-
-      const input =
-        document.querySelector(item.selector);
-
-      if (!input) {
-        return;
-      }
-
-      const row =
-        input.closest(".setting-row");
-
-      if (!row) {
-        return;
-      }
-
-      const strong =
-        row.querySelector("strong");
-
-      const small =
-        row.querySelector("small");
-
-      if (strong) {
-
-        strong.textContent =
-          translate(item.title);
-
-      }
-
-      if (small) {
-
-        small.textContent =
-          translate(item.desc);
-
-      }
-
-    });
+    translateSetting(
+      "#soundToggle",
+      "settings.sound",
+      "settings.sound.desc"
+    );
 
 
-    translateLanguageOptions();
-    translateThemeOptions();
-
-  }
-
-
-  function translateLanguageOptions() {
-
-    const select =
-      document.querySelector(
-        "#languageSelect"
-      );
-
-    if (!select) {
-      return;
-    }
-
-    const labels = {
-
-      "zh-TW": "language.zh-TW",
-      "zh-CN": "language.zh-CN",
-      "en": "language.en",
-      "ja": "language.ja",
-      "ko": "language.ko"
-
-    };
+    translateSetting(
+      "#motionToggle",
+      "settings.motion",
+      "settings.motion.desc"
+    );
 
 
-    Array.from(select.options)
-      .forEach(option => {
-
-        const key =
-          labels[option.value];
-
-        if (!key) {
-          return;
-        }
-
-        option.textContent =
-          translate(key);
-
-      });
+    translateSetting(
+      "#themeSelect",
+      "settings.theme",
+      "settings.theme.desc"
+    );
 
 
     /*
-     * 非常重要：
-     * 每次翻譯完都把 select 的值
-     * 對回目前語言。
+     * -------------------------------------------------------
+     * SELECT OPTIONS
+     * -------------------------------------------------------
      */
 
-    if (
-      SUPPORTED_LANGUAGES.includes(
-        currentLanguage
-      )
-    ) {
+    translateSelectOptions(
+      "#languageSelect",
+      {
+        "zh-TW": "繁體中文",
+        "zh-CN": "简体中文",
+        "en": "English",
+        "ja": "日本語",
+        "ko": "한국어"
+      }
+    );
 
-      select.value =
-        currentLanguage;
 
-    }
+    translateSelectOptions(
+      "#themeSelect",
+      {
+        system: "theme.system",
+        light: "theme.light",
+        dark: "theme.dark"
+      },
+      true
+    );
+
+
+    /*
+     * -------------------------------------------------------
+     * ARIA
+     * -------------------------------------------------------
+     */
+
+    setAttributeText(
+      "#backButton",
+      "aria-label",
+      "nav.back"
+    );
+
+
+    setAttributeText(
+      "#menuButton",
+      "aria-label",
+      "nav.menu"
+    );
+
+
+    setAttributeText(
+      "#boardCanvas",
+      "aria-label",
+      "app.title"
+    );
 
   }
 
 
-  function translateThemeOptions() {
+  /*
+   * =========================================================
+   * SETTINGS
+   * =========================================================
+   */
 
-    const select =
+  function translateSetting(
+    selector,
+    titleKey,
+    descriptionKey
+  ) {
+
+    const input =
       document.querySelector(
-        "#themeSelect"
+        selector
       );
 
-    if (!select) {
+    if (!input) {
       return;
     }
 
-    const labels = {
 
-      "system": "theme.system",
-      "light": "theme.light",
-      "dark": "theme.dark"
-
-    };
-
-
-    Array.from(select.options)
-      .forEach(option => {
-
-        const key =
-          labels[option.value];
-
-        if (!key) {
-          return;
-        }
-
-        option.textContent =
-          translate(key);
-
-      });
-
-  }
-
-
-  function translateNativeAttributes() {
-
-    const backButton =
-      document.querySelector("#backButton");
-
-    if (backButton) {
-
-      backButton.setAttribute(
-        "aria-label",
-        translate("nav.back")
+    const row =
+      input.closest(
+        ".setting-row"
       );
+
+    if (!row) {
+      return;
+    }
+
+
+    const strong =
+      row.querySelector(
+        "strong"
+      );
+
+    const small =
+      row.querySelector(
+        "small"
+      );
+
+
+    if (strong) {
+
+      strong.textContent =
+        translate(titleKey);
 
     }
 
 
-    const menuButton =
-      document.querySelector("#menuButton");
+    if (small) {
 
-    if (menuButton) {
-
-      menuButton.setAttribute(
-        "aria-label",
-        translate("nav.menu")
-      );
-
-    }
-
-
-    const canvas =
-      document.querySelector("#boardCanvas");
-
-    if (canvas) {
-
-      canvas.setAttribute(
-        "aria-label",
-        translate("board.label")
-      );
+      small.textContent =
+        translate(descriptionKey);
 
     }
 
@@ -1464,114 +1623,101 @@
 
   /*
    * =========================================================
-   * FULL PAGE REFRESH
+   * SELECT OPTIONS
+   * =========================================================
+   */
+
+  function translateSelectOptions(
+    selector,
+    map,
+    valuesAreKeys = false
+  ) {
+
+    const select =
+      document.querySelector(
+        selector
+      );
+
+    if (!select) {
+      return;
+    }
+
+
+    Array.from(
+      select.options
+    ).forEach(
+      option => {
+
+        const value =
+          option.value;
+
+        const mapped =
+          map[value];
+
+        if (!mapped) {
+          return;
+        }
+
+
+        option.textContent =
+          valuesAreKeys
+            ? translate(mapped)
+            : mapped;
+
+      }
+    );
+
+  }
+
+
+  /*
+   * =========================================================
+   * FULL PAGE TRANSLATION
    * =========================================================
    */
 
   function translatePage() {
 
     /*
-     * 先處理真正有 data-i18n 的元素
+     * First:
+     * data-i18n elements.
      */
-    translateDataAttributes();
+
+    translateDataAttributes(
+      document
+    );
 
 
     /*
-     * 再處理目前這份 HTML
+     * Then:
+     * existing Gomoku HTML.
      */
-    Object.entries(AUTO_MAP)
-      .forEach(([selector, key]) => {
 
-        const element =
-          document.querySelector(selector);
-
-        if (!element) {
-          return;
-        }
-
-        /*
-         * button 裡有 icon span，
-         * 所以不能整顆 textContent。
-         */
-
-        const icon =
-          element.querySelector(
-            "[aria-hidden='true']"
-          );
-
-        if (icon) {
-
-          const textNodes =
-            Array.from(element.childNodes)
-              .filter(
-                node =>
-                  node.nodeType ===
-                  Node.TEXT_NODE
-              );
-
-          if (textNodes.length > 0) {
-
-            textNodes[textNodes.length - 1]
-              .textContent =
-              ` ${translate(key)} `;
-
-          } else {
-
-            /*
-             * 目前 game-action 的文字
-             * 是第二個 span。
-             */
-
-            const spans =
-              element.querySelectorAll(
-                ":scope > span"
-              );
-
-            if (spans.length > 1) {
-
-              spans[spans.length - 1]
-                .textContent =
-                translate(key);
-
-            }
-
-          }
-
-        } else {
-
-          element.textContent =
-            translate(key);
-
-        }
-
-      });
-
-
-    translateHome();
-    translateSetup();
-    translateGame();
-    translateRecords();
-    translateSettings();
-    translateNativeAttributes();
+    translateExistingUI();
 
 
     /*
-     * 更新 HTML language
+     * HTML language.
      */
+
     document.documentElement.lang =
       currentLanguage;
 
 
     /*
-     * 更新 title
+     * Browser title.
      */
+
     document.title =
-      translate("app.title");
+      translate(
+        "app.title"
+      );
 
 
     /*
-     * 通知 app.js / 其他程式
+     * Notify app.js / other modules.
      */
+
     window.dispatchEvent(
       new CustomEvent(
         "gomoku:languagechange",
@@ -1606,21 +1752,27 @@
 
 
     /*
-     * 防止重複綁定
+     * Sync current value.
+     */
+
+    select.value =
+      currentLanguage;
+
+
+    /*
+     * Avoid duplicate listener.
      */
 
     if (
-      select.dataset.gomokuI18nBound ===
-      "1"
+      select.dataset.i18nBound === "1"
     ) {
-      select.value =
-        currentLanguage;
 
       return;
+
     }
 
 
-    select.dataset.gomokuI18nBound =
+    select.dataset.i18nBound =
       "1";
 
 
@@ -1628,53 +1780,49 @@
       "change",
       event => {
 
-        const language =
-          normalizeLanguage(
-            event.target.value
-          );
-
-        setLanguage(language);
+        setLanguage(
+          event.target.value
+        );
 
       }
     );
-
-
-    select.value =
-      currentLanguage;
 
   }
 
 
   /*
    * =========================================================
-   * PUBLIC API
+   * SET LANGUAGE
    * =========================================================
    */
 
-  function setLanguage(language) {
+  function setLanguage(
+    language
+  ) {
 
     const normalized =
-      normalizeLanguage(language);
+      normalizeLanguage(
+        language
+      );
+
 
     if (
       currentLanguage === normalized
     ) {
 
-      saveLanguage(normalized);
+      /*
+       * Even if the same language was selected,
+       * refresh UI in case app.js changed something.
+       */
 
-      const select =
-        document.querySelector(
-          "#languageSelect"
-        );
-
-      if (select) {
-        select.value =
-          normalized;
-      }
+      saveLanguage(
+        normalized
+      );
 
       translatePage();
 
       return;
+
     }
 
 
@@ -1688,20 +1836,24 @@
 
 
     translatePage();
-    bindLanguageSelect();
-
-  }
 
 
-  function getLanguage() {
-    return currentLanguage;
-  }
+    /*
+     * Keep select synchronized.
+     */
 
+    const select =
+      document.querySelector(
+        "#languageSelect"
+      );
 
-  function getSupportedLanguages() {
-    return [
-      ...SUPPORTED_LANGUAGES
-    ];
+    if (select) {
+
+      select.value =
+        currentLanguage;
+
+    }
+
   }
 
 
@@ -1709,33 +1861,54 @@
    * =========================================================
    * DYNAMIC DOM
    * =========================================================
+   *
+   * Only translate newly added nodes.
+   *
+   * We DO NOT call translatePage() from MutationObserver.
+   *
+   * This prevents:
+   *
+   * DOM change
+   * -> observer
+   * -> translation
+   * -> DOM change
+   * -> observer
+   * -> loop
+   *
+   * =========================================================
    */
 
-  let observer = null;
-
-  let observerScheduled = false;
-
-
-  function scheduleRefresh() {
+  function scheduleDynamicTranslation() {
 
     if (observerScheduled) {
       return;
     }
 
-    observerScheduled = true;
+
+    observerScheduled =
+      true;
 
 
-    requestAnimationFrame(() => {
+    requestAnimationFrame(
+      () => {
 
-      observerScheduled = false;
+        observerScheduled =
+          false;
 
-      /*
-       * 重新翻譯時不要重新建立事件。
-       */
-      translatePage();
-      bindLanguageSelect();
 
-    });
+        /*
+         * Dynamic elements may contain
+         * data-i18n attributes.
+         *
+         * Existing app.js generated UI
+         * can also be handled here.
+         */
+        translateDataAttributes(
+          document
+        );
+
+      }
+    );
 
   }
 
@@ -1756,22 +1929,44 @@
       new MutationObserver(
         mutations => {
 
+          let hasAddedNodes =
+            false;
+
+
           for (
             const mutation
             of mutations
           ) {
 
             if (
-              mutation.type ===
-              "childList" &&
+              mutation.type !==
+              "childList"
+            ) {
+
+              continue;
+
+            }
+
+
+            if (
               mutation.addedNodes.length > 0
             ) {
 
-              scheduleRefresh();
+              hasAddedNodes =
+                true;
 
-              return;
+              break;
 
             }
+
+          }
+
+
+          if (
+            hasAddedNodes
+          ) {
+
+            scheduleDynamicTranslation();
 
           }
 
@@ -1792,27 +1987,65 @@
 
   /*
    * =========================================================
-   * BOOT
+   * PUBLIC API
+   * =========================================================
+   */
+
+  function getLanguage() {
+
+    return currentLanguage;
+
+  }
+
+
+  function getSupportedLanguages() {
+
+    return [
+      ...SUPPORTED_LANGUAGES
+    ];
+
+  }
+
+
+  /*
+   * =========================================================
+   * INIT
    * =========================================================
    */
 
   function init() {
 
+    /*
+     * Detect language.
+     */
+
     currentLanguage =
       detectLanguage();
 
 
+    /*
+     * Initial translation.
+     */
+
     translatePage();
 
 
+    /*
+     * Bind select AFTER initial translation.
+     */
+
     bindLanguageSelect();
 
+
+    /*
+     * Observe dynamic DOM.
+     */
 
     observeDOM();
 
 
     /*
-     * 公開 API
+     * Public API.
      */
 
     window.GomokuI18n = {
@@ -1828,6 +2061,7 @@
       refresh() {
 
         translatePage();
+
         bindLanguageSelect();
 
       },
@@ -1835,23 +2069,6 @@
       translations
 
     };
-
-
-    /*
-     * 確保 select 最終狀態正確
-     */
-
-    const select =
-      document.querySelector(
-        "#languageSelect"
-      );
-
-    if (select) {
-
-      select.value =
-        currentLanguage;
-
-    }
 
   }
 
@@ -1863,8 +2080,7 @@
    */
 
   if (
-    document.readyState ===
-    "loading"
+    document.readyState === "loading"
   ) {
 
     document.addEventListener(
