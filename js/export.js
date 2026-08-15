@@ -8,404 +8,86 @@
    *
    * 完全獨立於 app.js
    *
-   * 功能：
+   * 讀取：
+   * - gomoku-active-game-v5
+   * - gomoku-stats-v5
+   * - gomoku-settings-v5
    *
-   * - 匯出棋局記錄
+   * 支援：
    * - JSON
    * - CSV
-   * - 自動尋找 localStorage
-   * - 支援 PWA
-   * - 支援 Safari
-   * - 不需要任何第三方套件
+   * - Clipboard
+   * - PWA / Safari
+   *
+   * 不使用任何第三方套件。
    * =========================================================
    */
 
+  const STORAGE_KEYS = {
+    activeGame: "gomoku-active-game-v5",
+    stats: "gomoku-stats-v5",
+    settings: "gomoku-settings-v5"
+  };
 
-  const EXPORT_BUTTON_ID =
-    "exportRecordsButton";
+  const APP_NAME = "Gomoku";
 
 
   /*
    * =========================================================
-   * STORAGE KEYS
-   * =========================================================
-   *
-   * 優先使用這些常見 key。
-   *
-   * 這樣 export.js 不需要依賴 app.js。
-   */
-
-  const STORAGE_KEYS = [
-
-    "gomoku-records",
-
-    "gomokuRecords",
-
-    "gomoku-record",
-
-    "gomoku-game-records",
-
-    "gomoku_games",
-
-    "gomokuGames",
-
-    "gameRecords",
-
-    "game-records",
-
-    "records"
-
-  ];
-
-
-  /*
-   * =========================================================
-   * SAFE LOCAL STORAGE
+   * SAFE STORAGE
    * =========================================================
    */
 
-  function getStorageValue(
-    key
-  ) {
-
+  function readStorage(key) {
     try {
+      const value = localStorage.getItem(key);
 
-      return localStorage.getItem(
-        key
-      );
+      if (!value) {
+        return null;
+      }
 
+      try {
+        return JSON.parse(value);
+      } catch {
+        return value;
+      }
     } catch {
-
       return null;
-
     }
-
   }
 
 
-  /*
-   * =========================================================
-   * PARSE
-   * =========================================================
-   */
-
-  function parseJSON(
-    value
-  ) {
-
-    if (
-      typeof value !==
-      "string"
-    ) {
-
-      return null;
-
-    }
-
-
-    try {
-
-      return JSON.parse(
-        value
-      );
-
-    } catch {
-
-      return null;
-
-    }
-
-  }
-
-
-  /*
-   * =========================================================
-   * FIND RECORDS
-   * =========================================================
-   */
-
-  function findRecords() {
-
-    /*
-     * 先找已知 key
-     */
-
-    for (
-      const key of STORAGE_KEYS
-    ) {
-
-      const raw =
-        getStorageValue(
-          key
-        );
-
-
-      if (!raw) {
-        continue;
-      }
-
-
-      const parsed =
-        parseJSON(
-          raw
-        );
-
-
-      if (
-        Array.isArray(
-          parsed
-        )
-      ) {
-
-        return {
-          key,
-          records:
-            parsed
-        };
-
-      }
-
-
-      /*
-       * 有些 app 會包在 object 裡
-       */
-
-      if (
-        parsed &&
-        typeof parsed ===
-        "object"
-      ) {
-
-        const candidates = [
-          parsed.records,
-          parsed.games,
-          parsed.history,
-          parsed.items
-        ];
-
-
-        for (
-          const candidate
-          of candidates
-        ) {
-
-          if (
-            Array.isArray(
-              candidate
-            )
-          ) {
-
-            return {
-              key,
-              records:
-                candidate
-            };
-
-          }
-
-        }
-
-      }
-
-    }
-
-
-    /*
-     * =======================================================
-     * 第二層：
-     * 掃描 localStorage
-     * =======================================================
-     *
-     * 這是為了避免 app.js 使用了不同的 key。
-     */
-
-    try {
-
-      for (
-        let index = 0;
-        index < localStorage.length;
-        index++
-      ) {
-
-        const key =
-          localStorage.key(
-            index
-          );
-
-
-        if (!key) {
-          continue;
-        }
-
-
-        const lower =
-          key.toLowerCase();
-
-
-        if (
-          !(
-            lower.includes(
-              "gomoku"
-            ) ||
-            lower.includes(
-              "record"
-            ) ||
-            lower.includes(
-              "game"
-            )
-          )
-        ) {
-
-          continue;
-
-        }
-
-
-        const raw =
-          localStorage.getItem(
-            key
-          );
-
-
-        const parsed =
-          parseJSON(
-            raw
-          );
-
-
-        if (
-          Array.isArray(
-            parsed
-          )
-        ) {
-
-          return {
-            key,
-            records:
-              parsed
-          };
-
-        }
-
-
-        if (
-          parsed &&
-          typeof parsed ===
-          "object"
-        ) {
-
-          const candidates = [
-            parsed.records,
-            parsed.games,
-            parsed.history,
-            parsed.items
-          ];
-
-
-          for (
-            const candidate
-            of candidates
-          ) {
-
-            if (
-              Array.isArray(
-                candidate
-              )
-            ) {
-
-              return {
-                key,
-                records:
-                  candidate
-              };
-
-            }
-
-          }
-
-        }
-
-      }
-
-    } catch {}
-
-
-
-    /*
-     * 找不到
-     */
-
+  function getExportData() {
     return {
-      key:
-        null,
+      app: APP_NAME,
 
-      records:
-        []
+      exportedAt: new Date().toISOString(),
 
+      version: 1,
+
+      data: {
+        activeGame:
+          readStorage(
+            STORAGE_KEYS.activeGame
+          ),
+
+        stats:
+          readStorage(
+            STORAGE_KEYS.stats
+          ),
+
+        settings:
+          readStorage(
+            STORAGE_KEYS.settings
+          )
+      }
     };
-
   }
 
 
   /*
    * =========================================================
-   * TOAST
-   * =========================================================
-   */
-
-  function showToast(
-    message
-  ) {
-
-    const toast =
-      document.querySelector(
-        "#toast"
-      );
-
-
-    if (!toast) {
-
-      window.alert(
-        message
-      );
-
-      return;
-
-    }
-
-
-    toast.textContent =
-      message;
-
-
-    toast.classList.add(
-      "show"
-    );
-
-
-    clearTimeout(
-      showToast.timer
-    );
-
-
-    showToast.timer =
-      setTimeout(
-        () => {
-
-          toast.classList.remove(
-            "show"
-          );
-
-        },
-        2400
-      );
-
-  }
-
-
-  /*
-   * =========================================================
-   * DOWNLOAD
+   * FILE DOWNLOAD
    * =========================================================
    */
 
@@ -417,103 +99,43 @@
 
     const blob =
       new Blob(
-        [
-          content
-        ],
+        [content],
         {
           type:
-            mimeType
+            mimeType +
+            ";charset=utf-8"
         }
       );
 
-
     const url =
-      URL.createObjectURL(
-        blob
-      );
+      URL.createObjectURL(blob);
 
-
-    const anchor =
+    const link =
       document.createElement(
         "a"
       );
 
+    link.href = url;
 
-    anchor.href =
-      url;
-
-
-    anchor.download =
+    link.download =
       filename;
 
-
-    anchor.style.display =
+    link.style.display =
       "none";
 
-
     document.body.appendChild(
-      anchor
+      link
     );
 
+    link.click();
 
-    anchor.click();
+    link.remove();
 
-
-    anchor.remove();
-
-
-    setTimeout(
-      () => {
-
-        URL.revokeObjectURL(
-          url
-        );
-
-      },
-      1000
-    );
-
-  }
-
-
-  /*
-   * =========================================================
-   * DATE
-   * =========================================================
-   */
-
-  function getDateString() {
-
-    const now =
-      new Date();
-
-
-    const year =
-      now.getFullYear();
-
-
-    const month =
-      String(
-        now.getMonth() + 1
-      ).padStart(
-        2,
-        "0"
+    setTimeout(() => {
+      URL.revokeObjectURL(
+        url
       );
-
-
-    const day =
-      String(
-        now.getDate()
-      ).padStart(
-        2,
-        "0"
-      );
-
-
-    return (
-      `${year}-${month}-${day}`
-    );
-
+    }, 1000);
   }
 
 
@@ -523,25 +145,10 @@
    * =========================================================
    */
 
-  function exportJSON(
-    records
-  ) {
+  function exportJSON() {
 
-    const data = {
-
-      app:
-        "Gomoku",
-
-      exportedAt:
-        new Date().toISOString(),
-
-      totalGames:
-        records.length,
-
-      records
-
-    };
-
+    const data =
+      getExportData();
 
     const json =
       JSON.stringify(
@@ -550,227 +157,186 @@
         2
       );
 
+    const date =
+      createDateString();
 
     downloadFile(
       json,
-      `gomoku-records-${getDateString()}.json`,
-      "application/json;charset=utf-8"
+      `gomoku-export-${date}.json`,
+      "application/json"
     );
 
+    return data;
   }
 
 
   /*
    * =========================================================
-   * CSV ESCAPE
+   * CSV
    * =========================================================
    */
 
-  function escapeCSV(
-    value
+  function csvEscape(value) {
+
+    if (
+      value === null ||
+      value === undefined
+    ) {
+      return "";
+    }
+
+    const string =
+      typeof value === "object"
+        ? JSON.stringify(value)
+        : String(value);
+
+    if (
+      /[",\n\r]/.test(
+        string
+      )
+    ) {
+      return `"${string.replace(
+        /"/g,
+        '""'
+      )}"`;
+    }
+
+    return string;
+  }
+
+
+  function createCSVRows(
+    object,
+    prefix = "",
+    rows = []
   ) {
 
     if (
-      value ===
-      null ||
-      value ===
-      undefined
+      object === null ||
+      object === undefined
     ) {
 
-      return "";
+      rows.push([
+        prefix,
+        ""
+      ]);
 
+      return rows;
     }
 
 
-    const text =
-      String(
-        value
+    if (
+      typeof object !== "object"
+    ) {
+
+      rows.push([
+        prefix,
+        object
+      ]);
+
+      return rows;
+    }
+
+
+    if (
+      Array.isArray(object)
+    ) {
+
+      if (
+        object.length === 0
+      ) {
+
+        rows.push([
+          prefix,
+          "[]"
+        ]);
+
+        return rows;
+      }
+
+
+      object.forEach(
+        (
+          value,
+          index
+        ) => {
+
+          const nextPrefix =
+            prefix
+              ? `${prefix}.${index}`
+              : String(index);
+
+          createCSVRows(
+            value,
+            nextPrefix,
+            rows
+          );
+
+        }
+      );
+
+      return rows;
+    }
+
+
+    const keys =
+      Object.keys(
+        object
       );
 
 
-    return (
-      `"${text
-        .replace(
-          /"/g,
-          '""'
-        )
-      }"`
-    );
-
-  }
-
-
-  /*
-   * =========================================================
-   * FLATTEN RECORD
-   * =========================================================
-   */
-
-  function flattenRecord(
-    record,
-    index
-  ) {
-
     if (
-      !record ||
-      typeof record !==
-      "object"
+      keys.length === 0
     ) {
 
-      return {
+      rows.push([
+        prefix,
+        "{}"
+      ]);
 
-        index:
-          index + 1,
-
-        date:
-          "",
-
-        result:
-          "",
-
-        mode:
-          "",
-
-        difficulty:
-          "",
-
-        character:
-          "",
-
-        side:
-          "",
-
-        moves:
-          ""
-
-      };
-
+      return rows;
     }
 
 
-    return {
+    keys.forEach(
+      key => {
 
-      index:
-        index + 1,
+        const nextPrefix =
+          prefix
+            ? `${prefix}.${key}`
+            : key;
 
-      date:
-        record.date ??
-        record.createdAt ??
-        record.timestamp ??
-        record.time ??
-        "",
+        createCSVRows(
+          object[key],
+          nextPrefix,
+          rows
+        );
 
-      result:
-        record.result ??
-        record.outcome ??
-        record.winner ??
-        "",
+      }
+    );
 
-      mode:
-        record.mode ??
-        record.gameMode ??
-        "",
 
-      difficulty:
-        record.difficulty ??
-        "",
-
-      character:
-        record.character ??
-        record.ai ??
-        record.opponent ??
-        "",
-
-      side:
-        record.side ??
-        record.playerSide ??
-        "",
-
-      moves:
-        Array.isArray(
-          record.moves
-        )
-          ? record.moves.length
-          : (
-              record.moveCount ??
-              ""
-            )
-
-    };
-
+    return rows;
   }
 
 
-  /*
-   * =========================================================
-   * CSV EXPORT
-   * =========================================================
-   */
+  function exportCSV() {
 
-  function exportCSV(
-    records
-  ) {
-
-    const headers = [
-
-      "Game",
-
-      "Date",
-
-      "Result",
-
-      "Mode",
-
-      "Difficulty",
-
-      "Character",
-
-      "Side",
-
-      "Moves"
-
-    ];
-
+    const data =
+      getExportData();
 
     const rows = [
-      headers
+      [
+        "field",
+        "value"
+      ]
     ];
 
 
-    records.forEach(
-      (
-        record,
-        index
-      ) => {
-
-        const item =
-          flattenRecord(
-            record,
-            index
-          );
-
-
-        rows.push([
-
-          item.index,
-
-          item.date,
-
-          item.result,
-
-          item.mode,
-
-          item.difficulty,
-
-          item.character,
-
-          item.side,
-
-          item.moves
-
-        ]);
-
-      }
+    createCSVRows(
+      data,
+      "",
+      rows
     );
 
 
@@ -780,384 +346,201 @@
           row =>
             row
               .map(
-                escapeCSV
+                csvEscape
               )
               .join(",")
         )
         .join("\r\n");
 
 
-    /*
-     * UTF-8 BOM
-     *
-     * 讓 Excel / Numbers
-     * 正確讀取中文。
-     */
-
-    const content =
-      "\uFEFF" +
-      csv;
+    const date =
+      createDateString();
 
 
     downloadFile(
-      content,
-      `gomoku-records-${getDateString()}.csv`,
-      "text/csv;charset=utf-8"
+      "\uFEFF" + csv,
+      `gomoku-export-${date}.csv`,
+      "text/csv"
     );
 
+    return data;
   }
 
 
   /*
    * =========================================================
-   * EXPORT MENU
+   * CLIPBOARD
    * =========================================================
    */
 
-  function createExportMenu(
-    records
-  ) {
+  async function copyJSON() {
 
-    /*
-     * 如果已經存在選單，
-     * 先移除。
-     */
+    const data =
+      getExportData();
 
-    const existing =
-      document.querySelector(
-        "#gomokuExportMenu"
+    const json =
+      JSON.stringify(
+        data,
+        null,
+        2
       );
 
-
-    if (existing) {
-
-      existing.remove();
-
-    }
-
-
-    const overlay =
-      document.createElement(
-        "div"
-      );
-
-
-    overlay.id =
-      "gomokuExportMenu";
-
-
-    overlay.style.position =
-      "fixed";
-
-
-    overlay.style.inset =
-      "0";
-
-
-    overlay.style.zIndex =
-      "9999";
-
-
-    overlay.style.background =
-      "rgba(0,0,0,.35)";
-
-
-    overlay.style.display =
-      "flex";
-
-
-    overlay.style.alignItems =
-      "center";
-
-
-    overlay.style.justifyContent =
-      "center";
-
-
-    overlay.innerHTML = `
-
-      <div
-        role="dialog"
-        aria-modal="true"
-        style="
-          width:min(90vw,360px);
-          background:var(--surface,#fff);
-          color:var(--text,#222);
-          border-radius:20px;
-          padding:24px;
-          box-sizing:border-box;
-          box-shadow:0 20px 60px rgba(0,0,0,.25);
-        "
-      >
-
-        <h3
-          style="
-            margin:0 0 8px;
-          "
-        >
-          匯出棋局
-        </h3>
-
-
-        <p
-          style="
-            margin:0 0 20px;
-            opacity:.65;
-          "
-        >
-          共 ${records.length} 局
-        </p>
-
-
-        <div
-          style="
-            display:grid;
-            gap:10px;
-          "
-        >
-
-          <button
-            type="button"
-            id="gomokuExportJSON"
-            class="primary-button full-button"
-          >
-            JSON
-          </button>
-
-
-          <button
-            type="button"
-            id="gomokuExportCSV"
-            class="secondary-button full-button"
-          >
-            CSV
-          </button>
-
-
-          <button
-            type="button"
-            id="gomokuExportCancel"
-            class="secondary-button full-button"
-          >
-            取消
-          </button>
-
-        </div>
-
-      </div>
-
-    `;
-
-
-    document.body.appendChild(
-      overlay
-    );
-
-
-    const jsonButton =
-      overlay.querySelector(
-        "#gomokuExportJSON"
-      );
-
-
-    const csvButton =
-      overlay.querySelector(
-        "#gomokuExportCSV"
-      );
-
-
-    const cancelButton =
-      overlay.querySelector(
-        "#gomokuExportCancel"
-      );
-
-
-    jsonButton.addEventListener(
-      "click",
-      () => {
-
-        exportJSON(
-          records
-        );
-
-
-        overlay.remove();
-
-      }
-    );
-
-
-    csvButton.addEventListener(
-      "click",
-      () => {
-
-        exportCSV(
-          records
-        );
-
-
-        overlay.remove();
-
-      }
-    );
-
-
-    cancelButton.addEventListener(
-      "click",
-      () => {
-
-        overlay.remove();
-
-      }
-    );
-
-
-    overlay.addEventListener(
-      "click",
-      event => {
-
-        if (
-          event.target ===
-          overlay
-        ) {
-
-          overlay.remove();
-
-        }
-
-      }
-    );
-
-  }
-
-
-  /*
-   * =========================================================
-   * MAIN EXPORT
-   * =========================================================
-   */
-
-  function handleExport() {
-
-    const result =
-      findRecords();
-
-
-    const records =
-      result.records;
-
-
-    if (
-      !records.length
-    ) {
-
-      showToast(
-        getMessage(
-          "empty"
-        )
-      );
-
-      return;
-
-    }
-
-
-    createExportMenu(
-      records
-    );
-
-  }
-
-
-  /*
-   * =========================================================
-   * I18N MESSAGE
-   * =========================================================
-   */
-
-  function getMessage(
-    type
-  ) {
 
     try {
 
       if (
-        window.GomokuI18n &&
-        typeof window.GomokuI18n.t ===
-        "function"
+        navigator.clipboard &&
+        typeof navigator.clipboard.writeText ===
+          "function"
       ) {
 
-        if (
-          type ===
-          "empty"
-        ) {
+        await navigator.clipboard.writeText(
+          json
+        );
 
-          return window.GomokuI18n.t(
-            "records.exportEmpty"
-          );
-
-        }
-
+        return true;
       }
 
     } catch {}
 
 
-    return (
-      type ===
-      "empty"
-        ? "目前沒有可以匯出的棋局。"
-        : "Export failed."
-    );
+    /*
+     * Safari / fallback
+     */
 
+    try {
+
+      const textarea =
+        document.createElement(
+          "textarea"
+        );
+
+      textarea.value =
+        json;
+
+      textarea.style.position =
+        "fixed";
+
+      textarea.style.opacity =
+        "0";
+
+      textarea.style.pointerEvents =
+        "none";
+
+      document.body.appendChild(
+        textarea
+      );
+
+      textarea.focus();
+
+      textarea.select();
+
+      const success =
+        document.execCommand(
+          "copy"
+        );
+
+      textarea.remove();
+
+      return success;
+
+    } catch {
+
+      return false;
+
+    }
   }
 
 
   /*
    * =========================================================
-   * BIND
+   * IMPORT
+   * =========================================================
+   *
+   * 預留給未來。
+   * 目前不會自動覆蓋使用者資料。
    * =========================================================
    */
 
-  function bind() {
+  function validateExportData(
+    data
+  ) {
 
-    const button =
-      document.querySelector(
-        `#${EXPORT_BUTTON_ID}`
+    if (
+      !data ||
+      typeof data !== "object"
+    ) {
+      return false;
+    }
+
+    if (
+      data.app !== APP_NAME
+    ) {
+      return false;
+    }
+
+    if (
+      !data.data ||
+      typeof data.data !== "object"
+    ) {
+      return false;
+    }
+
+    return true;
+  }
+
+
+  /*
+   * =========================================================
+   * DATE
+   * =========================================================
+   */
+
+  function createDateString() {
+
+    const now =
+      new Date();
+
+    const year =
+      now.getFullYear();
+
+    const month =
+      String(
+        now.getMonth() + 1
+      ).padStart(
+        2,
+        "0"
+      );
+
+    const day =
+      String(
+        now.getDate()
+      ).padStart(
+        2,
+        "0"
+      );
+
+    const hour =
+      String(
+        now.getHours()
+      ).padStart(
+        2,
+        "0"
+      );
+
+    const minute =
+      String(
+        now.getMinutes()
+      ).padStart(
+        2,
+        "0"
       );
 
 
-    if (!button) {
-
-      return;
-
-    }
-
-
-    /*
-     * 避免 app.js / PWA
-     * 重複初始化時綁定多次。
-     */
-
-    if (
-      button.dataset.exportBound ===
-      "1"
-    ) {
-
-      return;
-
-    }
-
-
-    button.dataset.exportBound =
-      "1";
-
-
-    button.addEventListener(
-      "click",
-      handleExport
+    return (
+      `${year}-${month}-${day}` +
+      `-${hour}${minute}`
     );
-
   }
 
 
@@ -1169,87 +552,167 @@
 
   window.GomokuExport = {
 
-    exportJSON() {
+    exportJSON,
 
-      const {
-        records
-      } =
-        findRecords();
+    exportCSV,
 
+    copyJSON,
 
-      if (
-        !records.length
-      ) {
+    getData:
+      getExportData,
 
-        showToast(
-          getMessage(
-            "empty"
-          )
-        );
-
-        return;
-
-      }
-
-
-      exportJSON(
-        records
-      );
-
-    },
-
-
-    exportCSV() {
-
-      const {
-        records
-      } =
-        findRecords();
-
-
-      if (
-        !records.length
-      ) {
-
-        showToast(
-          getMessage(
-            "empty"
-          )
-        );
-
-        return;
-
-      }
-
-
-      exportCSV(
-        records
-      );
-
-    },
-
-
-    getRecords() {
-
-      return findRecords();
-
-    }
+    validate:
+      validateExportData
 
   };
 
 
   /*
    * =========================================================
-   * INIT
+   * AUTO BIND
+   * =========================================================
+   *
+   * 如果 HTML 裡存在以下 ID：
+   *
+   * #exportJSONButton
+   * #exportCSVButton
+   * #copyExportButton
+   *
+   * 就自動綁定。
    * =========================================================
    */
 
-  function init() {
+  function bindButtons() {
 
-    bind();
+    const jsonButton =
+      document.querySelector(
+        "#exportJSONButton"
+      );
+
+    const csvButton =
+      document.querySelector(
+        "#exportCSVButton"
+      );
+
+    const copyButton =
+      document.querySelector(
+        "#copyExportButton"
+      );
+
+
+    if (jsonButton) {
+
+      jsonButton.addEventListener(
+        "click",
+        () => {
+
+          exportJSON();
+
+        }
+      );
+
+    }
+
+
+    if (csvButton) {
+
+      csvButton.addEventListener(
+        "click",
+        () => {
+
+          exportCSV();
+
+        }
+      );
+
+    }
+
+
+    if (copyButton) {
+
+      copyButton.addEventListener(
+        "click",
+        async () => {
+
+          const success =
+            await copyJSON();
+
+
+          if (success) {
+
+            showExportToast(
+              "已複製匯出資料"
+            );
+
+          } else {
+
+            showExportToast(
+              "複製失敗"
+            );
+
+          }
+
+        }
+      );
+
+    }
 
   }
 
+
+  /*
+   * =========================================================
+   * TOAST
+   * =========================================================
+   */
+
+  function showExportToast(
+    message
+  ) {
+
+    const toast =
+      document.querySelector(
+        "#toast"
+      );
+
+    if (!toast) {
+      return;
+    }
+
+
+    toast.textContent =
+      message;
+
+    toast.classList.add(
+      "show"
+    );
+
+
+    clearTimeout(
+      showExportToast.timer
+    );
+
+
+    showExportToast.timer =
+      setTimeout(
+        () => {
+
+          toast.classList.remove(
+            "show"
+          );
+
+        },
+        1800
+      );
+
+  }
+
+
+  /*
+   * =========================================================
+   * BOOT
+   * =========================================================
+   */
 
   if (
     document.readyState ===
@@ -1258,16 +721,15 @@
 
     document.addEventListener(
       "DOMContentLoaded",
-      init,
+      bindButtons,
       {
-        once:
-          true
+        once: true
       }
     );
 
   } else {
 
-    init();
+    bindButtons();
 
   }
 
