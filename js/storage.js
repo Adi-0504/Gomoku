@@ -1,6 +1,9 @@
 "use strict";
 
-import { CONFIG } from "./config.js";
+import {
+  CONFIG,
+  AI_CHARACTERS
+} from "./config.js";
 
 
 /*
@@ -9,104 +12,162 @@ import { CONFIG } from "./config.js";
  * =========================================================
  */
 
-function safeParse(value, fallback) {
-  if (!value) {
-    return fallback;
-  }
 
-  try {
-    return JSON.parse(value);
-  } catch (error) {
-    console.warn(
-      "[Gomoku] Failed to parse stored data.",
-      error
-    );
+function createDefaultAIStats() {
 
-    return fallback;
-  }
+  const ai = {};
+
+
+  Object.keys(
+    AI_CHARACTERS
+  ).forEach(
+    id => {
+
+      ai[id] = {
+        wins: 0,
+        losses: 0,
+        games: 0,
+        totalTime: 0,
+        totalMoves: 0
+      };
+
+    }
+  );
+
+
+  return ai;
+
+}
+
+
+export function createDefaultStats() {
+
+  return {
+
+    total: 0,
+
+    wins: 0,
+
+    losses: 0,
+
+    draws: 0,
+
+
+    localWins: 0,
+
+    localLosses: 0,
+
+    localDraws: 0,
+
+
+    ai:
+      createDefaultAIStats(),
+
+
+    records: []
+
+  };
+
 }
 
 
 export function loadStats() {
 
-  const fallback = {
-    games: 0,
-    wins: 0,
-    losses: 0,
-    draws: 0,
+  const defaults =
+    createDefaultStats();
 
-    ai: {
-      mio: {
-        wins: 0,
-        losses: 0
-      },
 
-      rin: {
-        wins: 0,
-        losses: 0
-      },
+  try {
 
-      sora: {
-        wins: 0,
-        losses: 0
-      },
+    const raw =
+      localStorage.getItem(
+        CONFIG.STORAGE_STATS
+      );
 
-      kuro: {
-        wins: 0,
-        losses: 0
+
+    if (!raw) {
+
+      return defaults;
+
+    }
+
+
+    const data =
+      JSON.parse(
+        raw
+      );
+
+
+    const mergedAI = {
+      ...defaults.ai
+    };
+
+
+    Object.keys(
+      AI_CHARACTERS
+    ).forEach(
+      id => {
+
+        mergedAI[id] = {
+
+          ...defaults.ai[id],
+
+          ...(data.ai?.[id] || {})
+
+        };
+
       }
-    },
-
-    records: []
-  };
-
-
-  const stored =
-    localStorage.getItem(
-      CONFIG.STORAGE_STATS
     );
 
 
-  const parsed =
-    safeParse(
-      stored,
-      fallback
-    );
+    return {
 
+      ...defaults,
 
-  return {
-    ...fallback,
-    ...parsed,
+      ...data,
 
-    ai: {
-      ...fallback.ai,
-      ...(parsed.ai || {})
-    },
+      ai:
+        mergedAI,
 
-    records:
-      Array.isArray(parsed.records)
-        ? parsed.records
-        : []
-  };
+      records:
+        Array.isArray(
+          data.records
+        )
+          ? data.records.slice(
+              0,
+              50
+            )
+          : []
+
+    };
+
+  } catch {
+
+    return defaults;
+
+  }
 
 }
 
 
-export function saveStats(stats) {
+export function saveStats(
+  stats
+) {
 
   try {
 
     localStorage.setItem(
       CONFIG.STORAGE_STATS,
-      JSON.stringify(stats)
+      JSON.stringify(
+        stats
+      )
     );
 
-  } catch (error) {
+    return true;
 
-    console.warn(
-      "[Gomoku] Failed to save stats.",
-      error
-    );
+  } catch {
+
+    return false;
 
   }
 
@@ -115,50 +176,75 @@ export function saveStats(stats) {
 
 export function loadSettings() {
 
-  const fallback = {
-    language: "zh-TW",
-    sound: true,
-    motion: true,
-    theme: "system"
+  const defaults = {
+
+    language:
+      "zh-TW",
+
+    sound:
+      true,
+
+    motion:
+      true,
+
+    theme:
+      "system"
+
   };
 
 
-  const stored =
-    localStorage.getItem(
-      CONFIG.STORAGE_SETTINGS
-    );
+  try {
+
+    const raw =
+      localStorage.getItem(
+        CONFIG.STORAGE_SETTINGS
+      );
 
 
-  const parsed =
-    safeParse(
-      stored,
-      fallback
-    );
+    if (!raw) {
+
+      return defaults;
+
+    }
 
 
-  return {
-    ...fallback,
-    ...parsed
-  };
+    return {
+
+      ...defaults,
+
+      ...JSON.parse(
+        raw
+      )
+
+    };
+
+  } catch {
+
+    return defaults;
+
+  }
 
 }
 
 
-export function saveSettings(settings) {
+export function saveSettings(
+  settings
+) {
 
   try {
 
     localStorage.setItem(
       CONFIG.STORAGE_SETTINGS,
-      JSON.stringify(settings)
+      JSON.stringify(
+        settings
+      )
     );
 
-  } catch (error) {
+    return true;
 
-    console.warn(
-      "[Gomoku] Failed to save settings.",
-      error
-    );
+  } catch {
+
+    return false;
 
   }
 
@@ -167,35 +253,52 @@ export function saveSettings(settings) {
 
 export function loadActiveGame() {
 
-  const stored =
-    localStorage.getItem(
-      CONFIG.STORAGE_GAME
+  try {
+
+    const raw =
+      localStorage.getItem(
+        CONFIG.STORAGE_GAME
+      );
+
+
+    if (!raw) {
+
+      return null;
+
+    }
+
+
+    return JSON.parse(
+      raw
     );
 
+  } catch {
 
-  return safeParse(
-    stored,
-    null
-  );
+    return null;
+
+  }
 
 }
 
 
-export function saveActiveGame(game) {
+export function saveActiveGameData(
+  data
+) {
 
   try {
 
     localStorage.setItem(
       CONFIG.STORAGE_GAME,
-      JSON.stringify(game)
+      JSON.stringify(
+        data
+      )
     );
 
-  } catch (error) {
+    return true;
 
-    console.warn(
-      "[Gomoku] Failed to save active game.",
-      error
-    );
+  } catch {
+
+    return false;
 
   }
 
@@ -210,12 +313,11 @@ export function clearActiveGame() {
       CONFIG.STORAGE_GAME
     );
 
-  } catch (error) {
+    return true;
 
-    console.warn(
-      "[Gomoku] Failed to clear active game.",
-      error
-    );
+  } catch {
+
+    return false;
 
   }
 
