@@ -5,16 +5,14 @@
  * GOMOKU AUDIO SYSTEM
  * =========================================================
  *
- * Includes:
- * - UI SFX module
+ * - UI SFX
  * - Native Web Audio fallback
- * - Wabi-Sabi background music
- * - Music loop
+ * - Wabi-Sabi BGM
  * - iOS / iPadOS audio unlock
  * - Sound setting integration
  * - Button micro-interactions
  *
- * No dependency on app.js.
+ * BGM is intentionally independent from app.js and uisfx.
  * =========================================================
  */
 
@@ -34,15 +32,24 @@ import {
 
 /*
  * =========================================================
- * UI SFX
+ * BGM
  * =========================================================
  */
 
-let uiSFX = null;
+const BGM_PATH =
+  "./music/WabiSabiLoops_1loop_01.mp3";
 
-let sfxModulePromise = null;
+const BGM_VOLUME =
+  0.24;
 
-let sfxLoading = false;
+let bgm =
+  null;
+
+let bgmStarted =
+  false;
+
+let bgmErrorShown =
+  false;
 
 
 /*
@@ -51,31 +58,30 @@ let sfxLoading = false;
  * =========================================================
  */
 
-let audioUnlocked = false;
+let audioUnlocked =
+  false;
 
-let nativeAudioContext = null;
+let nativeAudioContext =
+  null;
 
-let nativeMasterGain = null;
+let nativeMasterGain =
+  null;
 
 
 /*
  * =========================================================
- * BACKGROUND MUSIC
+ * UI SFX
  * =========================================================
  */
 
-const BGM_PATH =
-  "./music/WabiSabiLoops_1loop_01.mp3";
+let uiSFX =
+  null;
 
-let bgm = null;
+let sfxModulePromise =
+  null;
 
-let bgmReady = false;
-
-let bgmStarted = false;
-
-let bgmLoading = false;
-
-const BGM_VOLUME = 0.24;
+let sfxLoading =
+  false;
 
 
 /*
@@ -90,13 +96,452 @@ const lastSfxAt =
 
 /*
  * =========================================================
+ * CREATE BGM
+ * =========================================================
+ */
+
+function createBGM() {
+
+  if (bgm) {
+
+    return bgm;
+
+  }
+
+
+  bgm =
+    new Audio();
+
+
+  /*
+   * Set source explicitly after creating
+   * the media element.
+   */
+
+  bgm.src =
+    BGM_PATH;
+
+
+  bgm.loop =
+    true;
+
+
+  bgm.autoplay =
+    false;
+
+
+  bgm.preload =
+    "auto";
+
+
+  bgm.volume =
+    BGM_VOLUME;
+
+
+  /*
+   * Important for iOS / iPadOS.
+   */
+
+  bgm.setAttribute(
+    "playsinline",
+    ""
+  );
+
+
+  bgm.setAttribute(
+    "webkit-playsinline",
+    ""
+  );
+
+
+  bgm.addEventListener(
+    "error",
+    () => {
+
+      if (
+        bgmErrorShown
+      ) {
+
+        return;
+
+      }
+
+
+      bgmErrorShown =
+        true;
+
+
+      console.warn(
+        "[Gomoku] BGM failed to load:",
+        BGM_PATH,
+        bgm.error
+      );
+
+    }
+  );
+
+
+  bgm.addEventListener(
+    "play",
+    () => {
+
+      bgmStarted =
+        true;
+
+    }
+  );
+
+
+  bgm.addEventListener(
+    "pause",
+    () => {
+
+      bgmStarted =
+        false;
+
+    }
+  );
+
+
+  bgm.addEventListener(
+    "ended",
+    () => {
+
+      /*
+       * loop=true should normally prevent this,
+       * but keep state correct just in case.
+       */
+
+      bgmStarted =
+        false;
+
+    }
+  );
+
+
+  return bgm;
+
+}
+
+
+/*
+ * =========================================================
+ * START BGM
+ * =========================================================
+ *
+ * IMPORTANT:
+ *
+ * This function intentionally calls play()
+ * immediately.
+ *
+ * Do NOT put an await before play() when this
+ * function is called from a user gesture.
+ * =========================================================
+ */
+
+function startBGM() {
+
+  if (
+    !state.settings.sound
+  ) {
+
+    return false;
+
+  }
+
+
+  const music =
+    createBGM();
+
+
+  if (
+    !music
+  ) {
+
+    return false;
+
+  }
+
+
+  music.volume =
+    BGM_VOLUME;
+
+
+  music.loop =
+    true;
+
+
+  /*
+   * Already playing.
+   */
+
+  if (
+    !music.paused
+  ) {
+
+    bgmStarted =
+      true;
+
+    return true;
+
+  }
+
+
+  /*
+   * THIS is the important part.
+   *
+   * play() is called directly instead of after
+   * awaiting other asynchronous operations.
+   */
+
+  const promise =
+    music.play();
+
+
+  if (
+    promise &&
+    typeof promise.catch ===
+    "function"
+  ) {
+
+    promise.catch(
+      error => {
+
+        bgmStarted =
+          false;
+
+
+        console.warn(
+          "[Gomoku] BGM playback was blocked:",
+          error
+        );
+
+      }
+    );
+
+  }
+
+
+  return true;
+
+}
+
+
+/*
+ * =========================================================
+ * STOP BGM
+ * =========================================================
+ */
+
+function stopBGM() {
+
+  if (
+    !bgm
+  ) {
+
+    return;
+
+  }
+
+
+  try {
+
+    bgm.pause();
+
+    bgm.currentTime =
+      0;
+
+  } catch (
+    error
+  ) {
+
+    console.warn(
+      "[Gomoku] Failed to stop BGM:",
+      error
+    );
+
+  }
+
+
+  bgmStarted =
+    false;
+
+}
+
+
+/*
+ * =========================================================
+ * MUSIC VOLUME
+ * =========================================================
+ */
+
+function setBGMVolume(
+  volume
+) {
+
+  const normalized =
+    Math.max(
+      0,
+      Math.min(
+        1,
+        Number(volume) || 0
+      )
+    );
+
+
+  if (
+    bgm
+  ) {
+
+    bgm.volume =
+      normalized;
+
+  }
+
+}
+
+
+/*
+ * =========================================================
+ * NATIVE AUDIO CONTEXT
+ * =========================================================
+ */
+
+function ensureNativeAudio() {
+
+  const AudioContextClass =
+    window.AudioContext ||
+    window.webkitAudioContext;
+
+
+  if (
+    !AudioContextClass
+  ) {
+
+    return null;
+
+  }
+
+
+  if (
+    !nativeAudioContext
+  ) {
+
+    nativeAudioContext =
+      new AudioContextClass();
+
+
+    nativeMasterGain =
+      nativeAudioContext.createGain();
+
+
+    nativeMasterGain.gain.value =
+      CONFIG.SFX_VOLUME;
+
+
+    nativeMasterGain.connect(
+      nativeAudioContext.destination
+    );
+
+  }
+
+
+  return nativeAudioContext;
+
+}
+
+
+/*
+ * =========================================================
+ * UNLOCK NATIVE AUDIO
+ * =========================================================
+ */
+
+function unlockNativeAudio() {
+
+  const context =
+    ensureNativeAudio();
+
+
+  if (
+    !context
+  ) {
+
+    audioUnlocked =
+      true;
+
+    return true;
+
+  }
+
+
+  try {
+
+    if (
+      context.state ===
+      "suspended"
+    ) {
+
+      /*
+       * Do NOT await this.
+       *
+       * We want everything to stay inside the
+       * original user interaction.
+       */
+
+      const resumePromise =
+        context.resume();
+
+
+      if (
+        resumePromise &&
+        typeof resumePromise.catch ===
+        "function"
+      ) {
+
+        resumePromise.catch(
+          () => {}
+        );
+
+      }
+
+    }
+
+
+    audioUnlocked =
+      true;
+
+
+    return true;
+
+  } catch (
+    error
+  ) {
+
+    console.warn(
+      "[Gomoku] Native audio unlock failed:",
+      error
+    );
+
+
+    return false;
+
+  }
+
+}
+
+
+/*
+ * =========================================================
  * UI SFX MODULE
  * =========================================================
  */
 
 function loadUISFXModule() {
 
-  if (!sfxModulePromise) {
+  if (
+    !sfxModulePromise
+  ) {
 
     sfxModulePromise =
       import(
@@ -104,6 +549,7 @@ function loadUISFXModule() {
       );
 
   }
+
 
   return sfxModulePromise;
 
@@ -164,7 +610,9 @@ async function loadUISFX() {
 
     return uiSFX;
 
-  } catch (error) {
+  } catch (
+    error
+  ) {
 
     console.warn(
       "[Gomoku] UI SFX unavailable; native fallback enabled.",
@@ -190,398 +638,11 @@ async function loadUISFX() {
 
 /*
  * =========================================================
- * NATIVE AUDIO CONTEXT
- * =========================================================
- */
-
-function ensureNativeAudio() {
-
-  const AudioContextClass =
-    window.AudioContext ||
-    window.webkitAudioContext;
-
-
-  if (
-    !AudioContextClass
-  ) {
-
-    return null;
-
-  }
-
-
-  if (
-    !nativeAudioContext
-  ) {
-
-    nativeAudioContext =
-      new AudioContextClass();
-
-
-    nativeMasterGain =
-      nativeAudioContext.createGain();
-
-
-    nativeMasterGain.gain.value =
-      CONFIG.SFX_VOLUME;
-
-
-    nativeMasterGain.connect(
-      nativeAudioContext.destination
-    );
-
-  }
-
-
-  return nativeAudioContext;
-
-}
-
-
-/*
- * =========================================================
- * BGM CREATION
- * =========================================================
- */
-
-function createBGM() {
-
-  if (bgm) {
-
-    return bgm;
-
-  }
-
-
-  bgm =
-    new Audio(
-      BGM_PATH
-    );
-
-
-  bgm.loop =
-    true;
-
-
-  bgm.preload =
-    "auto";
-
-
-  bgm.volume =
-    BGM_VOLUME;
-
-
-  bgm.setAttribute(
-    "playsinline",
-    ""
-  );
-
-
-  bgm.addEventListener(
-    "canplaythrough",
-    () => {
-
-      bgmReady =
-        true;
-
-    },
-    {
-      once:
-        false
-    }
-  );
-
-
-  bgm.addEventListener(
-    "error",
-    () => {
-
-      bgmReady =
-        false;
-
-      console.warn(
-        "[Gomoku] Background music could not be loaded:",
-        BGM_PATH
-      );
-
-    }
-  );
-
-
-  return bgm;
-
-}
-
-
-/*
- * =========================================================
- * START BGM
- * =========================================================
- */
-
-async function startBGM() {
-
-  if (
-    !state.settings.sound
-  ) {
-
-    return false;
-
-  }
-
-
-  const music =
-    createBGM();
-
-
-  if (
-    !music
-  ) {
-
-    return false;
-
-  }
-
-
-  if (
-    bgmStarted &&
-    !music.paused
-  ) {
-
-    return true;
-
-  }
-
-
-  if (
-    bgmLoading
-  ) {
-
-    return false;
-
-  }
-
-
-  bgmLoading =
-    true;
-
-
-  try {
-
-    music.volume =
-      BGM_VOLUME;
-
-
-    const promise =
-      music.play();
-
-
-    if (
-      promise &&
-      typeof promise.then ===
-      "function"
-    ) {
-
-      await promise;
-
-    }
-
-
-    bgmStarted =
-      true;
-
-
-    return true;
-
-  } catch (error) {
-
-    /*
-     * iOS / Safari may reject autoplay
-     * until the user interacts with the page.
-     */
-
-    console.warn(
-      "[Gomoku] BGM playback waiting for user interaction.",
-      error
-    );
-
-
-    return false;
-
-  } finally {
-
-    bgmLoading =
-      false;
-
-  }
-
-}
-
-
-/*
- * =========================================================
- * STOP BGM
- * =========================================================
- */
-
-function stopBGM() {
-
-  if (
-    !bgm
-  ) {
-
-    return;
-
-  }
-
-
-  try {
-
-    bgm.pause();
-
-  } catch {}
-
-
-  bgmStarted =
-    false;
-
-}
-
-
-/*
- * =========================================================
- * MUSIC VOLUME
- * =========================================================
- */
-
-function setBGMVolume(
-  volume
-) {
-
-  if (
-    !bgm
-  ) {
-
-    return;
-
-  }
-
-
-  const normalized =
-    Math.max(
-      0,
-      Math.min(
-        1,
-        Number(volume) || 0
-      )
-    );
-
-
-  bgm.volume =
-    normalized;
-
-}
-
-
-/*
- * =========================================================
- * BROWSER AUDIO UNLOCK
- * =========================================================
- */
-
-async function unlockBrowserAudio() {
-
-  const context =
-    ensureNativeAudio();
-
-
-  if (
-    !context
-  ) {
-
-    audioUnlocked =
-      true;
-
-    return true;
-
-  }
-
-
-  try {
-
-    if (
-      context.state ===
-      "suspended"
-    ) {
-
-      await context.resume();
-
-    }
-
-
-    const gain =
-      context.createGain();
-
-
-    gain.gain.value =
-      0;
-
-
-    const oscillator =
-      context.createOscillator();
-
-
-    oscillator.frequency.value =
-      180;
-
-
-    oscillator.connect(
-      gain
-    );
-
-
-    gain.connect(
-      context.destination
-    );
-
-
-    oscillator.start();
-
-
-    oscillator.stop(
-      context.currentTime +
-      0.008
-    );
-
-
-    audioUnlocked =
-      true;
-
-
-    return true;
-
-  } catch (error) {
-
-    console.warn(
-      "[Gomoku] Audio unlock failed.",
-      error
-    );
-
-
-    return false;
-
-  }
-
-}
-
-
-/*
- * =========================================================
  * PUBLIC AUDIO UNLOCK
  * =========================================================
  */
 
-export async function unlockAudio() {
+export function unlockAudio() {
 
   if (
     !state.settings.sound
@@ -592,43 +653,42 @@ export async function unlockAudio() {
   }
 
 
-  await unlockBrowserAudio();
-
-
   /*
-   * Create the music element before attempting
-   * playback. This is important for iOS.
+   * First:
+   * unlock native audio.
    */
 
-  createBGM();
+  unlockNativeAudio();
 
 
   /*
-   * Load UI SFX.
-   */
-
-  const ui =
-    await loadUISFX();
-
-
-  /*
-   * Start background music.
+   * SECOND:
    *
-   * This may succeed immediately on desktop
-   * or after the first user interaction on iOS.
+   * Start BGM immediately.
+   *
+   * This must happen before any await.
    */
 
-  await startBGM();
+  startBGM();
 
 
-  return ui;
+  /*
+   * SFX can load asynchronously.
+   *
+   * It no longer blocks BGM.
+   */
+
+  loadUISFX();
+
+
+  return uiSFX;
 
 }
 
 
 /*
  * =========================================================
- * NATIVE SFX CUE
+ * NATIVE SFX
  * =========================================================
  */
 
@@ -876,7 +936,7 @@ function nativeCue(
 
 /*
  * =========================================================
- * PUBLIC SFX PLAY
+ * PUBLIC SFX
  * =========================================================
  */
 
@@ -927,9 +987,22 @@ export async function playSFX(
   );
 
 
+  /*
+   * Unlock/start music immediately.
+   */
+
+  unlockNativeAudio();
+
+  startBGM();
+
+
+  /*
+   * Try UI SFX module.
+   */
+
   const ui =
     uiSFX ||
-    await unlockAudio();
+    await loadUISFX();
 
 
   if (
@@ -957,7 +1030,9 @@ export async function playSFX(
 
       return;
 
-    } catch (error) {
+    } catch (
+      error
+    ) {
 
       console.warn(
         `[Gomoku] UI SFX "${cue}" failed; using native fallback.`,
@@ -968,6 +1043,10 @@ export async function playSFX(
 
   }
 
+
+  /*
+   * Native fallback.
+   */
 
   nativeCue(
     cue
@@ -1022,14 +1101,14 @@ export function setSoundEnabled(
   }
 
 
+  /*
+   * Don't autoplay from the setting itself.
+   *
+   * The next user interaction starts the music.
+   */
+
   audioUnlocked =
     false;
-
-
-  /*
-   * Don't force autoplay here.
-   * The next user interaction will unlock it.
-   */
 
 }
 
@@ -1037,8 +1116,7 @@ export function setSoundEnabled(
 /*
  * =========================================================
  * BUTTON MICRO INTERACTIONS
- * =========================================================
- */
+ * ========================================================= */
 
 export function decorateButtons() {
 
@@ -1073,26 +1151,30 @@ export function decorateButtons() {
           () => {
 
             if (
-              !button.disabled
+              button.disabled
             ) {
 
-              /*
-               * First interaction unlocks
-               * both SFX and BGM.
-               */
-
-              unlockAudio();
-
-
-              playSFX(
-                SFX.press,
-                {
-                  cooldownMs:
-                    80
-                }
-              );
+              return;
 
             }
+
+
+            /*
+             * This is a real user gesture.
+             *
+             * BGM starts HERE.
+             */
+
+            unlockAudio();
+
+
+            playSFX(
+              SFX.press,
+              {
+                cooldownMs:
+                  80
+              }
+            );
 
           },
           {
@@ -1107,18 +1189,21 @@ export function decorateButtons() {
           () => {
 
             if (
-              !button.disabled
+              button.disabled
             ) {
 
-              playSFX(
-                SFX.release,
-                {
-                  cooldownMs:
-                    80
-                }
-              );
+              return;
 
             }
+
+
+            playSFX(
+              SFX.release,
+              {
+                cooldownMs:
+                  80
+              }
+            );
 
           },
           {
@@ -1133,18 +1218,21 @@ export function decorateButtons() {
           () => {
 
             if (
-              !button.disabled
+              button.disabled
             ) {
 
-              playSFX(
-                SFX.release,
-                {
-                  cooldownMs:
-                    80
-                }
-              );
+              return;
 
             }
+
+
+            playSFX(
+              SFX.release,
+              {
+                cooldownMs:
+                  80
+              }
+            );
 
           },
           {
@@ -1161,13 +1249,13 @@ export function decorateButtons() {
 
 /*
  * =========================================================
- * GLOBAL USER INTERACTION UNLOCK
+ * GLOBAL AUDIO UNLOCK
  * =========================================================
  *
- * This is mainly for iOS / iPadOS.
+ * ONE event only.
  *
- * The first tap anywhere on the page attempts
- * to start the Wabi-Sabi loop.
+ * pointerdown already covers mouse,
+ * touch and Apple Pencil interactions.
  * =========================================================
  */
 
@@ -1185,6 +1273,12 @@ function installGlobalAudioUnlock() {
       }
 
 
+      /*
+       * No await.
+       *
+       * BGM play() happens immediately.
+       */
+
       unlockAudio();
 
     };
@@ -1192,16 +1286,6 @@ function installGlobalAudioUnlock() {
 
   document.addEventListener(
     "pointerdown",
-    handler,
-    {
-      passive:
-        true
-    }
-  );
-
-
-  document.addEventListener(
-    "touchstart",
     handler,
     {
       passive:
@@ -1224,15 +1308,22 @@ function installGlobalAudioUnlock() {
 
 /*
  * =========================================================
- * INITIALIZE AUDIO
+ * INITIALIZE
  * =========================================================
  */
 
 function initAudio() {
 
+  /*
+   * Create the media element early.
+   * Playback itself still waits for user interaction.
+   */
+
   createBGM();
 
+
   decorateButtons();
+
 
   installGlobalAudioUnlock();
 
@@ -1269,12 +1360,7 @@ if (
 /*
  * =========================================================
  * PUBLIC GLOBAL HELPERS
- * =========================================================
- *
- * These are intentionally exposed so other modules
- * can start / stop music without depending on app.js.
- * =========================================================
- */
+ * ========================================================= */
 
 window.GomokuAudio = {
 
@@ -1284,11 +1370,13 @@ window.GomokuAudio = {
 
   },
 
+
   stopMusic() {
 
     stopBGM();
 
   },
+
 
   setMusicVolume(
     volume
@@ -1300,11 +1388,13 @@ window.GomokuAudio = {
 
   },
 
+
   getMusicElement() {
 
     return bgm;
 
   },
+
 
   isMusicPlaying() {
 
