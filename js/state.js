@@ -1,6 +1,9 @@
 "use strict";
 
-import { CONFIG } from "./config.js";
+import {
+  CONFIG
+} from "./config.js";
+
 import {
   loadStats,
   loadSettings
@@ -11,7 +14,8 @@ export function createBoard() {
 
   return Array.from(
     {
-      length: CONFIG.SIZE
+      length:
+        CONFIG.SIZE
     },
     () =>
       Array(
@@ -28,16 +32,25 @@ export function createInitialState() {
 
   return {
 
-    screen: "home",
+    screen:
+      "home",
 
-    mode: "ai",
 
-    difficulty: "easy",
+    mode:
+      "ai",
 
-    character: "mio",
+
+    difficulty:
+      "easy",
+
+
+    character:
+      "mio",
+
 
     playerSide:
       CONFIG.BLACK,
+
 
     aiSide:
       CONFIG.WHITE,
@@ -46,18 +59,24 @@ export function createInitialState() {
     board:
       createBoard(),
 
+
     currentPlayer:
       CONFIG.BLACK,
 
+
     moves: [],
+
 
     gameOver:
       false,
 
+
     winner:
       CONFIG.EMPTY,
 
+
     winningLine: [],
+
 
     lastMove:
       null,
@@ -66,11 +85,14 @@ export function createInitialState() {
     aiThinking:
       false,
 
+
     worker:
       null,
 
+
     workerRequest:
       0,
+
 
     aiTimer:
       null,
@@ -79,11 +101,14 @@ export function createInitialState() {
     boardSize:
       0,
 
+
     boardPadding:
       0,
 
+
     cellSize:
       0,
+
 
     dpr:
       1,
@@ -92,8 +117,10 @@ export function createInitialState() {
     moveAnimation:
       null,
 
+
     moveAnimationStartedAt:
       0,
+
 
     moveAnimationFrame:
       0,
@@ -102,8 +129,10 @@ export function createInitialState() {
     gameStartedAt:
       0,
 
+
     gameEndedAt:
       0,
+
 
     timerInterval:
       null,
@@ -111,6 +140,7 @@ export function createInitialState() {
 
     stats:
       loadStats(),
+
 
     settings:
       loadSettings()
