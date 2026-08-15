@@ -8424,3 +8424,3542 @@
   init();
 
 })();
+(() => {
+  "use strict";
+
+  /*
+   * =========================================================
+   * GOMOKU GAME REVIEW
+   * =========================================================
+   *
+   * App.js-only integration.
+   *
+   * No index.html changes required.
+   * No additional JS file required.
+   *
+   * Features:
+   * - Automatically captures completed games
+   * - Keeps up to 50 completed games
+   * - Result screen "這局回顧"
+   * - Records screen review buttons
+   * - Move-by-move replay
+   * - First / previous / play / next / last
+   * - Timeline slider
+   * - Move list
+   * - Coordinate display
+   * - Current move highlight
+   * - Winning line highlight
+   * - Light / dark compatible
+   * - Mobile responsive
+   * - Keyboard shortcuts
+   *
+   * Important:
+   * The existing game engine remains untouched.
+   *
+   * =========================================================
+   */
+
+  const REVIEW = {
+    SIZE: 15,
+    WIN: 5,
+
+    EMPTY: 0,
+    BLACK: 1,
+    WHITE: 2,
+
+    STORAGE:
+      "gomoku-game-reviews-v2",
+
+    MAX_GAMES:
+      50,
+
+    PLAY_INTERVAL:
+      520
+  };
+
+
+  /*
+   * =========================================================
+   * STATE
+   * =========================================================
+   */
+
+  const state = {
+    games: [],
+
+    activeGame:
+      null,
+
+    currentMove:
+      0,
+
+    playing:
+      false,
+
+    timer:
+      null,
+
+    pendingCapture:
+      null,
+
+    captureTimer:
+      null
+  };
+
+
+  /*
+   * =========================================================
+   * STORAGE
+   * =========================================================
+   */
+
+  function loadGames() {
+
+    try {
+
+      const raw =
+        localStorage.getItem(
+          REVIEW.STORAGE
+        );
+
+      if (!raw) {
+        return [];
+      }
+
+      const data =
+        JSON.parse(
+          raw
+        );
+
+      if (!Array.isArray(data)) {
+        return [];
+      }
+
+      return data
+        .filter(Boolean)
+        .slice(
+          0,
+          REVIEW.MAX_GAMES
+        );
+
+    } catch {
+
+      return [];
+
+    }
+
+  }
+
+
+  function saveGames() {
+
+    try {
+
+      localStorage.setItem(
+        REVIEW.STORAGE,
+        JSON.stringify(
+          state.games.slice(
+            0,
+            REVIEW.MAX_GAMES
+          )
+        )
+      );
+
+    } catch {}
+
+  }
+
+
+  /*
+   * =========================================================
+   * BOARD
+   * =========================================================
+   */
+
+  function createBoard() {
+
+    return Array.from(
+      {
+        length:
+          REVIEW.SIZE
+      },
+      () =>
+        Array(
+          REVIEW.SIZE
+        ).fill(
+          REVIEW.EMPTY
+        )
+    );
+
+  }
+
+
+  function isInside(
+    row,
+    col
+  ) {
+
+    return (
+      row >= 0 &&
+      row < REVIEW.SIZE &&
+      col >= 0 &&
+      col < REVIEW.SIZE
+    );
+
+  }
+
+
+  function boardAtMove(
+    moves,
+    count
+  ) {
+
+    const board =
+      createBoard();
+
+    const limit =
+      Math.max(
+        0,
+        Math.min(
+          Number(count) || 0,
+          moves.length
+        )
+      );
+
+
+    for (
+      let i = 0;
+      i < limit;
+      i += 1
+    ) {
+
+      const move =
+        moves[i];
+
+      if (!move) {
+        continue;
+      }
+
+      if (
+        !Number.isInteger(
+          move.row
+        ) ||
+        !Number.isInteger(
+          move.col
+        )
+      ) {
+        continue;
+      }
+
+      if (
+        !isInside(
+          move.row,
+          move.col
+        )
+      ) {
+        continue;
+      }
+
+      if (
+        move.player !==
+          REVIEW.BLACK &&
+        move.player !==
+          REVIEW.WHITE
+      ) {
+        continue;
+      }
+
+      board[
+        move.row
+      ][
+        move.col
+      ] =
+        move.player;
+
+    }
+
+    return board;
+
+  }
+
+
+  function isBoardFull(
+    board
+  ) {
+
+    for (
+      let row = 0;
+      row < REVIEW.SIZE;
+      row += 1
+    ) {
+
+      for (
+        let col = 0;
+        col < REVIEW.SIZE;
+        col += 1
+      ) {
+
+        if (
+          board[row][col] ===
+          REVIEW.EMPTY
+        ) {
+
+          return false;
+
+        }
+
+      }
+
+    }
+
+    return true;
+
+  }
+
+
+  /*
+   * =========================================================
+   * WINNING LINE
+   * =========================================================
+   */
+
+  const DIRECTIONS = [
+    [1, 0],
+    [0, 1],
+    [1, 1],
+    [1, -1]
+  ];
+
+
+  function getWinningLine(
+    board,
+    row,
+    col,
+    player
+  ) {
+
+    for (
+      const [
+        dr,
+        dc
+      ]
+      of DIRECTIONS
+    ) {
+
+      const line = [
+        [
+          row,
+          col
+        ]
+      ];
+
+
+      let r =
+        row + dr;
+
+      let c =
+        col + dc;
+
+
+      while (
+        isInside(
+          r,
+          c
+        ) &&
+        board[r][c] ===
+        player
+      ) {
+
+        line.push([
+          r,
+          c
+        ]);
+
+        r += dr;
+        c += dc;
+
+      }
+
+
+      r =
+        row - dr;
+
+      c =
+        col - dc;
+
+
+      while (
+        isInside(
+          r,
+          c
+        ) &&
+        board[r][c] ===
+        player
+      ) {
+
+        line.unshift([
+          r,
+          c
+        ]);
+
+        r -= dr;
+        c -= dc;
+
+      }
+
+
+      if (
+        line.length >=
+        REVIEW.WIN
+      ) {
+
+        return line;
+
+      }
+
+    }
+
+
+    return [];
+
+  }
+
+
+  /*
+   * =========================================================
+   * COORDINATES
+   * =========================================================
+   */
+
+  function coordinate(
+    row,
+    col
+  ) {
+
+    const columns =
+      "ABCDEFGHIJKLMNO";
+
+    return (
+      (
+        columns[col] ||
+        "?"
+      ) +
+      String(
+        row + 1
+      )
+    );
+
+  }
+
+
+  /*
+   * =========================================================
+   * CAPTURE COMPLETED GAME
+   * =========================================================
+   *
+   * Existing app.js does:
+   *
+   * finishGame()
+   *   -> clearActiveGame()
+   *   -> recordResult()
+   *   -> showResult()
+   *
+   * We cannot access its private state directly.
+   *
+   * Instead we temporarily intercept the existing
+   * localStorage.removeItem() call.
+   *
+   * The unfinished game is NOT immediately saved.
+   *
+   * We wait for #resultScreen to become active.
+   * Therefore:
+   *
+   * - finishGame -> captured
+   * - finishDraw -> captured
+   * - undo -> ignored
+   * - menu -> ignored
+   * - invalid resume cleanup -> ignored
+   *
+   * =========================================================
+   */
+
+  function captureActiveGameBeforeDelete(
+    key
+  ) {
+
+    if (
+      key !==
+      "gomoku-active-game-v5"
+    ) {
+
+      return;
+
+    }
+
+
+    try {
+
+      const raw =
+        localStorage.getItem(
+          key
+        );
+
+      if (!raw) {
+        return;
+      }
+
+
+      const data =
+        JSON.parse(
+          raw
+        );
+
+
+      if (
+        !data ||
+        !Array.isArray(
+          data.moves
+        ) ||
+        !data.moves.length
+      ) {
+
+        return;
+
+      }
+
+
+      const moves =
+        normalizeMoves(
+          data.moves
+        );
+
+
+      if (!moves.length) {
+        return;
+      }
+
+
+      const board =
+        boardAtMove(
+          moves,
+          moves.length
+        );
+
+
+      const lastMove =
+        moves[
+          moves.length - 1
+        ];
+
+
+      let winner =
+        REVIEW.EMPTY;
+
+      let winningLine =
+        [];
+
+
+      if (
+        lastMove
+      ) {
+
+        winningLine =
+          getWinningLine(
+            board,
+            lastMove.row,
+            lastMove.col,
+            lastMove.player
+          );
+
+
+        if (
+          winningLine.length >=
+          REVIEW.WIN
+        ) {
+
+          winner =
+            lastMove.player;
+
+        }
+
+      }
+
+
+      const draw =
+        !winner &&
+        isBoardFull(
+          board
+        );
+
+
+      state.pendingCapture = {
+        id:
+          createId(),
+
+        date:
+          new Date().toISOString(),
+
+        mode:
+          data.mode ===
+          "local"
+            ? "local"
+            : "ai",
+
+        difficulty:
+          data.difficulty ||
+          "easy",
+
+        character:
+          data.character ||
+          null,
+
+        playerSide:
+          data.playerSide ===
+          REVIEW.WHITE
+            ? REVIEW.WHITE
+            : REVIEW.BLACK,
+
+        aiSide:
+          data.aiSide ===
+          REVIEW.BLACK
+            ? REVIEW.BLACK
+            : REVIEW.WHITE,
+
+        moves,
+
+        winner,
+
+        draw,
+
+        winningLine,
+
+        duration:
+          Number(
+            data.elapsedSeconds
+          ) || 0
+
+      };
+
+
+      clearTimeout(
+        state.captureTimer
+      );
+
+
+      state.captureTimer =
+        window.setTimeout(
+          () => {
+
+            state.pendingCapture =
+              null;
+
+          },
+          3000
+        );
+
+    } catch {}
+
+  }
+
+
+  function normalizeMoves(
+    moves
+  ) {
+
+    if (
+      !Array.isArray(
+        moves
+      )
+    ) {
+
+      return [];
+
+    }
+
+
+    return moves
+      .filter(
+        move =>
+          move &&
+          Number.isInteger(
+            move.row
+          ) &&
+          Number.isInteger(
+            move.col
+          ) &&
+          (
+            move.player ===
+            REVIEW.BLACK ||
+            move.player ===
+            REVIEW.WHITE
+          ) &&
+          isInside(
+            move.row,
+            move.col
+          )
+      )
+      .map(
+        move => ({
+          row:
+            move.row,
+
+          col:
+            move.col,
+
+          player:
+            move.player
+        })
+      );
+
+  }
+
+
+  function createId() {
+
+    return (
+      Date.now().toString(
+        36
+      ) +
+      "-" +
+      Math.random()
+        .toString(36)
+        .slice(2, 10)
+    );
+
+  }
+
+
+  function commitPendingCapture() {
+
+    const game =
+      state.pendingCapture;
+
+    if (!game) {
+      return;
+    }
+
+
+    clearTimeout(
+      state.captureTimer
+    );
+
+
+    state.captureTimer =
+      null;
+
+
+    state.pendingCapture =
+      null;
+
+
+    state.games =
+      state.games.filter(
+        item =>
+          item.id !==
+          game.id
+      );
+
+
+    state.games.unshift(
+      game
+    );
+
+
+    state.games =
+      state.games.slice(
+        0,
+        REVIEW.MAX_GAMES
+      );
+
+
+    saveGames();
+
+
+    refreshRecordsReviewButtons();
+
+  }
+
+
+  /*
+   * =========================================================
+   * INTERCEPT STORAGE DELETE
+   * =========================================================
+   */
+
+  function installStorageHook() {
+
+    const originalRemoveItem =
+      Storage.prototype.removeItem;
+
+
+    if (
+      originalRemoveItem.__gomokuReviewHook
+    ) {
+
+      return;
+
+    }
+
+
+    function wrappedRemoveItem(
+      key
+    ) {
+
+      if (
+        key ===
+        "gomoku-active-game-v5"
+      ) {
+
+        captureActiveGameBeforeDelete(
+          key
+        );
+
+      }
+
+
+      return originalRemoveItem.call(
+        this,
+        key
+      );
+
+    }
+
+
+    wrappedRemoveItem.__gomokuReviewHook =
+      true;
+
+
+    Storage.prototype.removeItem =
+      wrappedRemoveItem;
+
+  }
+
+
+  /*
+   * =========================================================
+   * RESULT SCREEN OBSERVER
+   * =========================================================
+   */
+
+  function installResultObserver() {
+
+    const resultScreen =
+      document.querySelector(
+        "#resultScreen"
+      );
+
+
+    if (!resultScreen) {
+      return;
+    }
+
+
+    const observer =
+      new MutationObserver(
+        () => {
+
+          if (
+            resultScreen.classList.contains(
+              "active"
+            )
+          ) {
+
+            commitPendingCapture();
+
+            updateResultButton();
+
+          }
+
+        }
+      );
+
+
+    observer.observe(
+      resultScreen,
+      {
+        attributes:
+          true,
+
+        attributeFilter:
+          [
+            "class"
+          ]
+      }
+    );
+
+  }
+
+
+  /*
+   * =========================================================
+   * STYLES
+   * =========================================================
+   */
+
+  function injectStyles() {
+
+    if (
+      document.querySelector(
+        "#gomoku-review-v2-styles"
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const style =
+      document.createElement(
+        "style"
+      );
+
+
+    style.id =
+      "gomoku-review-v2-styles";
+
+
+    style.textContent = `
+      .gomoku-review-overlay-v2 {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+
+        display: grid;
+        place-items: center;
+
+        padding: 18px;
+
+        background:
+          rgba(0, 0, 0, .44);
+
+        backdrop-filter:
+          blur(18px);
+
+        -webkit-backdrop-filter:
+          blur(18px);
+
+        opacity: 0;
+        pointer-events: none;
+
+        transition:
+          opacity 180ms ease;
+      }
+
+
+      .gomoku-review-overlay-v2.open {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+
+      .gomoku-review-panel-v2 {
+        width:
+          min(
+            1080px,
+            100%
+          );
+
+        max-height:
+          calc(
+            100dvh - 36px
+          );
+
+        overflow:
+          auto;
+
+        border:
+          1px solid
+          var(--line, rgba(0,0,0,.12));
+
+        border-radius:
+          24px;
+
+        background:
+          var(
+            --surface-solid,
+            #f7f7f5
+          );
+
+        color:
+          var(
+            --text,
+            #171717
+          );
+
+        box-shadow:
+          0 30px 90px
+          rgba(0,0,0,.28);
+      }
+
+
+      .gomoku-review-header-v2 {
+        position:
+          sticky;
+
+        top: 0;
+
+        z-index: 4;
+
+        display:
+          flex;
+
+        align-items:
+          center;
+
+        justify-content:
+          space-between;
+
+        gap:
+          14px;
+
+        padding:
+          18px 20px;
+
+        border-bottom:
+          1px solid
+          var(--line, rgba(0,0,0,.12));
+
+        background:
+          var(
+            --surface-solid,
+            #f7f7f5
+          );
+
+        backdrop-filter:
+          blur(16px);
+
+        -webkit-backdrop-filter:
+          blur(16px);
+      }
+
+
+      .gomoku-review-kicker-v2 {
+        margin-bottom:
+          4px;
+
+        color:
+          var(
+            --muted,
+            #777
+          );
+
+        font-size:
+          10px;
+
+        font-weight:
+          800;
+
+        letter-spacing:
+          .12em;
+      }
+
+
+      .gomoku-review-title-v2 {
+        margin:
+          0;
+
+        font-size:
+          22px;
+
+        line-height:
+          1.15;
+
+        letter-spacing:
+          -.025em;
+      }
+
+
+      .gomoku-review-close-v2 {
+        width:
+          40px;
+
+        height:
+          40px;
+
+        flex:
+          0 0 40px;
+
+        border:
+          0;
+
+        border-radius:
+          50%;
+
+        background:
+          var(
+            --line,
+            #ddd
+          );
+
+        color:
+          var(
+            --text,
+            #171717
+          );
+
+        cursor:
+          pointer;
+
+        font-size:
+          23px;
+      }
+
+
+      .gomoku-review-body-v2 {
+        padding:
+          18px;
+      }
+
+
+      .gomoku-review-layout-v2 {
+        display:
+          grid;
+
+        grid-template-columns:
+          minmax(0, 1fr)
+          300px;
+
+        gap:
+          18px;
+      }
+
+
+      .gomoku-review-board-card-v2 {
+        padding:
+          12px;
+
+        border:
+          1px solid
+          var(--line, rgba(0,0,0,.12));
+
+        border-radius:
+          20px;
+
+        background:
+          color-mix(
+            in srgb,
+            var(--background, #eee) 78%,
+            var(--surface-solid, #fff)
+          );
+      }
+
+
+      .gomoku-review-board-v2 {
+        position:
+          relative;
+
+        width:
+          min(
+            100%,
+            700px
+          );
+
+        aspect-ratio:
+          1;
+
+        margin:
+          auto;
+
+        display:
+          grid;
+
+        grid-template-columns:
+          repeat(15, 1fr);
+
+        grid-template-rows:
+          repeat(15, 1fr);
+
+        padding:
+          3.8%;
+
+        border-radius:
+          15px;
+
+        background:
+          #e8d5ad;
+
+        overflow:
+          hidden;
+      }
+
+
+      .gomoku-review-cell-v2 {
+        position:
+          relative;
+
+        display:
+          grid;
+
+        place-items:
+          center;
+      }
+
+
+      .gomoku-review-cell-v2::before {
+        content:
+          "";
+
+        position:
+          absolute;
+
+        left:
+          0;
+
+        right:
+          0;
+
+        top:
+          50%;
+
+        height:
+          1px;
+
+        background:
+          rgba(91, 69, 45, .52);
+      }
+
+
+      .gomoku-review-cell-v2::after {
+        content:
+          "";
+
+        position:
+          absolute;
+
+        top:
+          0;
+
+        bottom:
+          0;
+
+        left:
+          50%;
+
+        width:
+          1px;
+
+        background:
+          rgba(91, 69, 45, .52);
+      }
+
+
+      .gomoku-review-stone-v2 {
+        position:
+          relative;
+
+        z-index:
+          2;
+
+        width:
+          76%;
+
+        aspect-ratio:
+          1;
+
+        border-radius:
+          50%;
+
+        box-shadow:
+          0 2px 5px
+          rgba(0,0,0,.23);
+
+        transition:
+          box-shadow 140ms ease,
+          transform 140ms ease;
+      }
+
+
+      .gomoku-review-stone-v2.black {
+        background:
+          radial-gradient(
+            circle at 30% 23%,
+            #555 0%,
+            #282828 30%,
+            #101010 100%
+          );
+      }
+
+
+      .gomoku-review-stone-v2.white {
+        background:
+          radial-gradient(
+            circle at 30% 23%,
+            #fff 0%,
+            #f6f1e8 55%,
+            #c9c0b0 100%
+          );
+
+        border:
+          1px solid
+          rgba(0,0,0,.14);
+      }
+
+
+      .gomoku-review-stone-v2.current {
+        transform:
+          scale(1.04);
+
+        box-shadow:
+          0 0 0 3px
+          rgba(184,111,82,.75),
+          0 4px 10px
+          rgba(0,0,0,.25);
+      }
+
+
+      .gomoku-review-stone-v2.winning {
+        box-shadow:
+          0 0 0 3px
+          rgba(212,109,82,.9),
+          0 0 18px
+          rgba(212,109,82,.28);
+      }
+
+
+      .gomoku-review-side-v2 {
+        display:
+          grid;
+
+        align-content:
+          start;
+
+        gap:
+          10px;
+      }
+
+
+      .gomoku-review-info-v2 {
+        display:
+          grid;
+
+        grid-template-columns:
+          1fr 1fr;
+
+        gap:
+          8px;
+      }
+
+
+      .gomoku-review-stat-v2 {
+        padding:
+          12px;
+
+        border:
+          1px solid
+          var(--line, rgba(0,0,0,.12));
+
+        border-radius:
+          14px;
+
+        background:
+          var(
+            --surface,
+            rgba(255,255,255,.45)
+          );
+      }
+
+
+      .gomoku-review-stat-v2 span {
+        display:
+          block;
+
+        margin-bottom:
+          3px;
+
+        color:
+          var(
+            --muted,
+            #777
+          );
+
+        font-size:
+          11px;
+      }
+
+
+      .gomoku-review-stat-v2 strong {
+        display:
+          block;
+
+        font-size:
+          18px;
+
+        font-variant-numeric:
+          tabular-nums;
+      }
+
+
+      .gomoku-review-moment-v2 {
+        padding:
+          13px 14px;
+
+        border:
+          1px solid
+          var(--line, rgba(0,0,0,.12));
+
+        border-radius:
+          14px;
+
+        background:
+          var(
+            --surface,
+            rgba(255,255,255,.45)
+          );
+
+        line-height:
+          1.45;
+      }
+
+
+      .gomoku-review-moment-v2 small {
+        display:
+          block;
+
+        margin-bottom:
+          4px;
+
+        color:
+          var(
+            --muted,
+            #777
+          );
+
+        font-size:
+          11px;
+      }
+
+
+      .gomoku-review-moment-v2 strong {
+        display:
+          block;
+      }
+
+
+      .gomoku-review-moves-v2 {
+        display:
+          grid;
+
+        gap:
+          4px;
+
+        max-height:
+          360px;
+
+        overflow:
+          auto;
+
+        padding:
+          2px;
+      }
+
+
+      .gomoku-review-move-v2 {
+        display:
+          grid;
+
+        grid-template-columns:
+          34px
+          1fr
+          auto;
+
+        align-items:
+          center;
+
+        gap:
+          7px;
+
+        min-height:
+          38px;
+
+        padding:
+          0 9px;
+
+        border:
+          1px solid
+          transparent;
+
+        border-radius:
+          9px;
+
+        background:
+          transparent;
+
+        color:
+          var(
+            --text,
+            #171717
+          );
+
+        cursor:
+          pointer;
+
+        text-align:
+          left;
+      }
+
+
+      .gomoku-review-move-v2:hover {
+        background:
+          var(
+            --line,
+            rgba(0,0,0,.08)
+          );
+      }
+
+
+      .gomoku-review-move-v2.selected {
+        border-color:
+          rgba(184,111,82,.32);
+
+        background:
+          rgba(184,111,82,.10);
+      }
+
+
+      .gomoku-review-move-number-v2 {
+        color:
+          var(
+            --muted,
+            #777
+          );
+
+        font-variant-numeric:
+          tabular-nums;
+      }
+
+
+      .gomoku-review-move-player-v2 {
+        font-weight:
+          700;
+      }
+
+
+      .gomoku-review-move-coordinate-v2 {
+        color:
+          var(
+            --muted,
+            #777
+          );
+
+        font-family:
+          ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          monospace;
+
+        font-size:
+          11px;
+      }
+
+
+      .gomoku-review-controls-v2 {
+        display:
+          grid;
+
+        grid-template-columns:
+          repeat(5, 1fr);
+
+        gap:
+          6px;
+
+        margin-top:
+          10px;
+      }
+
+
+      .gomoku-review-control-v2 {
+        min-height:
+          42px;
+
+        border:
+          1px solid
+          var(--line, rgba(0,0,0,.12));
+
+        border-radius:
+          11px;
+
+        background:
+          var(
+            --surface,
+            rgba(255,255,255,.45)
+          );
+
+        color:
+          var(
+            --text,
+            #171717
+          );
+
+        cursor:
+          pointer;
+
+        font-weight:
+          700;
+      }
+
+
+      .gomoku-review-control-v2:hover {
+        background:
+          var(
+            --line,
+            rgba(0,0,0,.08)
+          );
+      }
+
+
+      .gomoku-review-slider-v2 {
+        width:
+          100%;
+
+        margin:
+          10px 0 0;
+
+        accent-color:
+          #b86f52;
+      }
+
+
+      .gomoku-review-result-v2 {
+        margin-top:
+          8px;
+
+        padding:
+          12px 14px;
+
+        border:
+          1px solid
+          var(--line, rgba(0,0,0,.12));
+
+        border-radius:
+          14px;
+
+        background:
+          var(
+            --surface,
+            rgba(255,255,255,.45)
+          );
+      }
+
+
+      .gomoku-review-result-v2 strong {
+        display:
+          block;
+
+        margin-bottom:
+          2px;
+      }
+
+
+      .gomoku-review-result-v2 span {
+        color:
+          var(
+            --muted,
+            #777
+          );
+
+        font-size:
+          12px;
+      }
+
+
+      .gomoku-review-button-v2 {
+        width:
+          100%;
+
+        min-height:
+          44px;
+
+        margin-top:
+          8px;
+
+        border:
+          1px solid
+          var(--line, rgba(0,0,0,.12));
+
+        border-radius:
+          12px;
+
+        background:
+          var(
+            --surface,
+            rgba(255,255,255,.45)
+          );
+
+        color:
+          var(
+            --text,
+            #171717
+          );
+
+        cursor:
+          pointer;
+
+        font-weight:
+          700;
+      }
+
+
+      .gomoku-review-button-v2:hover {
+        background:
+          var(
+            --line,
+            rgba(0,0,0,.08)
+          );
+      }
+
+
+      .gomoku-review-record-button-v2 {
+        margin-top:
+          8px;
+
+        min-height:
+          34px;
+
+        padding:
+          0 12px;
+
+        border:
+          1px solid
+          var(--line, rgba(0,0,0,.12));
+
+        border-radius:
+          9px;
+
+        background:
+          transparent;
+
+        color:
+          var(
+            --text,
+            #171717
+          );
+
+        cursor:
+          pointer;
+
+        font-size:
+          12px;
+
+        font-weight:
+          700;
+      }
+
+
+      .gomoku-review-record-button-v2:hover {
+        background:
+          var(
+            --line,
+            rgba(0,0,0,.08)
+          );
+      }
+
+
+      @media (
+        max-width: 760px
+      ) {
+
+        .gomoku-review-overlay-v2 {
+          padding:
+            8px;
+        }
+
+
+        .gomoku-review-panel-v2 {
+          max-height:
+            calc(
+              100dvh - 16px
+            );
+
+          border-radius:
+            19px;
+        }
+
+
+        .gomoku-review-body-v2 {
+          padding:
+            10px;
+        }
+
+
+        .gomoku-review-layout-v2 {
+          grid-template-columns:
+            1fr;
+        }
+
+
+        .gomoku-review-controls-v2 {
+          grid-template-columns:
+            repeat(4, 1fr);
+        }
+
+
+        .gomoku-review-control-v2.play {
+          grid-column:
+            span 4;
+        }
+
+
+        .gomoku-review-moves-v2 {
+          max-height:
+            260px;
+        }
+
+      }
+    `;
+
+
+    document.head.appendChild(
+      style
+    );
+
+  }
+
+
+  /*
+   * =========================================================
+   * UI
+   * =========================================================
+   */
+
+  function ensureUI() {
+
+    if (
+      document.querySelector(
+        "#gomokuReviewOverlayV2"
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    injectStyles();
+
+
+    const overlay =
+      document.createElement(
+        "div"
+      );
+
+
+    overlay.id =
+      "gomokuReviewOverlayV2";
+
+
+    overlay.className =
+      "gomoku-review-overlay-v2";
+
+
+    overlay.innerHTML = `
+      <section
+        class="gomoku-review-panel-v2"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="gomokuReviewTitleV2"
+      >
+
+        <header
+          class="gomoku-review-header-v2"
+        >
+
+          <div>
+
+            <div
+              class="gomoku-review-kicker-v2"
+            >
+              GAME REVIEW
+            </div>
+
+            <h2
+              class="gomoku-review-title-v2"
+              id="gomokuReviewTitleV2"
+            >
+              這局回顧
+            </h2>
+
+          </div>
+
+          <button
+            type="button"
+            class="gomoku-review-close-v2"
+            id="gomokuReviewCloseV2"
+            aria-label="關閉"
+          >
+            ×
+          </button>
+
+        </header>
+
+
+        <div
+          class="gomoku-review-body-v2"
+        >
+
+          <div
+            class="gomoku-review-layout-v2"
+          >
+
+            <div>
+
+              <div
+                class="gomoku-review-board-card-v2"
+              >
+
+                <div
+                  class="gomoku-review-board-v2"
+                  id="gomokuReviewBoardV2"
+                ></div>
+
+              </div>
+
+
+              <div
+                class="gomoku-review-controls-v2"
+              >
+
+                <button
+                  type="button"
+                  class="gomoku-review-control-v2"
+                  data-review-v2="first"
+                >
+                  最前
+                </button>
+
+                <button
+                  type="button"
+                  class="gomoku-review-control-v2"
+                  data-review-v2="prev"
+                >
+                  上一步
+                </button>
+
+                <button
+                  type="button"
+                  class="gomoku-review-control-v2 play"
+                  data-review-v2="play"
+                >
+                  播放
+                </button>
+
+                <button
+                  type="button"
+                  class="gomoku-review-control-v2"
+                  data-review-v2="next"
+                >
+                  下一步
+                </button>
+
+                <button
+                  type="button"
+                  class="gomoku-review-control-v2"
+                  data-review-v2="last"
+                >
+                  最後
+                </button>
+
+              </div>
+
+
+              <input
+                id="gomokuReviewSliderV2"
+                class="gomoku-review-slider-v2"
+                type="range"
+                min="0"
+                max="0"
+                value="0"
+                step="1"
+              >
+
+            </div>
+
+
+            <aside
+              class="gomoku-review-side-v2"
+            >
+
+              <div
+                class="gomoku-review-info-v2"
+              >
+
+                <div
+                  class="gomoku-review-stat-v2"
+                >
+
+                  <span>
+                    總手數
+                  </span>
+
+                  <strong
+                    id="gomokuReviewTotalV2"
+                  >
+                    0
+                  </strong>
+
+                </div>
+
+
+                <div
+                  class="gomoku-review-stat-v2"
+                >
+
+                  <span>
+                    目前
+                  </span>
+
+                  <strong
+                    id="gomokuReviewCurrentV2"
+                  >
+                    0
+                  </strong>
+
+                </div>
+
+              </div>
+
+
+              <div
+                class="gomoku-review-moment-v2"
+              >
+
+                <small>
+                  局面
+                </small>
+
+                <strong
+                  id="gomokuReviewMomentV2"
+                >
+                  開局
+                </strong>
+
+              </div>
+
+
+              <div
+                class="gomoku-review-result-v2"
+                id="gomokuReviewResultV2"
+              ></div>
+
+
+              <div
+                class="gomoku-review-moves-v2"
+                id="gomokuReviewMovesV2"
+              ></div>
+
+            </aside>
+
+          </div>
+
+        </div>
+
+      </section>
+    `;
+
+
+    document.body.appendChild(
+      overlay
+    );
+
+
+    overlay.addEventListener(
+      "click",
+      event => {
+
+        if (
+          event.target ===
+          overlay
+        ) {
+
+          close();
+
+        }
+
+      }
+    );
+
+
+    document
+      .querySelector(
+        "#gomokuReviewCloseV2"
+      )
+      .addEventListener(
+        "click",
+        close
+      );
+
+
+    overlay
+      .querySelectorAll(
+        "[data-review-v2]"
+      )
+      .forEach(
+        button => {
+
+          button.addEventListener(
+            "click",
+            () => {
+
+              handleAction(
+                button.dataset.reviewV2
+              );
+
+            }
+          );
+
+        }
+      );
+
+
+    document
+      .querySelector(
+        "#gomokuReviewSliderV2"
+      )
+      .addEventListener(
+        "input",
+        event => {
+
+          stop();
+
+          setMove(
+            Number(
+              event.target.value
+            )
+          );
+
+        }
+      );
+
+  }
+
+
+  /*
+   * =========================================================
+   * RENDER BOARD
+   * =========================================================
+   */
+
+  function renderBoard() {
+
+    const boardElement =
+      document.querySelector(
+        "#gomokuReviewBoardV2"
+      );
+
+
+    const game =
+      state.activeGame;
+
+
+    if (
+      !boardElement ||
+      !game
+    ) {
+
+      return;
+
+    }
+
+
+    const board =
+      boardAtMove(
+        game.moves,
+        state.currentMove
+      );
+
+
+    boardElement.innerHTML =
+      "";
+
+
+    const winningSet =
+      new Set(
+        (
+          game.winningLine ||
+          []
+        )
+        .map(
+          point =>
+            `${point[0]},${point[1]}`
+        )
+      );
+
+
+    for (
+      let row = 0;
+      row < REVIEW.SIZE;
+      row += 1
+    ) {
+
+      for (
+        let col = 0;
+        col < REVIEW.SIZE;
+        col += 1
+      ) {
+
+        const cell =
+          document.createElement(
+            "div"
+          );
+
+
+        cell.className =
+          "gomoku-review-cell-v2";
+
+
+        const player =
+          board[row][col];
+
+
+        if (
+          player !==
+          REVIEW.EMPTY
+        ) {
+
+          const stone =
+            document.createElement(
+              "div"
+            );
+
+
+          stone.className =
+            "gomoku-review-stone-v2 " +
+            (
+              player ===
+              REVIEW.BLACK
+                ? "black"
+                : "white"
+            );
+
+
+          const moveIndex =
+            findMoveIndex(
+              game.moves,
+              row,
+              col
+            );
+
+
+          if (
+            moveIndex ===
+            state.currentMove - 1
+          ) {
+
+            stone.classList.add(
+              "current"
+            );
+
+          }
+
+
+          if (
+            winningSet.has(
+              `${row},${col}`
+            )
+          ) {
+
+            stone.classList.add(
+              "winning"
+            );
+
+          }
+
+
+          cell.appendChild(
+            stone
+          );
+
+        }
+
+
+        boardElement.appendChild(
+          cell
+        );
+
+      }
+
+    }
+
+
+    updateMeta();
+
+    renderMoves();
+
+  }
+
+
+  function findMoveIndex(
+    moves,
+    row,
+    col
+  ) {
+
+    for (
+      let i = 0;
+      i < moves.length;
+      i += 1
+    ) {
+
+      if (
+        moves[i].row ===
+          row &&
+        moves[i].col ===
+          col
+      ) {
+
+        return i;
+
+      }
+
+    }
+
+
+    return -1;
+
+  }
+
+
+  /*
+   * =========================================================
+   * META
+   * =========================================================
+   */
+
+  function updateMeta() {
+
+    const game =
+      state.activeGame;
+
+
+    if (!game) {
+      return;
+    }
+
+
+    const total =
+      document.querySelector(
+        "#gomokuReviewTotalV2"
+      );
+
+
+    const current =
+      document.querySelector(
+        "#gomokuReviewCurrentV2"
+      );
+
+
+    const moment =
+      document.querySelector(
+        "#gomokuReviewMomentV2"
+      );
+
+
+    const result =
+      document.querySelector(
+        "#gomokuReviewResultV2"
+      );
+
+
+    const slider =
+      document.querySelector(
+        "#gomokuReviewSliderV2"
+      );
+
+
+    if (total) {
+
+      total.textContent =
+        String(
+          game.moves.length
+        );
+
+    }
+
+
+    if (current) {
+
+      current.textContent =
+        String(
+          state.currentMove
+        );
+
+    }
+
+
+    if (slider) {
+
+      slider.max =
+        String(
+          game.moves.length
+        );
+
+      slider.value =
+        String(
+          state.currentMove
+        );
+
+    }
+
+
+    if (moment) {
+
+      if (
+        state.currentMove ===
+        0
+      ) {
+
+        moment.textContent =
+          "開局，棋盤還沒有落子。";
+
+      } else {
+
+        const move =
+          game.moves[
+            state.currentMove - 1
+          ];
+
+
+        if (move) {
+
+          const player =
+            move.player ===
+            REVIEW.BLACK
+              ? "黑棋"
+              : "白棋";
+
+
+          const board =
+            boardAtMove(
+              game.moves,
+              state.currentMove
+            );
+
+
+          const line =
+            getWinningLine(
+              board,
+              move.row,
+              move.col,
+              move.player
+            );
+
+
+          if (
+            line.length >=
+            REVIEW.WIN
+          ) {
+
+            moment.textContent =
+              `第 ${state.currentMove} 手，${player} 在 ${coordinate(
+                move.row,
+                move.col
+              )} 完成五連，這就是勝負手。`;
+
+          } else {
+
+            moment.textContent =
+              `第 ${state.currentMove} 手，${player} 落在 ${coordinate(
+                move.row,
+                move.col
+              )}。`;
+
+          }
+
+        }
+
+      }
+
+    }
+
+
+    if (result) {
+
+      result.innerHTML =
+        "";
+
+
+      if (
+        game.winner ===
+        REVIEW.BLACK
+      ) {
+
+        result.innerHTML = `
+          <strong>
+            黑棋勝利
+          </strong>
+
+          <span>
+            第 ${findWinningMoveNumber(game)} 手完成五連
+          </span>
+        `;
+
+      } else if (
+        game.winner ===
+        REVIEW.WHITE
+      ) {
+
+        result.innerHTML = `
+          <strong>
+            白棋勝利
+          </strong>
+
+          <span>
+            第 ${findWinningMoveNumber(game)} 手完成五連
+          </span>
+        `;
+
+      } else if (
+        game.draw
+      ) {
+
+        result.innerHTML = `
+          <strong>
+            平局
+          </strong>
+
+          <span>
+            棋盤已沒有空位
+          </span>
+        `;
+
+      } else {
+
+        result.innerHTML = `
+          <strong>
+            棋局資料
+          </strong>
+
+          <span>
+            尚未判定勝負
+          </span>
+        `;
+
+      }
+
+    }
+
+  }
+
+
+  function findWinningMoveNumber(
+    game
+  ) {
+
+    if (
+      !game.winner
+    ) {
+
+      return "-";
+
+    }
+
+
+    for (
+      let i = 0;
+      i < game.moves.length;
+      i += 1
+    ) {
+
+      const board =
+        boardAtMove(
+          game.moves,
+          i + 1
+        );
+
+
+      const move =
+        game.moves[i];
+
+
+      const line =
+        getWinningLine(
+          board,
+          move.row,
+          move.col,
+          move.player
+        );
+
+
+      if (
+        line.length >=
+        REVIEW.WIN
+      ) {
+
+        return i + 1;
+
+      }
+
+    }
+
+
+    return game.moves.length;
+
+  }
+
+
+  /*
+   * =========================================================
+   * MOVE LIST
+   * =========================================================
+   */
+
+  function renderMoves() {
+
+    const list =
+      document.querySelector(
+        "#gomokuReviewMovesV2"
+      );
+
+
+    const game =
+      state.activeGame;
+
+
+    if (
+      !list ||
+      !game
+    ) {
+
+      return;
+
+    }
+
+
+    list.innerHTML =
+      "";
+
+
+    game.moves.forEach(
+      (
+        move,
+        index
+      ) => {
+
+        const button =
+          document.createElement(
+            "button"
+          );
+
+
+        button.type =
+          "button";
+
+
+        button.className =
+          "gomoku-review-move-v2";
+
+
+        if (
+          index + 1 ===
+          state.currentMove
+        ) {
+
+          button.classList.add(
+            "selected"
+          );
+
+        }
+
+
+        const player =
+          move.player ===
+          REVIEW.BLACK
+            ? "黑棋"
+            : "白棋";
+
+
+        button.innerHTML = `
+          <span
+            class="gomoku-review-move-number-v2"
+          >
+            ${index + 1}
+          </span>
+
+          <strong
+            class="gomoku-review-move-player-v2"
+          >
+            ${player}
+          </strong>
+
+          <span
+            class="gomoku-review-move-coordinate-v2"
+          >
+            ${coordinate(
+              move.row,
+              move.col
+            )}
+          </span>
+        `;
+
+
+        button.addEventListener(
+          "click",
+          () => {
+
+            stop();
+
+            setMove(
+              index + 1
+            );
+
+          }
+        );
+
+
+        list.appendChild(
+          button
+        );
+
+      }
+    );
+
+
+    list
+      .querySelector(
+        ".selected"
+      )
+      ?.scrollIntoView({
+        block:
+          "nearest"
+      });
+
+  }
+
+
+  /*
+   * =========================================================
+   * CONTROLS
+   * =========================================================
+   */
+
+  function handleAction(
+    action
+  ) {
+
+    const game =
+      state.activeGame;
+
+
+    if (!game) {
+      return;
+    }
+
+
+    switch (action) {
+
+      case "first":
+
+        stop();
+
+        setMove(
+          0
+        );
+
+        break;
+
+
+      case "prev":
+
+        stop();
+
+        setMove(
+          Math.max(
+            0,
+            state.currentMove - 1
+          )
+        );
+
+        break;
+
+
+      case "play":
+
+        togglePlayback();
+
+        break;
+
+
+      case "next":
+
+        stop();
+
+        setMove(
+          Math.min(
+            game.moves.length,
+            state.currentMove + 1
+          )
+        );
+
+        break;
+
+
+      case "last":
+
+        stop();
+
+        setMove(
+          game.moves.length
+        );
+
+        break;
+
+    }
+
+  }
+
+
+  function setMove(
+    count
+  ) {
+
+    const game =
+      state.activeGame;
+
+
+    if (!game) {
+      return;
+    }
+
+
+    state.currentMove =
+      Math.max(
+        0,
+        Math.min(
+          game.moves.length,
+          Number(count) || 0
+        )
+      );
+
+
+    renderBoard();
+
+  }
+
+
+  /*
+   * =========================================================
+   * PLAYBACK
+   * =========================================================
+   */
+
+  function togglePlayback() {
+
+    if (
+      state.playing
+    ) {
+
+      stop();
+
+      return;
+
+    }
+
+
+    const game =
+      state.activeGame;
+
+
+    if (!game) {
+      return;
+    }
+
+
+    if (
+      state.currentMove >=
+      game.moves.length
+    ) {
+
+      setMove(
+        0
+      );
+
+    }
+
+
+    state.playing =
+      true;
+
+
+    updatePlayButton();
+
+
+    state.timer =
+      window.setInterval(
+        () => {
+
+          if (
+            !state.activeGame
+          ) {
+
+            stop();
+
+            return;
+
+          }
+
+
+          if (
+            state.currentMove >=
+            state.activeGame.moves.length
+          ) {
+
+            stop();
+
+            return;
+
+          }
+
+
+          setMove(
+            state.currentMove + 1
+          );
+
+        },
+        REVIEW.PLAY_INTERVAL
+      );
+
+  }
+
+
+  function stop() {
+
+    state.playing =
+      false;
+
+
+    clearInterval(
+      state.timer
+    );
+
+
+    state.timer =
+      null;
+
+
+    updatePlayButton();
+
+  }
+
+
+  function updatePlayButton() {
+
+    const button =
+      document.querySelector(
+        '[data-review-v2="play"]'
+      );
+
+
+    if (!button) {
+      return;
+    }
+
+
+    button.textContent =
+      state.playing
+        ? "暫停"
+        : "播放";
+
+  }
+
+
+  /*
+   * =========================================================
+   * OPEN / CLOSE
+   * =========================================================
+   */
+
+  function open(
+    game
+  ) {
+
+    if (!game) {
+      return;
+    }
+
+
+    ensureUI();
+
+
+    state.activeGame =
+      game;
+
+
+    state.currentMove =
+      game.moves.length;
+
+
+    state.playing =
+      false;
+
+
+    clearInterval(
+      state.timer
+    );
+
+
+    state.timer =
+      null;
+
+
+    const overlay =
+      document.querySelector(
+        "#gomokuReviewOverlayV2"
+      );
+
+
+    if (!overlay) {
+      return;
+    }
+
+
+    overlay.classList.add(
+      "open"
+    );
+
+
+    document.body.style.overflow =
+      "hidden";
+
+
+    renderBoard();
+
+    updatePlayButton();
+
+  }
+
+
+  function close() {
+
+    stop();
+
+
+    const overlay =
+      document.querySelector(
+        "#gomokuReviewOverlayV2"
+      );
+
+
+    overlay?.classList.remove(
+      "open"
+    );
+
+
+    document.body.style.overflow =
+      "";
+
+  }
+
+
+  /*
+   * =========================================================
+   * RESULT BUTTON
+   * =========================================================
+   */
+
+  function ensureResultButton() {
+
+    const resultScreen =
+      document.querySelector(
+        "#resultScreen"
+      );
+
+
+    const actions =
+      resultScreen?.querySelector(
+        ".result-actions"
+      );
+
+
+    if (
+      !actions
+    ) {
+
+      return;
+
+    }
+
+
+    let button =
+      document.querySelector(
+        "#gomokuOpenReviewV2"
+      );
+
+
+    if (button) {
+      return;
+    }
+
+
+    button =
+      document.createElement(
+        "button"
+      );
+
+
+    button.type =
+      "button";
+
+
+    button.id =
+      "gomokuOpenReviewV2";
+
+
+    button.className =
+      "secondary-button full-button";
+
+
+    button.textContent =
+      "這局回顧";
+
+
+    button.addEventListener(
+      "click",
+      () => {
+
+        const game =
+          getLatestGame();
+
+
+        if (!game) {
+
+          return;
+
+        }
+
+
+        open(
+          game
+        );
+
+      }
+    );
+
+
+    actions.appendChild(
+      button
+    );
+
+  }
+
+
+  function updateResultButton() {
+
+    ensureResultButton();
+
+  }
+
+
+  /*
+   * =========================================================
+   * RECORDS INTEGRATION
+   * =========================================================
+   */
+
+  function refreshRecordsReviewButtons() {
+
+    const recordList =
+      document.querySelector(
+        "#recordList"
+      );
+
+
+    if (!recordList) {
+      return;
+    }
+
+
+    const items =
+      Array.from(
+        recordList.children
+      );
+
+
+    if (!items.length) {
+      return;
+    }
+
+
+    /*
+     * Existing records are rendered by the original app.
+     *
+     * We attach review buttons by record order.
+     * state.games is also newest-first.
+     */
+
+    items.forEach(
+      (
+        item,
+        index
+      ) => {
+
+        if (
+          item.querySelector(
+            ".gomoku-review-record-button-v2"
+          )
+        ) {
+
+          return;
+
+        }
+
+
+        const game =
+          state.games[index];
+
+
+        if (!game) {
+          return;
+        }
+
+
+        const button =
+          document.createElement(
+            "button"
+          );
+
+
+        button.type =
+          "button";
+
+
+        button.className =
+          "gomoku-review-record-button-v2";
+
+
+        button.textContent =
+          "回顧這局";
+
+
+        button.addEventListener(
+          "click",
+          event => {
+
+            event.preventDefault();
+
+            event.stopPropagation();
+
+            open(
+              game
+            );
+
+          }
+        );
+
+
+        item.appendChild(
+          button
+        );
+
+      }
+    );
+
+  }
+
+
+  /*
+   * =========================================================
+   * GETTERS
+   * =========================================================
+   */
+
+  function getLatestGame() {
+
+    return (
+      state.games[0] ||
+      null
+    );
+
+  }
+
+
+  /*
+   * =========================================================
+   * CLEAR RECORDS SYNC
+   * =========================================================
+   */
+
+  function installClearRecordsHook() {
+
+    const button =
+      document.querySelector(
+        "#clearRecordsButton"
+      );
+
+
+    if (!button) {
+      return;
+    }
+
+
+    button.addEventListener(
+      "click",
+      () => {
+
+        window.setTimeout(
+          () => {
+
+            /*
+             * The original app resets its statistics.
+             * Keep review storage consistent with it.
+             */
+
+            state.games =
+              [];
+
+            saveGames();
+
+            refreshRecordsReviewButtons();
+
+          },
+          0
+        );
+
+      }
+    );
+
+  }
+
+
+  /*
+   * =========================================================
+   * KEYBOARD
+   * =========================================================
+   */
+
+  function installKeyboard() {
+
+    document.addEventListener(
+      "keydown",
+      event => {
+
+        const overlay =
+          document.querySelector(
+            "#gomokuReviewOverlayV2"
+          );
+
+
+        if (
+          !overlay ||
+          !overlay.classList.contains(
+            "open"
+          )
+        ) {
+
+          return;
+
+        }
+
+
+        if (
+          event.key ===
+          "Escape"
+        ) {
+
+          event.preventDefault();
+
+          close();
+
+          return;
+
+        }
+
+
+        if (
+          event.key ===
+          "ArrowLeft"
+        ) {
+
+          event.preventDefault();
+
+          stop();
+
+          setMove(
+            state.currentMove - 1
+          );
+
+          return;
+
+        }
+
+
+        if (
+          event.key ===
+          "ArrowRight"
+        ) {
+
+          event.preventDefault();
+
+          stop();
+
+          setMove(
+            state.currentMove + 1
+          );
+
+          return;
+
+        }
+
+
+        if (
+          event.key ===
+          " "
+        ) {
+
+          event.preventDefault();
+
+          togglePlayback();
+
+        }
+
+      }
+    );
+
+  }
+
+
+  /*
+   * =========================================================
+   * PUBLIC API
+   * =========================================================
+   */
+
+  window.GomokuReviewV2 = {
+
+    open,
+
+    close,
+
+    getGames() {
+      return state.games.slice();
+    },
+
+    getLatest() {
+      return getLatestGame();
+    }
+
+  };
+
+
+  /*
+   * =========================================================
+   * BOOT
+   * =========================================================
+   */
+
+  function init() {
+
+    state.games =
+      loadGames();
+
+
+    installStorageHook();
+
+    installResultObserver();
+
+    installKeyboard();
+
+    installClearRecordsHook();
+
+
+    /*
+     * The original app creates some UI during init.
+     * Give it one frame before attaching our controls.
+     */
+
+    window.requestAnimationFrame(
+      () => {
+
+        ensureUI();
+
+        ensureResultButton();
+
+        refreshRecordsReviewButtons();
+
+      }
+    );
+
+
+    /*
+     * Records screen can be rendered later by the
+     * original app, so keep checking only when needed.
+     */
+
+    const recordsScreen =
+      document.querySelector(
+        "#recordsScreen"
+      );
+
+
+    if (recordsScreen) {
+
+      const observer =
+        new MutationObserver(
+          () => {
+
+            if (
+              recordsScreen.classList.contains(
+                "active"
+              )
+            ) {
+
+              refreshRecordsReviewButtons();
+
+            }
+
+          }
+        );
+
+
+      observer.observe(
+        recordsScreen,
+        {
+          attributes:
+            true,
+
+          attributeFilter:
+            [
+              "class"
+            ]
+        }
+      );
+
+    }
+
+
+    /*
+     * Also retry the result button once after boot.
+     */
+
+    window.setTimeout(
+      () => {
+
+        ensureResultButton();
+
+      },
+      300
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+    "loading"
+  ) {
+
+    document.addEventListener(
+      "DOMContentLoaded",
+      init,
+      {
+        once:
+          true
+      }
+    );
+
+  } else {
+
+    init();
+
+  }
+
+})();
