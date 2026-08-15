@@ -221,8 +221,6 @@
         </h2>
 
 
-        <!-- MODE -->
-
         <div class="settings-group">
 
           <h3>
@@ -256,8 +254,6 @@
 
         </div>
 
-
-        <!-- DIFFICULTY -->
 
         <div
           class="settings-group"
@@ -325,8 +321,6 @@
 
         </div>
 
-
-        <!-- AI CHARACTER -->
 
         <div
           class="settings-group"
@@ -415,8 +409,6 @@
         </div>
 
 
-        <!-- SIDE -->
-
         <div class="settings-group">
 
           <h3>
@@ -495,8 +487,6 @@
     >
 
       <div class="game-layout">
-
-        <!-- GAME STATUS -->
 
         <div class="game-status">
 
@@ -603,7 +593,9 @@
         </div>
 
 
-        <!-- GAME ACTIONS -->
+        <!-- =================================================
+             GAME ACTIONS
+             ================================================= -->
 
         <div class="game-actions">
 
@@ -611,6 +603,7 @@
             class="game-action"
             id="undoButton"
             type="button"
+            aria-label="悔棋"
           >
 
             <span aria-hidden="true">
@@ -628,6 +621,7 @@
             class="game-action"
             id="restartButton"
             type="button"
+            aria-label="重新開始"
           >
 
             <span aria-hidden="true">
@@ -641,10 +635,37 @@
           </button>
 
 
+          <!-- ===============================================
+               MUSIC BUTTON
+               =============================================== -->
+
+          <button
+            class="game-action"
+            id="musicButton"
+            type="button"
+            aria-label="關閉背景音樂"
+            aria-pressed="true"
+          >
+
+            <span
+              aria-hidden="true"
+              id="musicButtonIcon"
+            >
+              ♫
+            </span>
+
+            <span id="musicButtonLabel">
+              音樂
+            </span>
+
+          </button>
+
+
           <button
             class="game-action"
             id="gameMenuButton"
             type="button"
+            aria-label="選單"
           >
 
             <span aria-hidden="true">
@@ -1031,22 +1052,6 @@
 
 <!-- =======================================================
      SCRIPTS
-     =======================================================
-
-     i18n.js
-       ↓
-     audio.js
-       ↓
-     app.js
-
-     audio.js is a module and handles:
-     - UI SFX
-     - native audio fallback
-     - Wabi-Sabi BGM
-     - iOS audio unlock
-     - music toggle
-     - music resume
-     - button interaction
      ======================================================= -->
 
 <script
