@@ -1,6 +1,5 @@
 "use strict";
 
-
 /*
  * =========================================================
  * GOMOKU AUDIO SYSTEM
@@ -12,26 +11,30 @@
  * - Native Web Audio fallback
  * - Wabi-Sabi background music
  * - Independent music toggle
+ * - In-game music button
+ * - Settings music toggle
  * - Music pause / resume
+ * - Music position preservation
  * - iOS / iPadOS audio unlock
  * - Sound setting integration
  * - Button micro-interactions
  *
- * No dependency on app.js.
+ * Music and SFX are independent:
+ *
+ * sound = master switch for all audio
+ * music = background music only
+ *
  * =========================================================
  */
-
 
 import {
   CONFIG,
   SFX
 } from "./config.js";
 
-
 import {
   state
 } from "./state.js";
-
 
 import {
   saveSettings
@@ -47,18 +50,14 @@ import {
 const BGM_PATH =
   "./music/WabiSabiLoops_1loop_01.mp3";
 
-
 const BGM_VOLUME =
   0.24;
-
 
 let bgm =
   null;
 
-
 let bgmStarted =
   false;
-
 
 let bgmErrorShown =
   false;
@@ -73,10 +72,8 @@ let bgmErrorShown =
 let audioUnlocked =
   false;
 
-
 let nativeAudioContext =
   null;
-
 
 let nativeMasterGain =
   null;
@@ -91,10 +88,8 @@ let nativeMasterGain =
 let uiSFX =
   null;
 
-
 let sfxModulePromise =
   null;
-
 
 let sfxLoading =
   false;
@@ -119,15 +114,154 @@ const lastSfxAt =
 function isMusicEnabled() {
 
   /*
-   * Compatibility with older settings.
+   * Compatibility with older save data.
    *
-   * If music does not exist yet,
-   * treat it as enabled.
+   * Older versions may not have
+   * state.settings.music.
+   *
+   * In that case music is enabled.
    */
 
   return (
     state.settings.music !== false
   );
+
+}
+
+
+/*
+ * =========================================================
+ * UPDATE MUSIC BUTTON UI
+ * =========================================================
+ */
+
+function updateMusicButton() {
+
+  const button =
+    document.getElementById(
+      "musicButton"
+    );
+
+
+  const icon =
+    document.getElementById(
+      "musicButtonIcon"
+    );
+
+
+  const label =
+    document.getElementById(
+      "musicButtonLabel"
+    );
+
+
+  if (!button) {
+
+    return;
+
+  }
+
+
+  const enabled =
+    isMusicEnabled();
+
+
+  /*
+   * Accessibility state.
+   */
+
+  button.setAttribute(
+    "aria-pressed",
+    String(enabled)
+  );
+
+
+  button.setAttribute(
+    "aria-label",
+    enabled
+      ? "關閉背景音樂"
+      : "開啟背景音樂"
+  );
+
+
+  /*
+   * Visual state.
+   */
+
+  button.classList.toggle(
+    "music-off",
+    !enabled
+  );
+
+
+  /*
+   * Icon.
+   */
+
+  if (icon) {
+
+    icon.textContent =
+      enabled
+        ? "♫"
+        : "♫̸";
+
+  }
+
+
+  /*
+   * Label.
+   */
+
+  if (label) {
+
+    label.textContent =
+      enabled
+        ? "音樂"
+        : "音樂關閉";
+
+  }
+
+}
+
+
+/*
+ * =========================================================
+ * UPDATE SETTINGS MUSIC TOGGLE
+ * =========================================================
+ */
+
+function updateMusicSettingToggle() {
+
+  const toggle =
+    document.getElementById(
+      "musicToggle"
+    );
+
+
+  if (!toggle) {
+
+    return;
+
+  }
+
+
+  toggle.checked =
+    isMusicEnabled();
+
+}
+
+
+/*
+ * =========================================================
+ * SYNC ALL MUSIC UI
+ * =========================================================
+ */
+
+function syncMusicUI() {
+
+  updateMusicButton();
+
+  updateMusicSettingToggle();
 
 }
 
@@ -244,15 +378,18 @@ function createBGM() {
  *
  * IMPORTANT:
  *
- * Do not reset currentTime.
+ * currentTime is NEVER reset here.
  *
  * Therefore:
  *
+ * play at 00:37
+ *     ↓
  * pause
- *   ↓
+ *     ↓
  * play
+ *     ↓
+ * resume around 00:37
  *
- * continues from the previous position.
  * =========================================================
  */
 
@@ -304,11 +441,7 @@ function startBGM() {
 
 
   /*
-   * DO NOT set:
-   *
-   * music.currentTime = 0;
-   *
-   * We want resume behavior.
+   * DO NOT reset currentTime.
    */
 
   const promise =
@@ -349,9 +482,12 @@ function startBGM() {
  * PAUSE BGM
  * =========================================================
  *
- * This is intentionally NOT a real "stop".
+ * This is intentionally NOT:
  *
- * currentTime is preserved.
+ * music.currentTime = 0
+ *
+ * The current position is preserved.
+ *
  * =========================================================
  */
 
@@ -658,7 +794,10 @@ export function unlockAudio() {
 
 
   /*
-   * Start music immediately if enabled.
+   * Start BGM only when both:
+   *
+   * sound = ON
+   * music = ON
    */
 
   if (
@@ -672,7 +811,7 @@ export function unlockAudio() {
 
 
   /*
-   * SFX loading can happen asynchronously.
+   * Load SFX asynchronously.
    */
 
   if (
@@ -729,14 +868,11 @@ function nativeCue(
   let duration =
     0.055;
 
-
   let f1 =
     240;
 
-
   let f2 =
     280;
-
 
   let type =
     "sine";
@@ -994,12 +1130,15 @@ export async function playSFX(
 
 
   /*
-   * Keep BGM independent from SFX,
-   * but unlock both on interaction.
+   * Unlock audio on interaction.
    */
 
   unlockNativeAudio();
 
+
+  /*
+   * BGM is independent from SFX.
+   */
 
   if (
     isMusicEnabled()
@@ -1087,8 +1226,11 @@ export function setSoundEnabled(
   ) {
 
     /*
-     * Turning sound off stops both SFX
-     * and BGM.
+     * Sound OFF:
+     *
+     * - pause BGM
+     * - stop active SFX
+     * - preserve music position
      */
 
     pauseBGM();
@@ -1107,13 +1249,26 @@ export function setSoundEnabled(
     }
 
 
+    syncMusicUI();
+
     return;
 
   }
 
 
+  /*
+   * Sound ON does not automatically
+   * force music ON.
+   *
+   * The previous music preference
+   * remains untouched.
+   */
+
   audioUnlocked =
     false;
+
+
+  syncMusicUI();
 
 }
 
@@ -1123,13 +1278,14 @@ export function setSoundEnabled(
  * MUSIC SETTING
  * =========================================================
  *
- * This is independent from sound.
+ * Music is independent from SFX.
  *
- * Music OFF:
+ * OFF:
  *   pause only
  *
- * Music ON:
- *   resume from currentTime
+ * ON:
+ *   resume current position
+ *
  * =========================================================
  */
 
@@ -1153,13 +1309,15 @@ export function setMusicEnabled(
   ) {
 
     /*
-     * IMPORTANT:
+     * Pause only.
      *
-     * Do not reset currentTime.
+     * currentTime is preserved.
      */
 
     pauseBGM();
 
+
+    syncMusicUI();
 
     return;
 
@@ -1167,14 +1325,156 @@ export function setMusicEnabled(
 
 
   /*
-   * The setting itself is changed by a user
-   * interaction, so starting the media here
-   * is valid on iOS / iPadOS.
+   * User explicitly changed the music
+   * setting, so this is a valid user
+   * interaction for iOS / iPadOS.
    */
 
   unlockNativeAudio();
 
-  startBGM();
+
+  if (
+    state.settings.sound
+  ) {
+
+    startBGM();
+
+  }
+
+
+  syncMusicUI();
+
+}
+
+
+/*
+ * =========================================================
+ * GAME MUSIC BUTTON
+ * =========================================================
+ */
+
+function installGameMusicButton() {
+
+  const button =
+    document.getElementById(
+      "musicButton"
+    );
+
+
+  if (!button) {
+
+    return;
+
+  }
+
+
+  /*
+   * Avoid duplicate event listeners.
+   */
+
+  if (
+    button.dataset.musicBound ===
+    "1"
+  ) {
+
+    syncMusicUI();
+
+    return;
+
+  }
+
+
+  button.dataset.musicBound =
+    "1";
+
+
+  /*
+   * Initial state.
+   */
+
+  syncMusicUI();
+
+
+  /*
+   * Toggle music.
+   */
+
+  button.addEventListener(
+    "click",
+    () => {
+
+      const nextState =
+        !isMusicEnabled();
+
+
+      setMusicEnabled(
+        nextState
+      );
+
+    }
+  );
+
+}
+
+
+/*
+ * =========================================================
+ * SETTINGS MUSIC TOGGLE
+ * =========================================================
+ */
+
+function installMusicToggle() {
+
+  const toggle =
+    document.getElementById(
+      "musicToggle"
+    );
+
+
+  if (!toggle) {
+
+    return;
+
+  }
+
+
+  /*
+   * Initial state.
+   */
+
+  toggle.checked =
+    isMusicEnabled();
+
+
+  if (
+    toggle.dataset.musicBound ===
+    "1"
+  ) {
+
+    syncMusicUI();
+
+    return;
+
+  }
+
+
+  toggle.dataset.musicBound =
+    "1";
+
+
+  toggle.addEventListener(
+    "change",
+    () => {
+
+      setMusicEnabled(
+        toggle.checked
+      );
+
+    }
+  );
+
+
+  syncMusicUI();
 
 }
 
@@ -1349,63 +1649,6 @@ function installGlobalAudioUnlock() {
 
 /*
  * =========================================================
- * MUSIC TOGGLE
- * =========================================================
- */
-
-function installMusicToggle() {
-
-  const toggle =
-    document.getElementById(
-      "musicToggle"
-    );
-
-
-  if (!toggle) {
-
-    return;
-
-  }
-
-
-  /*
-   * Sync UI with stored setting.
-   */
-
-  toggle.checked =
-    isMusicEnabled();
-
-
-  if (
-    toggle.dataset.musicBound ===
-    "1"
-  ) {
-
-    return;
-
-  }
-
-
-  toggle.dataset.musicBound =
-    "1";
-
-
-  toggle.addEventListener(
-    "change",
-    () => {
-
-      setMusicEnabled(
-        toggle.checked
-      );
-
-    }
-  );
-
-}
-
-
-/*
- * =========================================================
  * INITIALIZE
  * =========================================================
  */
@@ -1419,6 +1662,10 @@ function initAudio() {
   installGlobalAudioUnlock();
 
   installMusicToggle();
+
+  installGameMusicButton();
+
+  syncMusicUI();
 
 }
 
@@ -1475,10 +1722,10 @@ window.GomokuAudio = {
   stopMusic() {
 
     /*
-     * Kept for compatibility.
+     * Compatibility.
      *
-     * It intentionally behaves like pause,
-     * so the music position is preserved.
+     * Behaves as pause so the
+     * playback position is preserved.
      */
 
     pauseBGM();
@@ -1528,6 +1775,13 @@ window.GomokuAudio = {
   isMusicEnabled() {
 
     return isMusicEnabled();
+
+  },
+
+
+  syncMusicUI() {
+
+    syncMusicUI();
 
   }
 
