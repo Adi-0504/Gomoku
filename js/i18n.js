@@ -6,21 +6,29 @@
    * GOMOKU I18N
    * =========================================================
    *
-   * 支援：
+   * Supported:
    * - 繁體中文
    * - 简体中文
    * - English
    * - 日本語
    * - 한국어
    *
-   * 特點：
-   * - 不需要修改既有 HTML
-   * - 自動掃描 data-i18n
-   * - 自動處理 select / button / aria-label
-   * - 語言保存於 localStorage
-   * - PWA / 一般瀏覽器皆可使用
-   * - 支援動態新增 DOM
-   * - 與既有 app.js 解耦
+   * Design goals:
+   * - No HTML modification required
+   * - No app.js modification required
+   * - Works in normal browser and PWA
+   * - Persists language in localStorage
+   * - Supports existing HTML through IDs/classes
+   * - Supports data-i18n attributes
+   * - Supports dynamically created DOM
+   * - Does not depend on updateNativeUI()
+   * =========================================================
+   */
+
+
+  /*
+   * =========================================================
+   * CONFIG
    * =========================================================
    */
 
@@ -1298,10 +1306,19 @@
   let currentLanguage =
     DEFAULT_LANGUAGE;
 
+  let observer =
+    null;
+
+  let isTranslating =
+    false;
+
+  let translationTimer =
+    null;
+
 
   /*
    * =========================================================
-   * LANGUAGE
+   * LANGUAGE NORMALIZATION
    * =========================================================
    */
 
@@ -1317,54 +1334,65 @@
       return language;
     }
 
+
     if (
-      typeof language ===
+      typeof language !==
       "string"
     ) {
-
-      const lower =
-        language.toLowerCase();
-
-      if (
-        lower.startsWith("zh-cn")
-      ) {
-        return "zh-CN";
-      }
-
-      if (
-        lower.startsWith("zh")
-      ) {
-        return "zh-TW";
-      }
-
-      if (
-        lower.startsWith("ja")
-      ) {
-        return "ja";
-      }
-
-      if (
-        lower.startsWith("ko")
-      ) {
-        return "ko";
-      }
-
-      if (
-        lower.startsWith("en")
-      ) {
-        return "en";
-      }
+      return DEFAULT_LANGUAGE;
     }
+
+
+    const lower =
+      language.toLowerCase();
+
+
+    if (
+      lower.startsWith("zh-cn")
+    ) {
+      return "zh-CN";
+    }
+
+
+    if (
+      lower.startsWith("zh")
+    ) {
+      return "zh-TW";
+    }
+
+
+    if (
+      lower.startsWith("ja")
+    ) {
+      return "ja";
+    }
+
+
+    if (
+      lower.startsWith("ko")
+    ) {
+      return "ko";
+    }
+
+
+    if (
+      lower.startsWith("en")
+    ) {
+      return "en";
+    }
+
 
     return DEFAULT_LANGUAGE;
   }
 
 
-  function detectLanguage() {
+  /*
+   * =========================================================
+   * LANGUAGE DETECTION
+   * =========================================================
+   */
 
-    /*
-     * 優先使用 Gomoku 自己保存的設定。
-     */
+  function detectLanguage() {
 
     try {
 
@@ -1374,17 +1402,15 @@
         );
 
       if (saved) {
+
         return normalizeLanguage(
           saved
         );
+
       }
 
     } catch {}
 
-
-    /*
-     * 相容舊版可能使用的 key。
-     */
 
     const legacyKeys = [
       "gomoku-language-v1",
@@ -1394,7 +1420,8 @@
 
 
     for (
-      const key of legacyKeys
+      const key
+      of legacyKeys
     ) {
 
       try {
@@ -1417,15 +1444,25 @@
     }
 
 
-    /*
-     * 最後才使用瀏覽器語言。
-     */
+    try {
 
-    return normalizeLanguage(
-      navigator.language
-    );
+      return normalizeLanguage(
+        navigator.language
+      );
+
+    } catch {
+
+      return DEFAULT_LANGUAGE;
+
+    }
   }
 
+
+  /*
+   * =========================================================
+   * SAVE LANGUAGE
+   * =========================================================
+   */
 
   function saveLanguage(
     language
@@ -1445,7 +1482,7 @@
 
   /*
    * =========================================================
-   * TRANSLATION
+   * TRANSLATION FUNCTION
    * =========================================================
    */
 
@@ -1488,21 +1525,29 @@
     }
 
 
-    return String(value).replace(
+    return String(
+      value
+    ).replace(
       /\{(\w+)\}/g,
       (
         match,
         variable
       ) => {
 
-        return Object.prototype.hasOwnProperty.call(
-          variables,
-          variable
-        )
-          ? String(
-              variables[variable]
-            )
-          : match;
+        if (
+          Object.prototype.hasOwnProperty.call(
+            variables,
+            variable
+          )
+        ) {
+
+          return String(
+            variables[variable]
+          );
+
+        }
+
+        return match;
 
       }
     );
@@ -1511,7 +1556,7 @@
 
   /*
    * =========================================================
-   * DOM TRANSLATION
+   * DATA-I18N SUPPORT
    * =========================================================
    */
 
@@ -1597,58 +1642,21 @@
     ) {
 
       element.value =
-        translate(value);
+        translate(
+          value
+        );
 
     }
-  }
 
-
-  function translatePage() {
-
-    document
-      .querySelectorAll(
-        "[data-i18n], [data-i18n-placeholder], [data-i18n-aria], [data-i18n-title], [data-i18n-value]"
-      )
-      .forEach(
-        translateElement
-      );
-
-
-    updateNativeUI();
-
-
-    document.documentElement.lang =
-      currentLanguage;
-
-
-    document.title =
-      translate(
-        "app.title"
-      );
-
-
-    window.dispatchEvent(
-      new CustomEvent(
-        "gomoku:languagechange",
-        {
-          detail: {
-            language:
-              currentLanguage
-          }
-        }
-      )
-    );
   }
 
 
   /*
    * =========================================================
-   * EXISTING HTML SUPPORT
+   * EXISTING HTML MAP
    * =========================================================
    *
-   * 你現在的 index.html 沒有 data-i18n，
-   * 所以這裡直接用 ID / class 自動接上。
-   * =========================================================
+   * index.html 不需要 data-i18n。
    */
 
   const AUTO_MAP = {
@@ -1695,305 +1703,58 @@
   };
 
 
-  function translateExistingUI() {
+  /*
+   * =========================================================
+   * SIMPLE TEXT HELPERS
+   * =========================================================
+   */
 
-    Object.entries(
-      AUTO_MAP
-    ).forEach(
-      ([
-        selector,
-        key
-      ]) => {
+  function setText(
+    selector,
+    key
+  ) {
 
-        const element =
-          document.querySelector(
-            selector
-          );
-
-        if (!element) {
-          return;
-        }
-
-        element.textContent =
-          translate(key);
-
-      }
-    );
-
-
-    /*
-     * Segmented controls
-     */
-
-    document
-      .querySelectorAll(
-        "[data-mode]"
-      )
-      .forEach(
-        button => {
-
-          const mode =
-            button.dataset.mode;
-
-          const key =
-            mode === "local"
-              ? "mode.local"
-              : "mode.ai";
-
-          const strong =
-            button.querySelector(
-              "strong"
-            );
-
-          if (strong) {
-            strong.textContent =
-              translate(key);
-          } else {
-            button.textContent =
-              translate(key);
-          }
-        }
-      );
-
-
-    /*
-     * Difficulty cards
-     */
-
-    document
-      .querySelectorAll(
-        "[data-difficulty]"
-      )
-      .forEach(
-        button => {
-
-          const difficulty =
-            button.dataset.difficulty;
-
-          const title =
-            button.querySelector(
-              "strong"
-            );
-
-          const description =
-            button.querySelector(
-              "span"
-            );
-
-          const titleKey =
-            `difficulty.${difficulty}`;
-
-          const descKey =
-            `difficulty.${difficulty}.desc`;
-
-
-          if (title) {
-            title.textContent =
-              translate(
-                titleKey
-              );
-          }
-
-
-          if (description) {
-            description.textContent =
-              translate(
-                descKey
-              );
-          }
-
-        }
-      );
-
-
-    /*
-     * AI characters
-     */
-
-    document
-      .querySelectorAll(
-        "[data-character]"
-      )
-      .forEach(
-        button => {
-
-          const character =
-            button.dataset.character;
-
-          const title =
-            button.querySelector(
-              "strong"
-            );
-
-          const description =
-            button.querySelector(
-              "span"
-            );
-
-
-          if (title) {
-            title.textContent =
-              translate(
-                `character.${character}`
-              );
-          }
-
-
-          if (description) {
-            description.textContent =
-              translate(
-                `character.${character}.desc`
-              );
-          }
-
-        }
-      );
-
-
-    /*
-     * Side cards
-     */
-
-    document
-      .querySelectorAll(
-        "[data-side]"
-      )
-      .forEach(
-        button => {
-
-          const side =
-            button.dataset.side;
-
-          const spans =
-            button.querySelectorAll(
-              "span"
-            );
-
-          const strong =
-            button.querySelector(
-              "strong"
-            );
-
-
-          if (strong) {
-
-            strong.textContent =
-              translate(
-                `side.${side}`
-              );
-
-          }
-
-
-          if (spans.length) {
-
-            const label =
-              side === "black"
-                ? "side.first"
-                : "side.second";
-
-
-            spans[
-              spans.length - 1
-            ].textContent =
-              translate(label);
-
-          }
-
-        }
-      );
-
-
-    /*
-     * Settings labels
-     */
-
-    translateSetting(
-      "#languageSelect",
-      "settings.language",
-      "settings.language.desc"
-    );
-
-    translateSetting(
-      "#soundToggle",
-      "settings.sound",
-      "settings.sound.desc"
-    );
-
-    translateSetting(
-      "#motionToggle",
-      "settings.motion",
-      "settings.motion.desc"
-    );
-
-    translateSetting(
-      "#themeSelect",
-      "settings.theme",
-      "settings.theme.desc"
-    );
-
-
-    /*
-     * Game status
-     */
-
-    const thinking =
+    const element =
       document.querySelector(
-        "#thinkingIndicator span:last-child"
+        selector
       );
 
-    if (thinking) {
-
-      thinking.textContent =
-        translate(
-          "game.thinking"
-        );
-
+    if (!element) {
+      return;
     }
 
-
-    /*
-     * Settings options
-     */
-
-    translateSelectOptions(
-      "#languageSelect",
-      {
-        "zh-TW":
-          "繁體中文",
-
-        "zh-CN":
-          "简体中文",
-
-        en:
-          "English",
-
-        ja:
-          "日本語",
-
-        ko:
-          "한국어"
-      }
-    );
-
-
-    translateSelectOptions(
-      "#themeSelect",
-      {
-        system:
-          "theme.system",
-
-        light:
-          "theme.light",
-
-        dark:
-          "theme.dark"
-      },
-      true
-    );
-
+    element.textContent =
+      translate(key);
   }
 
+
+  function setAttributeText(
+    selector,
+    attribute,
+    key
+  ) {
+
+    const element =
+      document.querySelector(
+        selector
+      );
+
+    if (!element) {
+      return;
+    }
+
+    element.setAttribute(
+      attribute,
+      translate(key)
+    );
+  }
+
+
+  /*
+   * =========================================================
+   * SETTING ROW
+   * =========================================================
+   */
 
   function translateSetting(
     selector,
@@ -2016,7 +1777,6 @@
         ".setting-row"
       );
 
-
     if (!row) {
       return;
     }
@@ -2035,22 +1795,32 @@
 
 
     if (strong) {
+
       strong.textContent =
         translate(
           titleKey
         );
+
     }
 
 
     if (small) {
+
       small.textContent =
         translate(
           descriptionKey
         );
+
     }
 
   }
 
+
+  /*
+   * =========================================================
+   * SELECT OPTIONS
+   * =========================================================
+   */
 
   function translateSelectOptions(
     selector,
@@ -2076,19 +1846,24 @@
         const value =
           option.value;
 
-        const key =
+        const translation =
           map[value];
 
 
-        if (!key) {
+        if (
+          translation ===
+          undefined
+        ) {
           return;
         }
 
 
         option.textContent =
           valuesAreKeys
-            ? translate(key)
-            : key;
+            ? translate(
+                translation
+              )
+            : translation;
 
       }
     );
@@ -2098,17 +1873,896 @@
 
   /*
    * =========================================================
-   * DYNAMIC DOM
+   * EXISTING GOMOKU UI
    * =========================================================
    */
 
-  let observer = null;
+  function translateExistingUI() {
+
+    /*
+     * -------------------------------------------------------
+     * HOME
+     * -------------------------------------------------------
+     */
+
+    setText(
+      "#homeScreen h1",
+      "home.title"
+    );
+
+
+    setText(
+      "#homeScreen .subtitle",
+      "home.subtitle"
+    );
+
+
+    setText(
+      "#resumeCard .status-label",
+      "home.unfinished"
+    );
+
+
+    /*
+     * -------------------------------------------------------
+     * SETUP
+     * -------------------------------------------------------
+     */
+
+    setText(
+      "#setupScreen h2",
+      "setup.title"
+    );
+
+
+    const setupHeadings =
+      document.querySelectorAll(
+        "#setupScreen .settings-group h3"
+      );
+
+
+    const setupHeadingKeys = [
+      "setup.mode",
+      "setup.difficulty",
+      "setup.character",
+      "setup.side"
+    ];
+
+
+    setupHeadings.forEach(
+      (
+        heading,
+        index
+      ) => {
+
+        if (
+          setupHeadingKeys[index]
+        ) {
+
+          heading.textContent =
+            translate(
+              setupHeadingKeys[index]
+            );
+
+        }
+
+      }
+    );
+
+
+    /*
+     * -------------------------------------------------------
+     * AUTO MAP
+     * -------------------------------------------------------
+     */
+
+    Object.entries(
+      AUTO_MAP
+    ).forEach(
+      ([
+        selector,
+        key
+      ]) => {
+
+        const element =
+          document.querySelector(
+            selector
+          );
+
+        if (!element) {
+          return;
+        }
+
+
+        /*
+         * Preserve icons inside game-action buttons.
+         */
+        if (
+          element.classList.contains(
+            "game-action"
+          )
+        ) {
+
+          const spans =
+            element.querySelectorAll(
+              "span"
+            );
+
+
+          if (
+            spans.length >= 2
+          ) {
+
+            spans[
+              spans.length - 1
+            ].textContent =
+              translate(key);
+
+            return;
+
+          }
+
+        }
+
+
+        /*
+         * Preserve icons inside top buttons.
+         */
+        if (
+          element.classList.contains(
+            "icon-button"
+          )
+        ) {
+
+          setAttributeText(
+            selector,
+            "aria-label",
+            key
+          );
+
+          return;
+
+        }
+
+
+        element.textContent =
+          translate(key);
+
+      }
+    );
+
+
+    /*
+     * -------------------------------------------------------
+     * MODE
+     * -------------------------------------------------------
+     */
+
+    document
+      .querySelectorAll(
+        "[data-mode]"
+      )
+      .forEach(
+        button => {
+
+          const mode =
+            button.dataset.mode;
+
+
+          const key =
+            mode === "local"
+              ? "mode.local"
+              : "mode.ai";
+
+
+          button.textContent =
+            translate(key);
+
+        }
+      );
+
+
+    /*
+     * -------------------------------------------------------
+     * DIFFICULTY
+     * -------------------------------------------------------
+     */
+
+    document
+      .querySelectorAll(
+        "[data-difficulty]"
+      )
+      .forEach(
+        button => {
+
+          const difficulty =
+            button.dataset.difficulty;
+
+
+          const title =
+            button.querySelector(
+              "strong"
+            );
+
+
+          const description =
+            button.querySelector(
+              "span"
+            );
+
+
+          if (title) {
+
+            title.textContent =
+              translate(
+                `difficulty.${difficulty}`
+              );
+
+          }
+
+
+          if (description) {
+
+            description.textContent =
+              translate(
+                `difficulty.${difficulty}.desc`
+              );
+
+          }
+
+        }
+      );
+
+
+    /*
+     * -------------------------------------------------------
+     * AI CHARACTERS
+     * -------------------------------------------------------
+     */
+
+    document
+      .querySelectorAll(
+        "[data-character]"
+      )
+      .forEach(
+        button => {
+
+          const character =
+            button.dataset.character;
+
+
+          const title =
+            button.querySelector(
+              "strong"
+            );
+
+
+          const description =
+            button.querySelector(
+              "span"
+            );
+
+
+          if (title) {
+
+            title.textContent =
+              translate(
+                `character.${character}`
+              );
+
+          }
+
+
+          if (description) {
+
+            description.textContent =
+              translate(
+                `character.${character}.desc`
+              );
+
+          }
+
+        }
+      );
+
+
+    /*
+     * -------------------------------------------------------
+     * SIDE CARDS
+     * -------------------------------------------------------
+     */
+
+    document
+      .querySelectorAll(
+        "[data-side]"
+      )
+      .forEach(
+        button => {
+
+          const side =
+            button.dataset.side;
+
+
+          const strong =
+            button.querySelector(
+              "strong"
+            );
+
+
+          const spans =
+            button.querySelectorAll(
+              "span"
+            );
+
+
+          if (strong) {
+
+            strong.textContent =
+              translate(
+                `side.${side}`
+              );
+
+          }
+
+
+          if (
+            spans.length
+          ) {
+
+            const label =
+              side === "black"
+                ? "side.first"
+                : "side.second";
+
+
+            spans[
+              spans.length - 1
+            ].textContent =
+              translate(
+                label
+              );
+
+          }
+
+        }
+      );
+
+
+    /*
+     * -------------------------------------------------------
+     * GAME STATUS
+     * -------------------------------------------------------
+     */
+
+    const thinking =
+      document.querySelector(
+        "#thinkingIndicator span:last-child"
+      );
+
+
+    if (thinking) {
+
+      thinking.textContent =
+        translate(
+          "game.thinking"
+        );
+
+    }
+
+
+    /*
+     * Do not blindly overwrite the dynamic
+     * turn state generated by app.js.
+     *
+     * Only translate known static values.
+     */
+
+    const turnLabel =
+      document.querySelector(
+        "#turnLabel"
+      );
+
+
+    if (turnLabel) {
+
+      const text =
+        turnLabel.textContent.trim();
+
+
+      const yourTurnValues = [
+        "你的回合",
+        "Your Turn",
+        "あなたの番",
+        "당신의 차례"
+      ];
+
+
+      const opponentTurnValues = [
+        "對手回合",
+        "Opponent's Turn",
+        "相手の番",
+        "상대의 차례"
+      ];
+
+
+      if (
+        yourTurnValues.includes(
+          text
+        )
+      ) {
+
+        turnLabel.textContent =
+          translate(
+            "game.yourTurn"
+          );
+
+      } else if (
+        opponentTurnValues.includes(
+          text
+        )
+      ) {
+
+        turnLabel.textContent =
+          translate(
+            "game.opponentTurn"
+          );
+
+      }
+
+    }
+
+
+    /*
+     * -------------------------------------------------------
+     * RECORDS
+     * -------------------------------------------------------
+     */
+
+    setText(
+      "#recordsScreen h2",
+      "records.title"
+    );
+
+
+    const statCards =
+      document.querySelectorAll(
+        "#recordsScreen .stat-card"
+      );
+
+
+    const statKeys = [
+      "records.games",
+      "records.wins",
+      "records.losses",
+      "records.draws"
+    ];
+
+
+    statCards.forEach(
+      (
+        card,
+        index
+      ) => {
+
+        const label =
+          card.querySelector(
+            "span"
+          );
+
+
+        if (
+          label &&
+          statKeys[index]
+        ) {
+
+          label.textContent =
+            translate(
+              statKeys[index]
+            );
+
+        }
+
+      }
+    );
+
+
+    /*
+     * -------------------------------------------------------
+     * SETTINGS
+     * -------------------------------------------------------
+     */
+
+    setText(
+      "#settingsScreen h2",
+      "settings.title"
+    );
+
+
+    translateSetting(
+      "#languageSelect",
+      "settings.language",
+      "settings.language.desc"
+    );
+
+
+    translateSetting(
+      "#soundToggle",
+      "settings.sound",
+      "settings.sound.desc"
+    );
+
+
+    translateSetting(
+      "#motionToggle",
+      "settings.motion",
+      "settings.motion.desc"
+    );
+
+
+    translateSetting(
+      "#themeSelect",
+      "settings.theme",
+      "settings.theme.desc"
+    );
+
+
+    /*
+     * -------------------------------------------------------
+     * LANGUAGE SELECT
+     * -------------------------------------------------------
+     */
+
+    translateSelectOptions(
+      "#languageSelect",
+      {
+        "zh-TW":
+          "繁體中文",
+
+        "zh-CN":
+          "简体中文",
+
+        en:
+          "English",
+
+        ja:
+          "日本語",
+
+        ko:
+          "한국어"
+      }
+    );
+
+
+    /*
+     * -------------------------------------------------------
+     * THEME SELECT
+     * -------------------------------------------------------
+     */
+
+    translateSelectOptions(
+      "#themeSelect",
+      {
+        system:
+          "theme.system",
+
+        light:
+          "theme.light",
+
+        dark:
+          "theme.dark"
+
+      },
+      true
+    );
+
+
+    /*
+     * -------------------------------------------------------
+     * SYNC SELECT VALUE
+     * -------------------------------------------------------
+     */
+
+    const languageSelect =
+      document.querySelector(
+        "#languageSelect"
+      );
+
+
+    if (languageSelect) {
+
+      languageSelect.value =
+        currentLanguage;
+
+    }
+
+  }
+
+
+  /*
+   * =========================================================
+   * COMPLETE PAGE TRANSLATION
+   * =========================================================
+   */
+
+  function translatePage() {
+
+    /*
+     * Prevent recursive translation.
+     */
+    if (isTranslating) {
+      return;
+    }
+
+
+    isTranslating =
+      true;
+
+
+    try {
+
+      /*
+       * Explicit data-i18n elements.
+       */
+
+      document
+        .querySelectorAll(
+          [
+            "[data-i18n]",
+            "[data-i18n-placeholder]",
+            "[data-i18n-aria]",
+            "[data-i18n-title]",
+            "[data-i18n-value]"
+          ].join(", ")
+        )
+        .forEach(
+          translateElement
+        );
+
+
+      /*
+       * Existing HTML.
+       */
+      translateExistingUI();
+
+
+      /*
+       * Document language.
+       */
+      document.documentElement.lang =
+        currentLanguage;
+
+
+      /*
+       * PWA/browser title.
+       */
+      document.title =
+        translate(
+          "app.title"
+        );
+
+
+      /*
+       * Notify other modules.
+       */
+      window.dispatchEvent(
+        new CustomEvent(
+          "gomoku:languagechange",
+          {
+            detail: {
+              language:
+                currentLanguage
+            }
+          }
+        )
+      );
+
+    } finally {
+
+      isTranslating =
+        false;
+
+    }
+
+  }
+
+
+  /*
+   * =========================================================
+   * LANGUAGE SELECT BINDING
+   * =========================================================
+   */
+
+  function bindLanguageSelect() {
+
+    const select =
+      document.querySelector(
+        "#languageSelect"
+      );
+
+
+    if (!select) {
+      return;
+    }
+
+
+    if (
+      select.dataset.i18nBound ===
+      "1"
+    ) {
+      return;
+    }
+
+
+    select.dataset.i18nBound =
+      "1";
+
+
+    select.addEventListener(
+      "change",
+      event => {
+
+        const value =
+          event.target.value;
+
+
+        setLanguage(
+          value
+        );
+
+      }
+    );
+
+  }
+
+
+  /*
+   * =========================================================
+   * LANGUAGE SETTER
+   * =========================================================
+   */
+
+  function setLanguage(
+    language
+  ) {
+
+    const normalized =
+      normalizeLanguage(
+        language
+      );
+
+
+    if (
+      !SUPPORTED_LANGUAGES.includes(
+        normalized
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    if (
+      currentLanguage ===
+      normalized
+    ) {
+
+      /*
+       * Still refresh the UI.
+       */
+      saveLanguage(
+        normalized
+      );
+
+      translatePage();
+
+      return;
+
+    }
+
+
+    currentLanguage =
+      normalized;
+
+
+    saveLanguage(
+      normalized
+    );
+
+
+    /*
+     * Update immediately.
+     */
+    document.documentElement.lang =
+      normalized;
+
+
+    /*
+     * Translate the current page.
+     */
+    translatePage();
+
+
+    /*
+     * Ensure the select reflects
+     * the actual language.
+     */
+    const select =
+      document.querySelector(
+        "#languageSelect"
+      );
+
+
+    if (select) {
+
+      select.value =
+        normalized;
+
+    }
+
+  }
+
+
+  /*
+   * =========================================================
+   * DYNAMIC DOM OBSERVER
+   * =========================================================
+   */
+
+  function scheduleTranslation() {
+
+    if (
+      translationTimer
+    ) {
+
+      return;
+
+    }
+
+
+    translationTimer =
+      window.setTimeout(
+        () => {
+
+          translationTimer =
+            null;
+
+
+          if (
+            isTranslating
+          ) {
+
+            return;
+
+          }
+
+
+          translatePage();
+
+        },
+        0
+      );
+
+  }
 
 
   function observeDOM() {
 
-    if (observer) {
+    if (
+      observer
+    ) {
+
       return;
+
+    }
+
+
+    if (
+      !document.body
+    ) {
+
+      return;
+
     }
 
 
@@ -2129,11 +2783,14 @@
               mutation.type !==
               "childList"
             ) {
+
               continue;
+
             }
 
 
             if (
+              mutation.addedNodes &&
               mutation.addedNodes.length
             ) {
 
@@ -2148,15 +2805,12 @@
 
 
           if (
-            !shouldTranslate
+            shouldTranslate
           ) {
-            return;
+
+            scheduleTranslation();
+
           }
-
-
-          translatePage();
-
-          translateExistingUI();
 
         }
       );
@@ -2178,145 +2832,78 @@
 
   /*
    * =========================================================
-   * SETTINGS SELECT
-   * =========================================================
-   */
-
-  function bindLanguageSelect() {
-
-    const select =
-      document.querySelector(
-        "#languageSelect"
-      );
-
-
-    if (!select) {
-      return;
-    }
-
-
-    /*
-     * 避免重複綁定
-     */
-
-    if (
-      select.dataset.i18nBound ===
-      "1"
-    ) {
-      return;
-    }
-
-
-    select.dataset.i18nBound =
-      "1";
-
-
-    select.addEventListener(
-      "change",
-      event => {
-
-        setLanguage(
-          event.target.value
-        );
-
-      }
-    );
-
-  }
-
-
-  /*
-   * =========================================================
    * PUBLIC API
    * =========================================================
    */
 
-  function setLanguage(
-    language
-  ) {
-
-    const normalized =
-      normalizeLanguage(
-        language
-      );
-
-
-    currentLanguage =
-      normalized;
-
-
-    saveLanguage(
-      normalized
-    );
-
-
-    translatePage();
-
-    translateExistingUI();
-
-  }
-
-
   function getLanguage() {
+
     return currentLanguage;
+
   }
 
 
   function getSupportedLanguages() {
+
     return [
       ...SUPPORTED_LANGUAGES
     ];
+
+  }
+
+
+  function refresh() {
+
+    translatePage();
+
+    bindLanguageSelect();
+
   }
 
 
   /*
    * =========================================================
-   * BOOT
+   * INITIALIZATION
    * =========================================================
    */
 
   function init() {
 
+    /*
+     * Determine language.
+     */
     currentLanguage =
       detectLanguage();
 
 
     /*
-     * 先把 HTML 裡已有的 data-i18n
-     * 翻譯掉。
+     * Set HTML language immediately.
      */
+    document.documentElement.lang =
+      currentLanguage;
 
+
+    /*
+     * Translate current DOM.
+     */
     translatePage();
 
 
     /*
-     * 再接你目前這份 index.html
-     * 的既有 ID / class。
+     * Bind selector.
      */
-
-    translateExistingUI();
-
-
-    /*
-     * 綁定設定裡的語言 select。
-     */
-
     bindLanguageSelect();
 
 
     /*
-     * PWA 裡 result / review / AI OS
-     * 都可能是 app.js 動態建立，
-     * 所以監聽 DOM。
+     * Watch dynamically generated UI.
      */
-
     observeDOM();
 
 
     /*
-     * 暴露 API 給 app.js / 其他模組。
+     * Public API.
      */
-
     window.GomokuI18n = {
 
       t:
@@ -2328,20 +2915,37 @@
 
       getSupportedLanguages,
 
-      refresh() {
-
-        translatePage();
-
-        translateExistingUI();
-
-      },
+      refresh,
 
       translations
 
     };
 
+
+    /*
+     * Final sync.
+     */
+    const select =
+      document.querySelector(
+        "#languageSelect"
+      );
+
+
+    if (select) {
+
+      select.value =
+        currentLanguage;
+
+    }
+
   }
 
+
+  /*
+   * =========================================================
+   * BOOT
+   * =========================================================
+   */
 
   if (
     document.readyState ===
@@ -2363,4 +2967,4 @@
 
   }
 
-})();
+})(); 
