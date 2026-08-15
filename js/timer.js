@@ -1,75 +1,96 @@
 (() => {
   "use strict";
 
-  const timer = {
+  const Timer = {
+
+    init(state, dom) {
+
+      this.state = state;
+      this.dom = dom;
+
+      return this;
+    },
+
 
     resetTimer() {
 
-      if (timer.interval) {
-        clearInterval(timer.interval);
-      }
+      this.stopTimer();
 
-      timer.interval = null;
+      this.state.gameStartedAt = 0;
+      this.state.gameEndedAt = 0;
 
-      window.gomokuTimerState.gameStartedAt = 0;
-      window.gomokuTimerState.gameEndedAt = 0;
-
-      timer.updateTimerUI(0);
+      this.updateTimerUI(0);
     },
 
 
     startTimer(startAt) {
 
-      timer.stopTimer();
+      this.stopTimer();
 
-      window.gomokuTimerState.gameStartedAt =
+      this.state.gameStartedAt =
         startAt || Date.now();
 
-      window.gomokuTimerState.gameEndedAt = 0;
+      this.state.gameEndedAt = 0;
 
-      timer.updateTimerUI();
+      this.updateTimerUI();
 
-      timer.interval = setInterval(() => {
-        timer.updateTimerUI();
-      }, 500);
+      this.state.timerInterval =
+        window.setInterval(
+          () => {
+            this.updateTimerUI();
+          },
+          500
+        );
     },
 
 
     stopTimer() {
 
-      if (timer.interval) {
-        clearInterval(timer.interval);
+      if (this.state.timerInterval) {
+
+        window.clearInterval(
+          this.state.timerInterval
+        );
+
       }
 
-      timer.interval = null;
+      this.state.timerInterval = null;
+
 
       if (
-        window.gomokuTimerState.gameStartedAt &&
-        !window.gomokuTimerState.gameEndedAt
+        this.state.gameStartedAt &&
+        !this.state.gameEndedAt
       ) {
-        window.gomokuTimerState.gameEndedAt =
+
+        this.state.gameEndedAt =
           Date.now();
+
       }
     },
 
 
     elapsedSeconds() {
 
-      const started =
-        window.gomokuTimerState.gameStartedAt;
+      if (
+        !this.state.gameStartedAt
+      ) {
 
-      if (!started) {
         return 0;
       }
 
-      const ended =
-        window.gomokuTimerState.gameEndedAt ||
+
+      const end =
+        this.state.gameEndedAt ||
         Date.now();
+
 
       return Math.max(
         0,
         Math.floor(
-          (ended - started) / 1000
+          (
+            end -
+            this.state.gameStartedAt
+          ) / 1000
         )
       );
     },
@@ -77,7 +98,7 @@
 
     formatDuration(seconds) {
 
-      const safe =
+      const safeSeconds =
         Math.max(
           0,
           Math.floor(
@@ -85,18 +106,23 @@
           )
         );
 
+
       const minutes =
         Math.floor(
-          safe / 60
+          safeSeconds / 60
         );
 
-      const remaining =
-        safe % 60;
+
+      const remainingSeconds =
+        safeSeconds % 60;
+
 
       return (
         String(minutes).padStart(2, "0") +
         ":" +
-        String(remaining).padStart(2, "0")
+        String(
+          remainingSeconds
+        ).padStart(2, "0")
       );
     },
 
@@ -104,33 +130,33 @@
     updateTimerUI(seconds) {
 
       const element =
+        this.dom?.timer ||
         document.querySelector(
           "#gomokuTimer"
         );
+
 
       if (!element) {
         return;
       }
 
+
       const value =
         typeof seconds === "number"
           ? seconds
-          : timer.elapsedSeconds();
+          : this.elapsedSeconds();
+
 
       element.textContent =
-        timer.formatDuration(value);
-    },
+        this.formatDuration(
+          value
+        );
+    }
 
-    interval: null
   };
 
 
-  window.gomokuTimerState = {
-    gameStartedAt: 0,
-    gameEndedAt: 0
-  };
-
-
-  window.GomokuTimer = timer;
+  window.GomokuTimer =
+    Timer;
 
 })();
