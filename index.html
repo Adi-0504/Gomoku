@@ -55,9 +55,7 @@
 
 <div class="app-shell">
 
-  <!-- =====================================================
-       TOP BAR
-       ===================================================== -->
+  <!-- TOP BAR -->
 
   <header class="topbar">
 
@@ -97,9 +95,7 @@
 
   <main>
 
-    <!-- ===================================================
-         HOME
-         =================================================== -->
+    <!-- HOME -->
 
     <section
       class="screen active"
@@ -152,7 +148,6 @@
 
         </div>
 
-
         <div
           class="home-status"
           id="resumeCard"
@@ -184,9 +179,7 @@
     </section>
 
 
-    <!-- ===================================================
-         SETUP
-         =================================================== -->
+    <!-- SETUP -->
 
     <section
       class="screen"
@@ -248,6 +241,7 @@
               type="button"
               data-difficulty="easy"
             >
+
               <strong>
                 初級
               </strong>
@@ -255,6 +249,7 @@
               <span>
                 適合第一次玩
               </span>
+
             </button>
 
 
@@ -263,6 +258,7 @@
               type="button"
               data-difficulty="normal"
             >
+
               <strong>
                 中級
               </strong>
@@ -270,6 +266,7 @@
               <span>
                 開始認真下棋
               </span>
+
             </button>
 
 
@@ -278,6 +275,7 @@
               type="button"
               data-difficulty="hard"
             >
+
               <strong>
                 高級
               </strong>
@@ -285,6 +283,7 @@
               <span>
                 需要真正思考
               </span>
+
             </button>
 
           </div>
@@ -311,6 +310,7 @@
               type="button"
               data-character="mio"
             >
+
               <strong>
                 Mio
               </strong>
@@ -318,6 +318,7 @@
               <span>
                 溫和、防守型
               </span>
+
             </button>
 
 
@@ -326,6 +327,7 @@
               type="button"
               data-character="rin"
             >
+
               <strong>
                 Rin
               </strong>
@@ -333,6 +335,7 @@
               <span>
                 積極、進攻型
               </span>
+
             </button>
 
 
@@ -341,6 +344,7 @@
               type="button"
               data-character="sora"
             >
+
               <strong>
                 Sora
               </strong>
@@ -348,6 +352,7 @@
               <span>
                 冷靜、平衡型
               </span>
+
             </button>
 
 
@@ -356,6 +361,7 @@
               type="button"
               data-character="kuro"
             >
+
               <strong>
                 Kuro
               </strong>
@@ -363,6 +369,7 @@
               <span>
                 狡猾、反擊型
               </span>
+
             </button>
 
           </div>
@@ -437,9 +444,7 @@
     </section>
 
 
-    <!-- ===================================================
-         GAME
-         =================================================== -->
+    <!-- GAME -->
 
     <section
       class="screen game-screen"
@@ -466,7 +471,9 @@
                 你的回合
               </span>
 
-              <strong id="turnPlayer">
+              <strong
+                id="turnPlayer"
+              >
                 黑棋
               </strong>
 
@@ -602,9 +609,7 @@
     </section>
 
 
-    <!-- ===================================================
-         RESULT
-         =================================================== -->
+    <!-- RESULT -->
 
     <section
       class="screen"
@@ -659,9 +664,7 @@
     </section>
 
 
-    <!-- ===================================================
-         RECORDS
-         =================================================== -->
+    <!-- RECORDS -->
 
     <section
       class="screen"
@@ -737,35 +740,20 @@
         ></div>
 
 
-        <div class="records-actions">
-
-          <button
-            class="secondary-button full-button"
-            id="exportRecordsButton"
-            type="button"
-          >
-            匯出棋局
-          </button>
-
-
-          <button
-            class="secondary-button full-button"
-            id="clearRecordsButton"
-            type="button"
-          >
-            清除記錄
-          </button>
-
-        </div>
+        <button
+          class="secondary-button full-button"
+          id="clearRecordsButton"
+          type="button"
+        >
+          清除記錄
+        </button>
 
       </div>
 
     </section>
 
 
-    <!-- ===================================================
-         SETTINGS
-         =================================================== -->
+    <!-- SETTINGS -->
 
     <section
       class="screen"
@@ -780,6 +768,8 @@
 
 
         <div class="settings-list">
+
+          <!-- LANGUAGE -->
 
           <label class="setting-row">
 
@@ -823,6 +813,8 @@
           </label>
 
 
+          <!-- SOUND -->
+
           <label class="setting-row">
 
             <span>
@@ -847,6 +839,8 @@
           </label>
 
 
+          <!-- MOTION -->
+
           <label class="setting-row">
 
             <span>
@@ -870,6 +864,8 @@
 
           </label>
 
+
+          <!-- THEME -->
 
           <label class="setting-row">
 
@@ -904,6 +900,69 @@
 
           </label>
 
+
+          <!-- EXPORT -->
+
+          <div class="setting-row">
+
+            <span>
+
+              <strong>
+                匯出資料
+              </strong>
+
+              <small>
+                匯出你的棋局記錄與遊戲設定
+              </small>
+
+            </span>
+
+
+            <button
+              class="secondary-button"
+              id="exportButton"
+              type="button"
+            >
+              匯出
+            </button>
+
+          </div>
+
+
+          <!-- IMPORT -->
+
+          <div class="setting-row">
+
+            <span>
+
+              <strong>
+                匯入資料
+              </strong>
+
+              <small>
+                從備份檔案恢復棋局記錄與設定
+              </small>
+
+            </span>
+
+
+            <button
+              class="secondary-button"
+              id="importButton"
+              type="button"
+            >
+              匯入
+            </button>
+
+            <input
+              id="importFileInput"
+              type="file"
+              accept=".json,application/json"
+              hidden
+            >
+
+          </div>
+
         </div>
 
       </div>
@@ -913,9 +972,7 @@
   </main>
 
 
-  <!-- =====================================================
-       TOAST
-       ===================================================== -->
+  <!-- TOAST -->
 
   <div
     class="toast"
@@ -927,21 +984,22 @@
 </div>
 
 
-<!-- =======================================================
-     SCRIPT ORDER
+<!--
+  Script order is intentional.
 
-     i18n.js
-       ↓
-     app.js
-       ↓
-     export.js
+  1. i18n.js
+     建立語言系統與 GomokuI18n
 
-     export.js 會在 app.js 完成後接管 Export 按鈕。
-     ======================================================= -->
+  2. export.js
+     建立獨立匯出 / 匯入系統
+
+  3. app.js
+     遊戲本體
+-->
 
 <script src="./js/i18n.js"></script>
-<script src="./app.js"></script>
 <script src="./js/export.js"></script>
+<script src="./app.js"></script>
 
 </body>
 </html>
