@@ -3,22 +3,34 @@
 
   /*
    * =========================================================
-   * GOMOKU REVIEW ENGINE
+   * GOMOKU REVIEW ENGINE v1.1
    * =========================================================
    *
-   * This module provides:
-   * - Completed game replay
-   * - Move-by-move board reconstruction
+   * Zero-intrusion review system.
+   *
+   * Does NOT modify:
+   * - app.js
+   * - ai-worker.js
+   * - existing game logic
+   * - existing game state
+   *
+   * It automatically reads the existing Gomoku game
+   * LocalStorage data and creates a replayable review.
+   *
+   * Features:
+   * - Automatic game-state detection
+   * - Completed game review
+   * - Move-by-move reconstruction
    * - First / previous / play / next / last
    * - Timeline slider
    * - Move list
    * - Coordinate display
-   * - Winning move highlight
-   * - Light / dark compatible UI
-   *
-   * It is intentionally isolated from the existing
-   * Gomoku game engine so the current AI / Worker /
-   * audio / animation systems stay untouched.
+   * - Winning move detection
+   * - Winning line highlight
+   * - Keyboard controls
+   * - Light / dark compatible
+   * - Responsive layout
+   * - Up to 50 saved reviews
    * =========================================================
    */
 
@@ -30,8 +42,22 @@
     BLACK: 1,
     WHITE: 2,
 
-    STORAGE:
-      "gomoku-game-reviews-v1"
+    GAME_STORAGE_KEYS: [
+      "gomoku-active-game-v5",
+      "gomoku-active-game-v4",
+      "gomoku-active-game-v3",
+      "gomoku-active-game-v2",
+      "gomoku-active-game"
+    ],
+
+    REVIEW_STORAGE:
+      "gomoku-game-reviews-v1",
+
+    MAX_REVIEWS:
+      50,
+
+    PLAY_INTERVAL:
+      520
   };
 
 
@@ -42,58 +68,119 @@
    */
 
   const reviewState = {
+
     games: [],
+
     activeGame: null,
+
     currentMove: 0,
+
     playing: false,
-    timer: null
+
+    timer: null,
+
+    initialized: false
+
   };
 
 
   /*
    * =========================================================
-   * STORAGE
+   * SAFE STORAGE
    * =========================================================
    */
 
-  function loadReviews() {
+  function readStorage(key) {
+
     try {
+
       const raw =
-        localStorage.getItem(
-          CONFIG.STORAGE
-        );
+        localStorage.getItem(key);
 
       if (!raw) {
-        return [];
+        return null;
       }
 
-      const data =
-        JSON.parse(raw);
+      return JSON.parse(raw);
 
-      if (!Array.isArray(data)) {
-        return [];
-      }
+    } catch (error) {
 
-      return data.slice(0, 50);
+      console.warn(
+        "[Gomoku Review] Storage read failed:",
+        key,
+        error
+      );
 
-    } catch {
-      return [];
+      return null;
     }
   }
 
 
-  function saveReviews() {
+  function writeStorage(
+    key,
+    value
+  ) {
+
     try {
+
       localStorage.setItem(
-        CONFIG.STORAGE,
-        JSON.stringify(
-          reviewState.games.slice(
-            0,
-            50
-          )
-        )
+        key,
+        JSON.stringify(value)
       );
-    } catch {}
+
+      return true;
+
+    } catch (error) {
+
+      console.warn(
+        "[Gomoku Review] Storage write failed:",
+        key,
+        error
+      );
+
+      return false;
+    }
+  }
+
+
+  /*
+   * =========================================================
+   * REVIEW STORAGE
+   * =========================================================
+   */
+
+  function loadReviews() {
+
+    const data =
+      readStorage(
+        CONFIG.REVIEW_STORAGE
+      );
+
+    if (
+      !Array.isArray(data)
+    ) {
+      return [];
+    }
+
+    return data
+      .map(normalizeGame)
+      .filter(Boolean)
+      .slice(
+        0,
+        CONFIG.MAX_REVIEWS
+      );
+  }
+
+
+  function saveReviews() {
+
+    writeStorage(
+      CONFIG.REVIEW_STORAGE,
+      reviewState.games.slice(
+        0,
+        CONFIG.MAX_REVIEWS
+      )
+    );
   }
 
 
@@ -104,6 +191,7 @@
    */
 
   function createBoard() {
+
     return Array.from(
       {
         length:
@@ -119,17 +207,35 @@
   }
 
 
+  function isInside(
+    row,
+    col
+  ) {
+
+    return (
+      row >= 0 &&
+      row < CONFIG.SIZE &&
+      col >= 0 &&
+      col < CONFIG.SIZE
+    );
+  }
+
+
   function boardAtMove(
     moves,
     moveCount
   ) {
+
     const board =
       createBoard();
 
     const limit =
-      Math.min(
-        moveCount,
-        moves.length
+      Math.max(
+        0,
+        Math.min(
+          Number(moveCount) || 0,
+          moves.length
+        )
       );
 
     for (
@@ -137,14 +243,11 @@
       i < limit;
       i += 1
     ) {
+
       const move =
         moves[i];
 
-      if (
-        !move ||
-        !Number.isInteger(move.row) ||
-        !Number.isInteger(move.col)
-      ) {
+      if (!isValidMove(move)) {
         continue;
       }
 
@@ -156,23 +259,44 @@
   }
 
 
+  function isValidMove(
+    move
+  ) {
+
+    return Boolean(
+      move &&
+      Number.isInteger(
+        move.row
+      ) &&
+      Number.isInteger(
+        move.col
+      ) &&
+      isInside(
+        move.row,
+        move.col
+      ) &&
+      (
+        move.player ===
+          CONFIG.BLACK ||
+        move.player ===
+          CONFIG.WHITE
+      )
+    );
+  }
+
+
   /*
    * =========================================================
-   * WIN LINE
+   * WIN DETECTION
    * =========================================================
    */
 
-  function isInside(
-    row,
-    col
-  ) {
-    return (
-      row >= 0 &&
-      row < CONFIG.SIZE &&
-      col >= 0 &&
-      col < CONFIG.SIZE
-    );
-  }
+  const DIRECTIONS = [
+    [1, 0],
+    [0, 1],
+    [1, 1],
+    [1, -1]
+  ];
 
 
   function getWinningLine(
@@ -181,20 +305,26 @@
     col,
     player
   ) {
-    const directions = [
-      [1, 0],
-      [0, 1],
-      [1, 1],
-      [1, -1]
-    ];
+
+    if (
+      !isInside(
+        row,
+        col
+      ) ||
+      board[row][col] !== player
+    ) {
+      return [];
+    }
 
     for (
       const [dr, dc]
-      of directions
+      of DIRECTIONS
     ) {
+
       const line = [
         [row, col]
       ];
+
 
       let r =
         row + dr;
@@ -202,10 +332,12 @@
       let c =
         col + dc;
 
+
       while (
         isInside(r, c) &&
         board[r][c] === player
       ) {
+
         line.push([
           r,
           c
@@ -215,16 +347,19 @@
         c += dc;
       }
 
+
       r =
         row - dr;
 
       c =
         col - dc;
 
+
       while (
         isInside(r, c) &&
         board[r][c] === player
       ) {
+
         line.unshift([
           r,
           c
@@ -234,15 +369,52 @@
         c -= dc;
       }
 
+
       if (
         line.length >=
         CONFIG.WIN
       ) {
+
         return line;
       }
     }
 
+
     return [];
+  }
+
+
+  function findWinningLineAtMove(
+    moves,
+    moveIndex
+  ) {
+
+    if (
+      moveIndex < 0 ||
+      moveIndex >= moves.length
+    ) {
+      return [];
+    }
+
+    const move =
+      moves[moveIndex];
+
+    if (!isValidMove(move)) {
+      return [];
+    }
+
+    const board =
+      boardAtMove(
+        moves,
+        moveIndex + 1
+      );
+
+    return getWinningLine(
+      board,
+      move.row,
+      move.col,
+      move.player
+    );
   }
 
 
@@ -256,8 +428,18 @@
     row,
     col
   ) {
+
     const columns =
       "ABCDEFGHIJKLMNO";
+
+    if (
+      !isInside(
+        row,
+        col
+      )
+    ) {
+      return "?";
+    }
 
     return (
       columns[col] +
@@ -268,57 +450,199 @@
 
   /*
    * =========================================================
-   * REVIEW RECORD
+   * MOVE NORMALIZATION
+   * =========================================================
+   */
+
+  function normalizeMoves(
+    moves
+  ) {
+
+    if (
+      !Array.isArray(moves)
+    ) {
+      return [];
+    }
+
+
+    const board =
+      createBoard();
+
+    const result = [];
+
+
+    for (
+      const move of moves
+    ) {
+
+      if (
+        !isValidMove(move)
+      ) {
+        continue;
+      }
+
+
+      /*
+       * Do not allow impossible duplicate
+       * occupation to corrupt the replay.
+       */
+
+      if (
+        board[move.row][move.col] !==
+        CONFIG.EMPTY
+      ) {
+        continue;
+      }
+
+
+      board[move.row][move.col] =
+        move.player;
+
+
+      result.push({
+        row:
+          move.row,
+
+        col:
+          move.col,
+
+        player:
+          move.player
+      });
+    }
+
+
+    return result;
+  }
+
+
+  /*
+   * =========================================================
+   * GAME NORMALIZATION
    * =========================================================
    */
 
   function normalizeGame(
     game
   ) {
-    if (!game) {
+
+    if (
+      !game ||
+      typeof game !==
+        "object"
+    ) {
       return null;
     }
 
+
     const moves =
-      Array.isArray(
+      normalizeMoves(
         game.moves
-      )
-        ? game.moves
-            .filter(
-              move =>
-                move &&
-                Number.isInteger(
-                  move.row
-                ) &&
-                Number.isInteger(
-                  move.col
-                ) &&
-                (
-                  move.player ===
-                    CONFIG.BLACK ||
-                  move.player ===
-                    CONFIG.WHITE
-                )
-            )
-            .map(
-              move => ({
-                row: move.row,
-                col: move.col,
-                player:
-                  move.player
-              })
-            )
-        : [];
+      );
+
+
+    if (
+      !moves.length
+    ) {
+      return null;
+    }
+
+
+    let winner =
+      CONFIG.EMPTY;
+
+    let winningLine = [];
+
+
+    /*
+     * Recalculate the actual result
+     * from the move history instead of
+     * trusting possibly stale storage.
+     */
+
+    for (
+      let i = 0;
+      i < moves.length;
+      i += 1
+    ) {
+
+      const line =
+        findWinningLineAtMove(
+          moves,
+          i
+        );
+
+
+      if (
+        line.length >=
+        CONFIG.WIN
+      ) {
+
+        winner =
+          moves[i].player;
+
+        winningLine =
+          line;
+
+        /*
+         * Ignore moves after the
+         * actual winning move.
+         */
+
+        break;
+      }
+    }
+
+
+    if (
+      !winner &&
+      moves.length >=
+        CONFIG.SIZE *
+        CONFIG.SIZE
+    ) {
+
+      winner =
+        CONFIG.EMPTY;
+    }
+
+
+    let result =
+      "draw";
+
+
+    if (
+      winner ===
+      CONFIG.BLACK
+    ) {
+
+      result =
+        "black";
+
+    } else if (
+      winner ===
+      CONFIG.WHITE
+    ) {
+
+      result =
+        "white";
+    }
+
+
+    const id =
+      typeof game.id ===
+      "string" &&
+      game.id.length
+        ? game.id
+        : createGameId();
+
 
     return {
-      id:
-        game.id ||
-        `${Date.now()}-${Math.random()
-          .toString(36)
-          .slice(2)}`,
+
+      id,
 
       date:
         game.date ||
+        game.createdAt ||
         new Date().toISOString(),
 
       mode:
@@ -327,9 +651,7 @@
           ? "local"
           : "ai",
 
-      result:
-        game.result ||
-        "draw",
+      result,
 
       character:
         game.character ||
@@ -348,61 +670,159 @@
           game.duration
         ) || 0,
 
-      winner:
-        game.winner ===
-        CONFIG.BLACK ||
-        game.winner ===
-        CONFIG.WHITE
-          ? game.winner
-          : CONFIG.EMPTY,
+      winner,
 
-      winningLine:
-        Array.isArray(
-          game.winningLine
-        )
-          ? game.winningLine
-          : []
+      winningLine
+
     };
+  }
+
+
+  function createGameId() {
+
+    return (
+      "review-" +
+      Date.now() +
+      "-" +
+      Math.random()
+        .toString(36)
+        .slice(2, 9)
+    );
   }
 
 
   /*
    * =========================================================
-   * ADD GAME
+   * AUTOMATIC GAME DETECTION
    * =========================================================
    */
 
-  function addGame(
-    game
-  ) {
-    const normalized =
-      normalizeGame(game);
+  function findGameStorage() {
 
-    if (
-      !normalized ||
-      !normalized.moves.length
+    for (
+      const key
+      of CONFIG.GAME_STORAGE_KEYS
     ) {
+
+      const data =
+        readStorage(key);
+
+      if (
+        data &&
+        typeof data ===
+          "object"
+      ) {
+
+        return {
+          key,
+          data
+        };
+      }
+    }
+
+
+    return null;
+  }
+
+
+  function extractGameData(
+    data
+  ) {
+
+    if (!data) {
       return null;
     }
 
-    reviewState.games =
-      reviewState.games.filter(
-        item =>
-          item.id !==
-          normalized.id
+
+    /*
+     * Most common shape:
+     *
+     * {
+     *   moves: [...]
+     * }
+     */
+
+    if (
+      Array.isArray(
+        data.moves
+      )
+    ) {
+      return data;
+    }
+
+
+    /*
+     * Some versions may store
+     * the actual game under a nested
+     * property.
+     */
+
+    const candidates = [
+      data.game,
+      data.state,
+      data.currentGame,
+      data.activeGame
+    ];
+
+
+    for (
+      const candidate
+      of candidates
+    ) {
+
+      if (
+        candidate &&
+        Array.isArray(
+          candidate.moves
+        )
+      ) {
+        return candidate;
+      }
+    }
+
+
+    return null;
+  }
+
+
+  function detectCurrentGame() {
+
+    const storage =
+      findGameStorage();
+
+    if (!storage) {
+      return null;
+    }
+
+
+    const data =
+      extractGameData(
+        storage.data
       );
 
-    reviewState.games.unshift(
-      normalized
-    );
+    if (!data) {
+      return null;
+    }
 
-    reviewState.games =
-      reviewState.games.slice(
-        0,
-        50
+
+    const normalized =
+      normalizeGame(
+        data
       );
 
-    saveReviews();
+    if (!normalized) {
+      return null;
+    }
+
+
+    /*
+     * Preserve existing metadata
+     * whenever possible.
+     */
+
+    normalized.sourceStorage =
+      storage.key;
+
 
     return normalized;
   }
@@ -410,36 +830,99 @@
 
   /*
    * =========================================================
-   * PUBLIC BRIDGE
+   * AUTOMATIC REVIEW CREATION
    * =========================================================
    */
 
-  window.GomokuReview = {
+  function registerDetectedGame() {
 
-    addGame,
+    const game =
+      detectCurrentGame();
 
-    open(game) {
-      const normalized =
-        normalizeGame(game);
-
-      if (!normalized) {
-        return;
-      }
-
-      reviewState.activeGame =
-        normalized;
-
-      reviewState.currentMove =
-        normalized.moves.length;
-
-      openReview();
-    },
-
-    getGames() {
-      return reviewState.games.slice();
+    if (!game) {
+      return null;
     }
 
-  };
+
+    /*
+     * A game is considered reviewable
+     * if it has a winner or is completely
+     * filled.
+     */
+
+    const finished =
+      Boolean(
+        game.winner ||
+        game.moves.length >=
+          CONFIG.SIZE *
+          CONFIG.SIZE
+      );
+
+
+    if (!finished) {
+      return null;
+    }
+
+
+    return addGame(
+      game
+    );
+  }
+
+
+  function addGame(
+    game
+  ) {
+
+    const normalized =
+      normalizeGame(
+        game
+      );
+
+    if (
+      !normalized
+    ) {
+      return null;
+    }
+
+
+    const existingIndex =
+      reviewState.games.findIndex(
+        item =>
+          item.id ===
+          normalized.id
+      );
+
+
+    if (
+      existingIndex >=
+      0
+    ) {
+
+      reviewState.games.splice(
+        existingIndex,
+        1
+      );
+    }
+
+
+    reviewState.games.unshift(
+      normalized
+    );
+
+
+    reviewState.games =
+      reviewState.games.slice(
+        0,
+        CONFIG.MAX_REVIEWS
+      );
+
+
+    saveReviews();
+
+
+    return normalized;
+  }
 
 
   /*
@@ -449,6 +932,7 @@
    */
 
   function injectStyles() {
+
     if (
       document.querySelector(
         "#gomoku-review-styles"
@@ -457,19 +941,23 @@
       return;
     }
 
+
     const style =
       document.createElement(
         "style"
       );
 
+
     style.id =
       "gomoku-review-styles";
 
+
     style.textContent = `
+
       .gomoku-review-overlay {
         position: fixed;
         inset: 0;
-        z-index: 1000;
+        z-index: 10000;
 
         display: grid;
         place-items: center;
@@ -486,7 +974,9 @@
           blur(18px);
 
         opacity: 0;
-        pointer-events: none;
+
+        pointer-events:
+          none;
 
         transition:
           opacity 180ms ease;
@@ -501,21 +991,17 @@
 
       .gomoku-review-panel {
         width:
-          min(
-            980px,
-            100%
-          );
+          min(980px, 100%);
 
         max-height:
-          calc(
-            100dvh - 48px
-          );
+          calc(100dvh - 48px);
 
         overflow:
           auto;
 
         background:
-          var(--surface-solid);
+          var(--surface-solid,
+          var(--surface));
 
         color:
           var(--text);
@@ -556,14 +1042,8 @@
           18px 22px;
 
         background:
-          color-mix(
-            in srgb,
-            var(--surface-solid) 90%,
-            transparent
-          );
-
-        backdrop-filter:
-          blur(18px);
+          var(--surface-solid,
+          var(--surface));
 
         border-bottom:
           1px solid var(--line);
@@ -656,11 +1136,8 @@
           20px;
 
         background:
-          color-mix(
-            in srgb,
-            var(--background) 78%,
-            var(--surface-solid)
-          );
+          var(--background,
+          var(--surface));
       }
 
 
@@ -681,16 +1158,10 @@
           grid;
 
         grid-template-columns:
-          repeat(
-            15,
-            1fr
-          );
+          repeat(15, 1fr);
 
         grid-template-rows:
-          repeat(
-            15,
-            1fr
-          );
+          repeat(15, 1fr);
 
         padding:
           3%;
@@ -699,7 +1170,8 @@
           14px;
 
         background:
-          var(--board);
+          var(--board,
+          #e8d5ad);
 
         overflow:
           hidden;
@@ -725,14 +1197,16 @@
         position:
           absolute;
 
-        inset:
-          50% 0 auto;
+        left: 0;
+        right: 0;
+        top: 50%;
 
         height:
           1px;
 
         background:
-          var(--board-line);
+          var(--board-line,
+          #765f43);
       }
 
 
@@ -743,14 +1217,16 @@
         position:
           absolute;
 
-        inset:
-          0 auto 0 50%;
+        top: 0;
+        bottom: 0;
+        left: 50%;
 
         width:
           1px;
 
         background:
-          var(--board-line);
+          var(--board-line,
+          #765f43);
       }
 
 
@@ -807,7 +1283,8 @@
           0 0 0 3px
           color-mix(
             in srgb,
-            var(--accent) 68%,
+            var(--accent, #4f8f88)
+            68%,
             transparent
           ),
           0 3px 7px
@@ -841,10 +1318,7 @@
           grid;
 
         grid-template-columns:
-          repeat(
-            2,
-            1fr
-          );
+          repeat(2, 1fr);
 
         gap:
           8px;
@@ -949,9 +1423,7 @@
           grid;
 
         grid-template-columns:
-          38px
-          1fr
-          auto;
+          38px 1fr auto;
 
         align-items:
           center;
@@ -995,14 +1467,16 @@
         border-color:
           color-mix(
             in srgb,
-            var(--accent) 35%,
+            var(--accent, #4f8f88)
+            35%,
             transparent
           );
 
         background:
           color-mix(
             in srgb,
-            var(--accent) 12%,
+            var(--accent, #4f8f88)
+            12%,
             transparent
           );
       }
@@ -1013,10 +1487,7 @@
           grid;
 
         grid-template-columns:
-          repeat(
-            5,
-            1fr
-          );
+          repeat(5, 1fr);
 
         gap:
           7px;
@@ -1064,43 +1535,23 @@
           10px;
 
         accent-color:
-          var(--accent);
+          var(--accent, #4f8f88);
       }
 
 
-      .gomoku-review-result-button {
-        width:
-          100%;
+      .gomoku-review-empty {
+        padding:
+          28px 18px;
 
-        min-height:
-          52px;
-
-        margin-top:
-          12px;
-
-        border:
-          1px solid var(--line);
-
-        border-radius:
-          16px;
-
-        background:
-          var(--surface);
+        text-align:
+          center;
 
         color:
-          var(--text);
-
-        cursor:
-          pointer;
-
-        font-weight:
-          700;
+          var(--muted);
       }
 
 
-      @media (
-        max-width: 760px
-      ) {
+      @media (max-width: 760px) {
 
         .gomoku-review-overlay {
           padding:
@@ -1109,9 +1560,7 @@
 
         .gomoku-review-panel {
           max-height:
-            calc(
-              100dvh - 20px
-            );
+            calc(100dvh - 20px);
 
           border-radius:
             20px;
@@ -1129,10 +1578,7 @@
 
         .gomoku-review-controls {
           grid-template-columns:
-            repeat(
-              4,
-              1fr
-            );
+            repeat(4, 1fr);
         }
 
         .gomoku-review-control.play {
@@ -1141,7 +1587,19 @@
         }
 
       }
+
+
+      @media (prefers-reduced-motion: reduce) {
+
+        .gomoku-review-overlay {
+          transition:
+            none;
+        }
+
+      }
+
     `;
+
 
     document.head.appendChild(
       style
@@ -1156,7 +1614,9 @@
    */
 
   function ensureReviewUI() {
+
     injectStyles();
+
 
     if (
       document.querySelector(
@@ -1166,18 +1626,23 @@
       return;
     }
 
+
     const overlay =
       document.createElement(
         "div"
       );
 
+
     overlay.id =
       "gomokuReviewOverlay";
+
 
     overlay.className =
       "gomoku-review-overlay";
 
+
     overlay.innerHTML = `
+
       <section
         class="gomoku-review-panel"
         role="dialog"
@@ -1190,6 +1655,7 @@
         >
 
           <div>
+
             <div
               class="gomoku-review-kicker"
             >
@@ -1202,7 +1668,9 @@
             >
               這局回顧
             </h2>
+
           </div>
+
 
           <button
             type="button"
@@ -1309,23 +1777,34 @@
                 <div
                   class="gomoku-review-stat"
                 >
-                  <span>總手數</span>
+
+                  <span>
+                    總手數
+                  </span>
+
                   <strong
                     id="gomokuReviewTotal"
                   >
                     0
                   </strong>
+
                 </div>
+
 
                 <div
                   class="gomoku-review-stat"
                 >
-                  <span>目前</span>
+
+                  <span>
+                    目前
+                  </span>
+
                   <strong
                     id="gomokuReviewCurrent"
                   >
                     0
                   </strong>
+
                 </div>
 
               </div>
@@ -1362,6 +1841,7 @@
       </section>
     `;
 
+
     document.body.appendChild(
       overlay
     );
@@ -1370,17 +1850,19 @@
     overlay.addEventListener(
       "click",
       event => {
+
         if (
           event.target ===
           overlay
         ) {
           closeReview();
         }
+
       }
     );
 
 
-    document
+    overlay
       .querySelector(
         "#gomokuReviewClose"
       )
@@ -1401,19 +1883,18 @@
             "click",
             () => {
 
-              const action =
-                button.dataset.reviewAction;
-
               handleReviewAction(
-                action
+                button.dataset.reviewAction
               );
+
             }
           );
+
         }
       );
 
 
-    document
+    overlay
       .querySelector(
         "#gomokuReviewSlider"
       )
@@ -1428,6 +1909,7 @@
               event.target.value
             )
           );
+
         }
       );
   }
@@ -1440,21 +1922,23 @@
    */
 
   function renderReviewBoard() {
+
     const boardElement =
       document.querySelector(
         "#gomokuReviewBoard"
       );
 
-    if (!boardElement) {
-      return;
-    }
-
     const game =
       reviewState.activeGame;
 
-    if (!game) {
+
+    if (
+      !boardElement ||
+      !game
+    ) {
       return;
     }
+
 
     const board =
       boardAtMove(
@@ -1462,18 +1946,66 @@
         reviewState.currentMove
       );
 
+
     boardElement.innerHTML =
       "";
 
 
+    let currentMovePosition =
+      null;
+
+
+    if (
+      reviewState.currentMove >
+      0
+    ) {
+
+      currentMovePosition =
+        game.moves[
+          reviewState.currentMove - 1
+        ];
+    }
+
+
     const winningSet =
-      new Set(
-        (game.winningLine || [])
-          .map(
-            point =>
-              `${point[0]},${point[1]}`
-          )
+      new Set();
+
+
+    /*
+     * Only show winning line once
+     * the actual winning move has
+     * already been reached.
+     */
+
+    const winningMoveIndex =
+      findWinningMoveIndex(
+        game.moves
       );
+
+
+    if (
+      winningMoveIndex >= 0 &&
+      reviewState.currentMove >
+        winningMoveIndex
+    ) {
+
+      const line =
+        findWinningLineAtMove(
+          game.moves,
+          winningMoveIndex
+        );
+
+
+      line.forEach(
+        point => {
+
+          winningSet.add(
+            `${point[0]},${point[1]}`
+          );
+
+        }
+      );
+    }
 
 
     for (
@@ -1493,6 +2025,7 @@
             "div"
           );
 
+
         cell.className =
           "gomoku-review-cell";
 
@@ -1511,6 +2044,7 @@
               "div"
             );
 
+
           stone.className =
             "gomoku-review-stone " +
             (
@@ -1521,19 +2055,16 @@
             );
 
 
-          const moveIndex =
-            findMoveIndex(
-              game.moves,
-              row,
-              col,
-              reviewState.currentMove
-            );
+          const isCurrent =
+            currentMovePosition &&
+            currentMovePosition.row ===
+              row &&
+            currentMovePosition.col ===
+              col;
 
 
-          if (
-            moveIndex ===
-            reviewState.currentMove - 1
-          ) {
+          if (isCurrent) {
+
             stone.classList.add(
               "current"
             );
@@ -1545,6 +2076,7 @@
               `${row},${col}`
             )
           ) {
+
             stone.classList.add(
               "winning"
             );
@@ -1570,25 +2102,38 @@
   }
 
 
-  function findMoveIndex(
-    moves,
-    row,
-    col,
-    limit
+  /*
+   * =========================================================
+   * WINNING MOVE
+   * =========================================================
+   */
+
+  function findWinningMoveIndex(
+    moves
   ) {
+
     for (
       let i = 0;
-      i < limit;
+      i < moves.length;
       i += 1
     ) {
 
+      const line =
+        findWinningLineAtMove(
+          moves,
+          i
+        );
+
+
       if (
-        moves[i].row === row &&
-        moves[i].col === col
+        line.length >=
+        CONFIG.WIN
       ) {
+
         return i;
       }
     }
+
 
     return -1;
   }
@@ -1601,8 +2146,10 @@
    */
 
   function updateReviewMeta() {
+
     const game =
       reviewState.activeGame;
+
 
     if (!game) {
       return;
@@ -1614,15 +2161,18 @@
         "#gomokuReviewTotal"
       );
 
+
     const current =
       document.querySelector(
         "#gomokuReviewCurrent"
       );
 
+
     const moment =
       document.querySelector(
         "#gomokuReviewMoment"
       );
+
 
     const slider =
       document.querySelector(
@@ -1631,6 +2181,7 @@
 
 
     if (total) {
+
       total.textContent =
         String(
           game.moves.length
@@ -1639,6 +2190,7 @@
 
 
     if (current) {
+
       current.textContent =
         String(
           reviewState.currentMove
@@ -1647,6 +2199,7 @@
 
 
     if (slider) {
+
       slider.max =
         String(
           game.moves.length
@@ -1668,6 +2221,7 @@
       reviewState.currentMove ===
       0
     ) {
+
       moment.textContent =
         "開局，棋盤還沒有落子。";
 
@@ -1675,10 +2229,13 @@
     }
 
 
+    const index =
+      reviewState.currentMove - 1;
+
+
     const move =
-      game.moves[
-        reviewState.currentMove - 1
-      ];
+      game.moves[index];
+
 
     if (!move) {
       return;
@@ -1692,25 +2249,15 @@
         : "白棋";
 
 
-    const board =
-      boardAtMove(
-        game.moves,
-        reviewState.currentMove
-      );
-
-
-    const winningLine =
-      getWinningLine(
-        board,
-        move.row,
-        move.col,
-        move.player
+    const winningIndex =
+      findWinningMoveIndex(
+        game.moves
       );
 
 
     if (
-      winningLine.length >=
-      CONFIG.WIN
+      index ===
+      winningIndex
     ) {
 
       moment.textContent =
@@ -1738,13 +2285,16 @@
    */
 
   function renderMoveList() {
+
     const list =
       document.querySelector(
         "#gomokuReviewMoves"
       );
 
+
     const game =
       reviewState.activeGame;
+
 
     if (
       !list ||
@@ -1766,8 +2316,10 @@
             "button"
           );
 
+
         button.type =
           "button";
+
 
         button.className =
           "gomoku-review-move";
@@ -1777,6 +2329,7 @@
           index + 1 ===
           reviewState.currentMove
         ) {
+
           button.classList.add(
             "selected"
           );
@@ -1788,6 +2341,19 @@
           CONFIG.BLACK
             ? "黑棋"
             : "白棋";
+
+
+        const winningIndex =
+          findWinningMoveIndex(
+            game.moves
+          );
+
+
+        const label =
+          index ===
+          winningIndex
+            ? "勝負手"
+            : "";
 
 
         button.innerHTML = `
@@ -1804,6 +2370,7 @@
               move.row,
               move.col
             )}
+            ${label}
           </span>
         `;
 
@@ -1817,6 +2384,7 @@
             setReviewMove(
               index + 1
             );
+
           }
         );
 
@@ -1832,6 +2400,7 @@
       list.querySelector(
         ".selected"
       );
+
 
     selected?.scrollIntoView({
       block:
@@ -1850,43 +2419,65 @@
     action
   ) {
 
+    const game =
+      reviewState.activeGame;
+
+
+    if (!game) {
+      return;
+    }
+
+
     switch (action) {
 
       case "first":
+
         stopPlayback();
+
         setReviewMove(0);
+
         break;
+
 
       case "prev":
+
         stopPlayback();
+
         setReviewMove(
-          Math.max(
-            0,
-            reviewState.currentMove - 1
-          )
+          reviewState.currentMove - 1
         );
+
         break;
+
 
       case "next":
+
         stopPlayback();
+
         setReviewMove(
-          Math.min(
-            reviewState.activeGame.moves.length,
-            reviewState.currentMove + 1
-          )
+          reviewState.currentMove + 1
         );
+
         break;
+
 
       case "last":
+
         stopPlayback();
+
         setReviewMove(
-          reviewState.activeGame.moves.length
+          game.moves.length
         );
+
         break;
 
+
       case "play":
+
         togglePlayback();
+
         break;
+
 
       default:
         break;
@@ -1898,26 +2489,37 @@
     count
   ) {
 
-    if (
-      !reviewState.activeGame
-    ) {
+    const game =
+      reviewState.activeGame;
+
+
+    if (!game) {
       return;
     }
+
 
     reviewState.currentMove =
       Math.max(
         0,
         Math.min(
-          reviewState.activeGame.moves.length,
+          game.moves.length,
           Number(count) || 0
         )
       );
+
 
     renderReviewBoard();
   }
 
 
+  /*
+   * =========================================================
+   * PLAYBACK
+   * =========================================================
+   */
+
   function togglePlayback() {
+
     if (
       reviewState.playing
     ) {
@@ -1928,16 +2530,18 @@
     }
 
 
-    if (
-      !reviewState.activeGame
-    ) {
+    const game =
+      reviewState.activeGame;
+
+
+    if (!game) {
       return;
     }
 
 
     if (
       reviewState.currentMove >=
-      reviewState.activeGame.moves.length
+      game.moves.length
     ) {
 
       setReviewMove(0);
@@ -1956,8 +2560,9 @@
         () => {
 
           if (
+            !reviewState.activeGame ||
             reviewState.currentMove >=
-            reviewState.activeGame.moves.length
+              reviewState.activeGame.moves.length
           ) {
 
             stopPlayback();
@@ -1971,7 +2576,7 @@
           );
 
         },
-        500
+        CONFIG.PLAY_INTERVAL
       );
   }
 
@@ -1981,26 +2586,37 @@
     reviewState.playing =
       false;
 
-    clearInterval(
-      reviewState.timer
-    );
 
-    reviewState.timer =
-      null;
+    if (
+      reviewState.timer !==
+      null
+    ) {
+
+      clearInterval(
+        reviewState.timer
+      );
+
+      reviewState.timer =
+        null;
+    }
+
 
     updatePlayButton();
   }
 
 
   function updatePlayButton() {
+
     const button =
       document.querySelector(
         '[data-review-action="play"]'
       );
 
+
     if (!button) {
       return;
     }
+
 
     button.textContent =
       reviewState.playing
@@ -2015,34 +2631,59 @@
    * =========================================================
    */
 
-  function openReview() {
+  function openReview(
+    game
+  ) {
+
+    const normalized =
+      normalizeGame(
+        game
+      );
+
+
+    if (!normalized) {
+      return false;
+    }
+
 
     ensureReviewUI();
+
+
+    reviewState.activeGame =
+      normalized;
+
+
+    reviewState.currentMove =
+      normalized.moves.length;
+
+
+    stopPlayback();
+
 
     const overlay =
       document.querySelector(
         "#gomokuReviewOverlay"
       );
 
+
     if (!overlay) {
-      return;
+      return false;
     }
 
-    reviewState.playing =
-      false;
-
-    clearInterval(
-      reviewState.timer
-    );
 
     overlay.classList.add(
       "open"
     );
 
+
     document.body.style.overflow =
       "hidden";
 
+
     renderReviewBoard();
+
+
+    return true;
   }
 
 
@@ -2050,14 +2691,17 @@
 
     stopPlayback();
 
+
     const overlay =
       document.querySelector(
         "#gomokuReviewOverlay"
       );
 
+
     overlay?.classList.remove(
       "open"
     );
+
 
     document.body.style.overflow =
       "";
@@ -2066,7 +2710,13 @@
 
   /*
    * =========================================================
-   * RESULT BUTTON
+   * RESULT SCREEN INTEGRATION
+   * =========================================================
+   *
+   * We do not modify app.js.
+   * Instead, we observe the result screen
+   * and inject the review button when
+   * it becomes visible.
    * =========================================================
    */
 
@@ -2077,13 +2727,21 @@
         "#resultScreen"
       );
 
+
     const actions =
       resultScreen?.querySelector(
         ".result-actions"
       );
 
+
     if (
-      !actions ||
+      !actions
+    ) {
+      return;
+    }
+
+
+    if (
       document.querySelector(
         "#gomokuOpenReview"
       )
@@ -2097,14 +2755,18 @@
         "button"
       );
 
+
     button.type =
       "button";
+
 
     button.id =
       "gomokuOpenReview";
 
+
     button.className =
       "secondary-button full-button";
+
 
     button.textContent =
       "這局回顧";
@@ -2117,11 +2779,26 @@
         const game =
           getLatestReview();
 
+
         if (!game) {
+
+          const detected =
+            registerDetectedGame();
+
+
+          if (detected) {
+
+            openReview(
+              detected
+            );
+
+          }
+
           return;
         }
 
-        window.GomokuReview.open(
+
+        openReview(
           game
         );
       }
@@ -2134,12 +2811,210 @@
   }
 
 
-  function getLatestReview() {
-    return (
-      reviewState.games[0] ||
-      null
+  /*
+   * =========================================================
+   * RESULT SCREEN OBSERVER
+   * =========================================================
+   */
+
+  function observeResultScreen() {
+
+    const resultScreen =
+      document.querySelector(
+        "#resultScreen"
+      );
+
+
+    if (!resultScreen) {
+      return;
+    }
+
+
+    const observer =
+      new MutationObserver(
+        () => {
+
+          ensureResultButton();
+
+          /*
+           * When the result screen changes,
+           * attempt to capture the latest
+           * completed game automatically.
+           */
+
+          registerDetectedGame();
+
+        }
+      );
+
+
+    observer.observe(
+      resultScreen,
+      {
+        childList:
+          true,
+
+        subtree:
+          true,
+
+        attributes:
+          true
+      }
+    );
+
+
+    ensureResultButton();
+  }
+
+
+  /*
+   * =========================================================
+   * KEYBOARD
+   * =========================================================
+   */
+
+  function setupKeyboard() {
+
+    document.addEventListener(
+      "keydown",
+      event => {
+
+        const overlay =
+          document.querySelector(
+            "#gomokuReviewOverlay"
+          );
+
+
+        if (
+          !overlay?.classList.contains(
+            "open"
+          )
+        ) {
+          return;
+        }
+
+
+        switch (
+          event.key
+        ) {
+
+          case "Escape":
+
+            closeReview();
+
+            break;
+
+
+          case "ArrowLeft":
+
+            event.preventDefault();
+
+            stopPlayback();
+
+            setReviewMove(
+              reviewState.currentMove - 1
+            );
+
+            break;
+
+
+          case "ArrowRight":
+
+            event.preventDefault();
+
+            stopPlayback();
+
+            setReviewMove(
+              reviewState.currentMove + 1
+            );
+
+            break;
+
+
+          case " ":
+
+            event.preventDefault();
+
+            togglePlayback();
+
+            break;
+
+
+          case "Home":
+
+            event.preventDefault();
+
+            stopPlayback();
+
+            setReviewMove(0);
+
+            break;
+
+
+          case "End":
+
+            event.preventDefault();
+
+            stopPlayback();
+
+            setReviewMove(
+              reviewState.activeGame?.moves.length ||
+              0
+            );
+
+            break;
+
+
+          default:
+            break;
+        }
+      }
     );
   }
+
+
+  /*
+   * =========================================================
+   * PUBLIC API
+   * =========================================================
+   */
+
+  window.GomokuReview = {
+
+    addGame,
+
+    open:
+      openReview,
+
+    close:
+      closeReview,
+
+    getGames() {
+
+      return reviewState.games.slice();
+
+    },
+
+    getLatest() {
+
+      return (
+        reviewState.games[0] ||
+        null
+      );
+
+    },
+
+    refresh() {
+
+      const game =
+        registerDetectedGame();
+
+      ensureResultButton();
+
+      return game;
+    }
+
+  };
 
 
   /*
@@ -2150,22 +3025,67 @@
 
   function init() {
 
+    if (
+      reviewState.initialized
+    ) {
+      return;
+    }
+
+
+    reviewState.initialized =
+      true;
+
+
     reviewState.games =
       loadReviews();
 
+
     ensureReviewUI();
 
-    ensureResultButton();
+    observeResultScreen();
+
+    setupKeyboard();
 
 
     /*
-     * Re-scan after dynamically created
-     * result UI becomes available.
+     * Result screen may be created or
+     * changed after app initialization.
      */
 
     window.setTimeout(
-      ensureResultButton,
+      () => {
+
+        ensureResultButton();
+
+        registerDetectedGame();
+
+      },
       0
+    );
+
+
+    /*
+     * A few delayed checks cover game
+     * engines that update LocalStorage
+     * immediately before switching
+     * screens.
+     */
+
+    window.setTimeout(
+      registerDetectedGame,
+      250
+    );
+
+
+    window.setTimeout(
+      registerDetectedGame,
+      800
+    );
+
+
+    window.setTimeout(
+      ensureResultButton,
+      800
     );
   }
 
@@ -2179,7 +3099,8 @@
       "DOMContentLoaded",
       init,
       {
-        once: true
+        once:
+          true
       }
     );
 
