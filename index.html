@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
-
 <head>
   <meta charset="UTF-8">
 
@@ -52,11 +51,9 @@
   >
 </head>
 
-
 <body>
 
 <div class="app-shell">
-
 
   <!-- =====================================================
        TOP BAR
@@ -73,7 +70,6 @@
       <span aria-hidden="true">‹</span>
     </button>
 
-
     <div class="brand">
 
       <span
@@ -86,7 +82,6 @@
       </span>
 
     </div>
-
 
     <button
       class="icon-button"
@@ -101,7 +96,6 @@
 
 
   <main>
-
 
     <!-- ===================================================
          HOME
@@ -122,16 +116,13 @@
           <div class="hero-stone hero-white"></div>
         </div>
 
-
         <h1>
           五子棋
         </h1>
 
-
         <p class="subtitle">
           簡單的規則，沒有簡單的棋局。
         </p>
-
 
         <div class="home-actions">
 
@@ -143,7 +134,6 @@
             開始遊戲
           </button>
 
-
           <button
             class="secondary-button"
             id="recordsButton"
@@ -151,7 +141,6 @@
           >
             棋局記錄
           </button>
-
 
           <button
             class="secondary-button"
@@ -180,7 +169,6 @@
 
           </div>
 
-
           <button
             class="text-button"
             id="resumeButton"
@@ -194,7 +182,6 @@
       </div>
 
     </section>
-
 
 
     <!-- ===================================================
@@ -219,7 +206,6 @@
             對戰方式
           </h3>
 
-
           <div
             class="segmented-control"
             id="modeControl"
@@ -232,7 +218,6 @@
             >
               人機
             </button>
-
 
             <button
               type="button"
@@ -247,7 +232,6 @@
         </div>
 
 
-
         <div
           class="settings-group"
           id="difficultyGroup"
@@ -257,7 +241,6 @@
             難度
           </h3>
 
-
           <div class="difficulty-grid">
 
             <button
@@ -265,7 +248,6 @@
               type="button"
               data-difficulty="easy"
             >
-
               <strong>
                 初級
               </strong>
@@ -273,7 +255,6 @@
               <span>
                 適合第一次玩
               </span>
-
             </button>
 
 
@@ -282,7 +263,6 @@
               type="button"
               data-difficulty="normal"
             >
-
               <strong>
                 中級
               </strong>
@@ -290,7 +270,6 @@
               <span>
                 開始認真下棋
               </span>
-
             </button>
 
 
@@ -299,7 +278,6 @@
               type="button"
               data-difficulty="hard"
             >
-
               <strong>
                 高級
               </strong>
@@ -307,13 +285,11 @@
               <span>
                 需要真正思考
               </span>
-
             </button>
 
           </div>
 
         </div>
-
 
 
         <div
@@ -325,7 +301,6 @@
             AI 對手
           </h3>
 
-
           <div
             class="difficulty-grid"
             id="characterControl"
@@ -336,7 +311,6 @@
               type="button"
               data-character="mio"
             >
-
               <strong>
                 Mio
               </strong>
@@ -344,7 +318,6 @@
               <span>
                 溫和、防守型
               </span>
-
             </button>
 
 
@@ -353,7 +326,6 @@
               type="button"
               data-character="rin"
             >
-
               <strong>
                 Rin
               </strong>
@@ -361,7 +333,6 @@
               <span>
                 積極、進攻型
               </span>
-
             </button>
 
 
@@ -370,7 +341,6 @@
               type="button"
               data-character="sora"
             >
-
               <strong>
                 Sora
               </strong>
@@ -378,7 +348,6 @@
               <span>
                 冷靜、平衡型
               </span>
-
             </button>
 
 
@@ -387,7 +356,6 @@
               type="button"
               data-character="kuro"
             >
-
               <strong>
                 Kuro
               </strong>
@@ -395,7 +363,6 @@
               <span>
                 狡猾、反擊型
               </span>
-
             </button>
 
           </div>
@@ -403,13 +370,11 @@
         </div>
 
 
-
         <div class="settings-group">
 
           <h3>
             你的棋子
           </h3>
-
 
           <div class="side-picker">
 
@@ -459,7 +424,6 @@
         </div>
 
 
-
         <button
           class="primary-button full-button"
           id="beginGameButton"
@@ -473,7 +437,6 @@
     </section>
 
 
-
     <!-- ===================================================
          GAME
          =================================================== -->
@@ -485,7 +448,6 @@
 
       <div class="game-layout">
 
-
         <div class="game-status">
 
           <div class="player-indicator">
@@ -494,7 +456,6 @@
               class="status-stone black-stone"
               id="turnStone"
             ></span>
-
 
             <div>
 
@@ -505,10 +466,7 @@
                 你的回合
               </span>
 
-
-              <strong
-                id="turnPlayer"
-              >
+              <strong id="turnPlayer">
                 黑棋
               </strong>
 
@@ -534,7 +492,6 @@
         </div>
 
 
-
         <!-- AI OS -->
 
         <div
@@ -551,7 +508,6 @@
 
           </div>
 
-
           <div class="ai-os-content">
 
             <div class="ai-os-header">
@@ -566,7 +522,6 @@
 
             </div>
 
-
             <p id="aiOSText">
               嗯……先看看這裡。
             </p>
@@ -574,7 +529,6 @@
           </div>
 
         </div>
-
 
 
         <div class="board-wrapper">
@@ -587,7 +541,6 @@
           ></canvas>
 
         </div>
-
 
 
         <div class="game-actions">
@@ -649,7 +602,6 @@
     </section>
 
 
-
     <!-- ===================================================
          RESULT
          =================================================== -->
@@ -669,22 +621,18 @@
           <span></span>
         </div>
 
-
         <p
           class="result-kicker"
           id="resultKicker"
         ></p>
 
-
         <h2
           id="resultTitle"
         ></h2>
 
-
         <p
           id="resultDescription"
         ></p>
-
 
         <div class="result-actions">
 
@@ -695,7 +643,6 @@
           >
             再來一局
           </button>
-
 
           <button
             class="secondary-button"
@@ -710,7 +657,6 @@
       </div>
 
     </section>
-
 
 
     <!-- ===================================================
@@ -791,32 +737,30 @@
         ></div>
 
 
-        <!-- EXPORT -->
+        <div class="records-actions">
 
-        <button
-          class="secondary-button full-button"
-          id="exportRecordsButton"
-          type="button"
-          data-i18n="records.export"
-        >
-          匯出棋局
-        </button>
+          <button
+            class="secondary-button full-button"
+            id="exportRecordsButton"
+            type="button"
+          >
+            匯出棋局
+          </button>
 
 
-        <!-- CLEAR -->
+          <button
+            class="secondary-button full-button"
+            id="clearRecordsButton"
+            type="button"
+          >
+            清除記錄
+          </button>
 
-        <button
-          class="secondary-button full-button"
-          id="clearRecordsButton"
-          type="button"
-        >
-          清除記錄
-        </button>
+        </div>
 
       </div>
 
     </section>
-
 
 
     <!-- ===================================================
@@ -836,9 +780,6 @@
 
 
         <div class="settings-list">
-
-
-          <!-- LANGUAGE -->
 
           <label class="setting-row">
 
@@ -882,9 +823,6 @@
           </label>
 
 
-
-          <!-- SOUND -->
-
           <label class="setting-row">
 
             <span>
@@ -909,9 +847,6 @@
           </label>
 
 
-
-          <!-- MOTION -->
-
           <label class="setting-row">
 
             <span>
@@ -935,9 +870,6 @@
 
           </label>
 
-
-
-          <!-- THEME -->
 
           <label class="setting-row">
 
@@ -981,7 +913,6 @@
   </main>
 
 
-
   <!-- =====================================================
        TOAST
        ===================================================== -->
@@ -996,19 +927,21 @@
 </div>
 
 
-
 <!-- =======================================================
-     JAVASCRIPT
+     SCRIPT ORDER
 
-     順序：
-     1. i18n
-     2. export
-     3. app
+     i18n.js
+       ↓
+     app.js
+       ↓
+     export.js
+
+     export.js 會在 app.js 完成後接管 Export 按鈕。
      ======================================================= -->
 
 <script src="./js/i18n.js"></script>
-<script src="./js/export.js"></script>
 <script src="./app.js"></script>
+<script src="./js/export.js"></script>
 
 </body>
 </html>
