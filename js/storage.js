@@ -17,7 +17,6 @@ function createDefaultAIStats() {
 
   const ai = {};
 
-
   Object.keys(
     AI_CHARACTERS
   ).forEach(
@@ -34,11 +33,16 @@ function createDefaultAIStats() {
     }
   );
 
-
   return ai;
 
 }
 
+
+/*
+ * =========================================================
+ * STATS
+ * =========================================================
+ */
 
 export function createDefaultStats() {
 
@@ -174,6 +178,20 @@ export function saveStats(
 }
 
 
+/*
+ * =========================================================
+ * SETTINGS
+ * =========================================================
+ *
+ * music:
+ *   true  = background music enabled
+ *   false = background music disabled
+ *
+ * Existing users who do not have the new
+ * property automatically receive true.
+ * =========================================================
+ */
+
 export function loadSettings() {
 
   const defaults = {
@@ -182,6 +200,9 @@ export function loadSettings() {
       "zh-TW",
 
     sound:
+      true,
+
+    music:
       true,
 
     motion:
@@ -208,13 +229,47 @@ export function loadSettings() {
     }
 
 
+    const data =
+      JSON.parse(
+        raw
+      );
+
+
+    if (
+      !data ||
+      typeof data !== "object"
+    ) {
+
+      return defaults;
+
+    }
+
+
     return {
 
       ...defaults,
 
-      ...JSON.parse(
-        raw
-      )
+      ...data,
+
+      /*
+       * Make sure old settings files
+       * still receive the new music flag.
+       */
+
+      music:
+        data.music !== undefined
+          ? Boolean(data.music)
+          : true,
+
+      sound:
+        data.sound !== undefined
+          ? Boolean(data.sound)
+          : true,
+
+      motion:
+        data.motion !== undefined
+          ? Boolean(data.motion)
+          : true
 
     };
 
@@ -250,6 +305,12 @@ export function saveSettings(
 
 }
 
+
+/*
+ * =========================================================
+ * ACTIVE GAME
+ * =========================================================
+ */
 
 export function loadActiveGame() {
 
