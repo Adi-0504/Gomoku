@@ -3,73 +3,53 @@
 
   /*
    * =========================================================
-   * Gomoku — Winning Line Enhancement
+   * GOMOKU — WINNING LINE POLISH
    * =========================================================
    *
-   * app.js is intentionally untouched.
+   * IMPORTANT:
+   * - app.js is NOT modified.
+   * - We hook the board Canvas drawing API.
+   * - We detect the winning-line stroke directly.
+   * - No pixel recognition.
+   * - No game-state duplication.
    *
-   * app.js remains responsible for:
-   * - win detection
-   * - winningLine
-   * - drawing the actual winning line
-   *
-   * This file ONLY enhances the already-rendered winning line.
-   *
+   * app.js remains the source of truth.
    * =========================================================
    */
 
-  const board = document.getElementById("boardCanvas");
+  const WINNING_COLOR = "#d46d52";
 
-  if (!board) {
-    return;
-  }
+  const BOARD_ID = "boardCanvas";
 
+  const OVERLAY_ID =
+    "gomoku-winning-line-overlay";
 
-  /* =========================================================
-     CONFIG
-     ========================================================= */
-
-  const LINE = {
-    r: 212,
-    g: 109,
-    b: 82,
-
-    tolerance: 34,
-
-    minSamples: 10,
-
-    glow: "rgba(212, 109, 82, 0.30)",
-
-    highlight:
-      "rgba(255, 255, 255, 0.72)",
-
-    color:
-      "#d46d52"
-  };
-
-
-  /* =========================================================
-     STATE
-     ========================================================= */
+  let board = null;
 
   let overlay = null;
 
-  let ctx = null;
+  let overlayContext = null;
 
-  let raf = 0;
+  let hookedContext = null;
+
+  let currentPath = [];
+
+  let lastWinningPath = null;
+
+  let animationFrame = 0;
+
+  let animationStart = 0;
 
   let resizeObserver = null;
-
-  let lastSignature = "";
-
-  let line = null;
 
   let destroyed = false;
 
 
-  /* =========================================================
-     MOTION
-     ========================================================= */
+  /*
+   * =========================================================
+   * MOTION
+   * =========================================================
+   */
 
   function motionEnabled() {
 
@@ -80,7 +60,6 @@
       return false;
     }
 
-
     if (
       window.matchMedia &&
       window.matchMedia(
@@ -90,12 +69,10 @@
       return false;
     }
 
-
     const toggle =
       document.getElementById(
         "motionToggle"
       );
-
 
     if (
       toggle instanceof HTMLInputElement
@@ -103,126 +80,125 @@
       return toggle.checked;
     }
 
-
     return true;
   }
 
 
-  /* =========================================================
-     CREATE OVERLAY
-     ========================================================= */
+  /*
+   * =========================================================
+   * FIND BOARD
+   * =========================================================
+   */
 
-  function ensureOverlay() {
+  function findBoard() {
 
-    if (overlay) {
-      return true;
+    board =
+      document.getElementById(
+        BOARD_ID
+      );
+
+    return !!board;
+  }
+
+
+  /*
+   * =========================================================
+   * OVERLAY
+   * =========================================================
+   */
+
+  function createOverlay() {
+
+    if (
+      overlay ||
+      !board
+    ) {
+      return;
     }
-
 
     const parent =
       board.parentElement;
 
-
     if (!parent) {
-      return false;
+      return;
     }
 
-
-    const style =
+    const parentStyle =
       getComputedStyle(parent);
 
-
     if (
-      style.position ===
+      parentStyle.position ===
       "static"
     ) {
       parent.style.position =
         "relative";
     }
 
-
     overlay =
       document.createElement(
         "canvas"
       );
 
-
     overlay.id =
-      "gomokuWinningLineOverlay";
-
+      OVERLAY_ID;
 
     overlay.setAttribute(
       "aria-hidden",
       "true"
     );
 
-
     Object.assign(
       overlay.style,
       {
         position: "absolute",
 
-        inset: "0",
+        left: "0",
+
+        top: "0",
 
         width: "100%",
 
         height: "100%",
 
-        display: "block",
-
         pointerEvents: "none",
 
-        zIndex: "30"
+        zIndex: "100",
+
+        display: "block"
       }
     );
-
 
     parent.appendChild(
       overlay
     );
 
-
-    ctx =
+    overlayContext =
       overlay.getContext(
         "2d"
       );
 
-
-    if (!ctx) {
-
-      overlay.remove();
-
-      overlay = null;
-
-      return false;
-    }
-
-
-    resize();
-
-
-    return true;
+    resizeOverlay();
   }
 
 
-  /* =========================================================
-     RESIZE
-     ========================================================= */
+  /*
+   * =========================================================
+   * RESIZE
+   * =========================================================
+   */
 
-  function resize() {
+  function resizeOverlay() {
 
     if (
       !overlay ||
-      !ctx ||
-      destroyed
+      !overlayContext ||
+      !board
     ) {
       return;
     }
 
-
     const rect =
       board.getBoundingClientRect();
-
 
     if (
       rect.width <= 0 ||
@@ -231,6 +207,28 @@
       return;
     }
 
+    const parentRect =
+      board.parentElement.getBoundingClientRect();
+
+    const left =
+      rect.left -
+      parentRect.left;
+
+    const top =
+      rect.top -
+      parentRect.top;
+
+    overlay.style.left =
+      `${left}px`;
+
+    overlay.style.top =
+      `${top}px`;
+
+    overlay.style.width =
+      `${rect.width}px`;
+
+    overlay.style.height =
+      `${rect.height}px`;
 
     const dpr =
       Math.min(
@@ -242,20 +240,19 @@
         3
       );
 
-
     overlay.width =
       Math.round(
-        rect.width * dpr
+        rect.width *
+        dpr
       );
-
 
     overlay.height =
       Math.round(
-        rect.height * dpr
+        rect.height *
+        dpr
       );
 
-
-    ctx.setTransform(
+    overlayContext.setTransform(
       dpr,
       0,
       0,
@@ -264,35 +261,29 @@
       0
     );
 
-
-    ctx.clearRect(
-      0,
-      0,
-      rect.width,
-      rect.height
-    );
+    clearOverlay();
   }
 
 
-  /* =========================================================
-     CLEAR
-     ========================================================= */
+  /*
+   * =========================================================
+   * CLEAR
+   * =========================================================
+   */
 
-  function clear() {
+  function clearOverlay() {
 
     if (
-      !ctx ||
+      !overlayContext ||
       !overlay
     ) {
       return;
     }
 
-
     const rect =
-      board.getBoundingClientRect();
+      overlay.getBoundingClientRect();
 
-
-    ctx.clearRect(
+    overlayContext.clearRect(
       0,
       0,
       rect.width,
@@ -301,272 +292,241 @@
   }
 
 
-  /* =========================================================
-     COLOR DISTANCE
-     ========================================================= */
+  /*
+   * =========================================================
+   * COLOR NORMALIZATION
+   * =========================================================
+   */
 
-  function colorDistance(
-    r,
-    g,
-    b
+  function normalizeColor(
+    color
   ) {
 
-    return Math.sqrt(
-      (r - LINE.r) ** 2 +
-      (g - LINE.g) ** 2 +
-      (b - LINE.b) ** 2
+    if (
+      typeof color !==
+      "string"
+    ) {
+      return "";
+    }
+
+    return color
+      .replace(
+        /\s+/g,
+        ""
+      )
+      .toLowerCase();
+  }
+
+
+  function isWinningColor(
+    color
+  ) {
+
+    const normalized =
+      normalizeColor(
+        color
+      );
+
+    return (
+      normalized ===
+      WINNING_COLOR
     );
   }
 
 
-  /* =========================================================
-     FIND THE EXISTING WINNING LINE
-     =========================================================
+  /*
+   * =========================================================
+   * PATH TRACKING
+   * =========================================================
+   *
+   * We intercept:
+   *
+   *   beginPath()
+   *   moveTo()
+   *   lineTo()
+   *   stroke()
+   *
+   * This lets us know exactly where app.js drew
+   * the winning line.
+   *
+   * No screenshot analysis.
+   * No board-state duplication.
+   * =========================================================
+   */
 
-     IMPORTANT:
-
-     We do NOT inspect black stones.
-
-     We do NOT inspect white stones.
-
-     We do NOT calculate five-in-a-row.
-
-     We ONLY search for the winning line that
-     app.js has already rendered using:
-
-       #d46d52
-
-     ========================================================= */
-
-  function findRenderedLine() {
+  function installCanvasHook() {
 
     if (
-      !board.width ||
-      !board.height
+      hookedContext ||
+      !board
     ) {
-      return null;
+      return;
     }
 
-
-    const source =
-      document.createElement(
-        "canvas"
+    const context =
+      board.getContext(
+        "2d"
       );
 
+    if (!context) {
+      return;
+    }
 
-    source.width =
-      board.width;
+    hookedContext =
+      context;
 
-
-    source.height =
-      board.height;
-
-
-    const sourceCtx =
-      source.getContext(
-        "2d",
-        {
-          willReadFrequently:
-            true
-        }
+    const originalBeginPath =
+      context.beginPath.bind(
+        context
       );
 
-
-    if (!sourceCtx) {
-      return null;
-    }
-
-
-    try {
-
-      sourceCtx.drawImage(
-        board,
-        0,
-        0
+    const originalMoveTo =
+      context.moveTo.bind(
+        context
       );
 
-    } catch {
+    const originalLineTo =
+      context.lineTo.bind(
+        context
+      );
 
-      return null;
-    }
+    const originalStroke =
+      context.stroke.bind(
+        context
+      );
 
+    context.beginPath =
+      function () {
 
-    const width =
-      board.width;
+        currentPath = [];
 
-
-    const height =
-      board.height;
-
-
-    let data;
-
-    try {
-
-      data =
-        sourceCtx
-          .getImageData(
-            0,
-            0,
-            width,
-            height
-          )
-          .data;
-
-    } catch {
-
-      return null;
-    }
+        return originalBeginPath();
+      };
 
 
-    let minX = width;
-
-    let minY = height;
-
-    let maxX = -1;
-
-    let maxY = -1;
-
-    let count = 0;
-
-
-    /*
-     * 每兩個像素取一次。
-     *
-     * 這樣在 iPad 上不會一直把整張
-     * 高 DPR canvas 全部掃一遍。
-     */
-
-    for (
-      let y = 0;
-      y < height;
-      y += 2
-    ) {
-
-      for (
-        let x = 0;
-        x < width;
-        x += 2
+    context.moveTo =
+      function (
+        x,
+        y
       ) {
 
-        const index =
-          (
-            y * width +
-            x
-          ) * 4;
+        currentPath.push({
+          type: "move",
+
+          x,
+
+          y
+        });
+
+        return originalMoveTo(
+          x,
+          y
+        );
+      };
 
 
-        const r =
-          data[index];
+    context.lineTo =
+      function (
+        x,
+        y
+      ) {
+
+        currentPath.push({
+          type: "line",
+
+          x,
+
+          y
+        });
+
+        return originalLineTo(
+          x,
+          y
+        );
+      };
 
 
-        const g =
-          data[index + 1];
+    context.stroke =
+      function (...args) {
 
+        const color =
+          context.strokeStyle;
 
-        const b =
-          data[index + 2];
+        const path =
+          currentPath.slice();
 
-
-        const a =
-          data[index + 3];
-
+        const result =
+          originalStroke(
+            ...args
+          );
 
         if (
-          a > 180 &&
-          colorDistance(
-            r,
-            g,
-            b
-          ) <=
-            LINE.tolerance
+          isWinningColor(
+            color
+          ) &&
+          path.length >= 2
         ) {
 
-          minX =
-            Math.min(
-              minX,
-              x
-            );
-
-
-          minY =
-            Math.min(
-              minY,
-              y
-            );
-
-
-          maxX =
-            Math.max(
-              maxX,
-              x
-            );
-
-
-          maxY =
-            Math.max(
-              maxY,
-              y
-            );
-
-
-          count++;
+          captureWinningPath(
+            path
+          );
         }
-      }
-    }
 
+        return result;
+      };
+  }
+
+
+  /*
+   * =========================================================
+   * CAPTURE WINNING PATH
+   * =========================================================
+   */
+
+  function captureWinningPath(
+    path
+  ) {
 
     if (
-      count <
-        LINE.minSamples ||
-      maxX < minX ||
-      maxY < minY
+      destroyed
     ) {
-      return null;
+      return;
     }
 
+    const points =
+      path.filter(
+        item =>
+          item &&
+          (
+            item.type ===
+              "move" ||
+            item.type ===
+              "line"
+          )
+      );
 
-    const rect =
-      board.getBoundingClientRect();
+    if (
+      points.length <
+      2
+    ) {
+      return;
+    }
 
+    const start =
+      points[0];
 
-    const scaleX =
-      rect.width /
-      width;
-
-
-    const scaleY =
-      rect.height /
-      height;
-
-
-    const x1 =
-      minX *
-      scaleX;
-
-
-    const y1 =
-      minY *
-      scaleY;
-
-
-    const x2 =
-      maxX *
-      scaleX;
-
-
-    const y2 =
-      maxY *
-      scaleY;
-
+    const end =
+      points[
+        points.length - 1
+      ];
 
     const dx =
-      x2 - x1;
-
+      end.x -
+      start.x;
 
     const dy =
-      y2 - y1;
-
+      end.y -
+      start.y;
 
     const length =
       Math.hypot(
@@ -574,75 +534,117 @@
         dy
       );
 
-
-    /*
-     * 一個小色塊不能被當成勝利線。
-     */
-
     if (
       length <
-      rect.width * 0.12
+      10
     ) {
-      return null;
+      return;
     }
 
+    lastWinningPath = {
+
+      x1: start.x,
+
+      y1: start.y,
+
+      x2: end.x,
+
+      y2: end.y,
+
+      length
+    };
+
+    drawWinningLine(
+      true
+    );
+  }
+
+
+  /*
+   * =========================================================
+   * COORDINATE CONVERSION
+   * =========================================================
+   *
+   * app.js Canvas coordinates can differ from CSS pixels
+   * on Retina displays.
+   * =========================================================
+   */
+
+  function getScale() {
+
+    if (
+      !board
+    ) {
+      return {
+        x: 1,
+        y: 1
+      };
+    }
+
+    const rect =
+      board.getBoundingClientRect();
 
     return {
 
-      x1,
+      x:
+        rect.width /
+        board.width,
 
-      y1,
-
-      x2,
-
-      y2,
-
-      length,
-
-      signature: [
-        Math.round(x1),
-        Math.round(y1),
-        Math.round(x2),
-        Math.round(y2)
-      ].join(":")
+      y:
+        rect.height /
+        board.height
     };
   }
 
 
-  /* =========================================================
-     DRAW
-     ========================================================= */
+  /*
+   * =========================================================
+   * DRAW WINNING LINE
+   * =========================================================
+   */
 
-  function draw(
-    progress = 1,
-    glowPhase = 0
+  function drawWinningLine(
+    animate
   ) {
 
     if (
-      !ctx ||
+      !overlayContext ||
       !overlay ||
-      !line
+      !lastWinningPath
     ) {
       return;
     }
 
+    cancelAnimationFrame(
+      animationFrame
+    );
 
-    const rect =
-      board.getBoundingClientRect();
+    const scale =
+      getScale();
 
+    const x1 =
+      lastWinningPath.x1 *
+      scale.x;
 
-    clear();
+    const y1 =
+      lastWinningPath.y1 *
+      scale.y;
 
+    const x2 =
+      lastWinningPath.x2 *
+      scale.x;
+
+    const y2 =
+      lastWinningPath.y2 *
+      scale.y;
 
     const dx =
-      line.x2 -
-      line.x1;
-
+      x2 -
+      x1;
 
     const dy =
-      line.y2 -
-      line.y1;
-
+      y2 -
+      y1;
 
     const length =
       Math.hypot(
@@ -650,25 +652,22 @@
         dy
       );
 
-
-    if (!length) {
+    if (
+      length <= 0
+    ) {
       return;
     }
-
 
     const ux =
       dx /
       length;
 
-
     const uy =
       dy /
       length;
 
-
-    /*
-     * 讓線稍微超出兩端。
-     */
+    const rect =
+      board.getBoundingClientRect();
 
     const extend =
       Math.min(
@@ -676,261 +675,61 @@
         rect.height
       ) * 0.018;
 
-
-    const startX =
-      line.x1 -
+    const sx =
+      x1 -
       ux *
         extend;
 
+    const sy =
+      y1 -
+      uy *
+        extend;
 
-    const startY =
-      line.y1 -
+    const ex =
+      x2 +
+      ux *
+        extend;
+
+    const ey =
+      y2 +
       uy *
         extend;
 
 
-    const endX =
-      line.x1 +
-      dx *
-        progress +
-      ux *
-        extend;
-
-
-    const endY =
-      line.y1 +
-      dy *
-        progress +
-      uy *
-        extend;
-
-
-    const pulse =
-      0.82 +
-      Math.sin(
-        glowPhase
-      ) *
-        0.18;
-
-
-    ctx.save();
-
-
-    ctx.lineCap =
-      "round";
-
-
-    ctx.lineJoin =
-      "round";
-
-
-    /* =====================================================
-       OUTER GLOW
-       ===================================================== */
-
-    ctx.globalAlpha =
-      0.72 *
-      pulse;
-
-
-    ctx.strokeStyle =
-      LINE.glow;
-
-
-    ctx.lineWidth =
-      Math.max(
-        10,
-        rect.width *
-          0.025
-      );
-
-
-    ctx.shadowColor =
-      LINE.glow;
-
-
-    ctx.shadowBlur =
-      Math.max(
-        10,
-        rect.width *
-          0.035
-      );
-
-
-    ctx.beginPath();
-
-
-    ctx.moveTo(
-      startX,
-      startY
-    );
-
-
-    ctx.lineTo(
-      endX,
-      endY
-    );
-
-
-    ctx.stroke();
-
-
-    /* =====================================================
-       CRISP CORE
-       ===================================================== */
-
-    ctx.globalAlpha =
-      0.78;
-
-
-    ctx.shadowBlur =
-      0;
-
-
-    ctx.strokeStyle =
-      LINE.color;
-
-
-    ctx.lineWidth =
-      Math.max(
-        3,
-        rect.width *
-          0.008
-      );
-
-
-    ctx.beginPath();
-
-
-    ctx.moveTo(
-      startX,
-      startY
-    );
-
-
-    ctx.lineTo(
-      endX,
-      endY
-    );
-
-
-    ctx.stroke();
-
-
-    /* =====================================================
-       WHITE HIGHLIGHT
-       ===================================================== */
-
-    ctx.globalAlpha =
-      0.38 *
-      pulse;
-
-
-    ctx.strokeStyle =
-      LINE.highlight;
-
-
-    ctx.lineWidth =
-      Math.max(
-        1.5,
-        rect.width *
-          0.0028
-      );
-
-
-    ctx.beginPath();
-
-
-    ctx.moveTo(
-      startX,
-      startY
-    );
-
-
-    ctx.lineTo(
-      endX,
-      endY
-    );
-
-
-    ctx.stroke();
-
-
-    ctx.restore();
-  }
-
-
-  /* =========================================================
-     ANIMATION CONTROL
-     ========================================================= */
-
-  function stopAnimation() {
-
-    if (raf) {
-
-      cancelAnimationFrame(
-        raf
-      );
-
-      raf = 0;
-    }
-  }
-
-
-  function pulse(
-    now
-  ) {
+    /*
+     * -------------------------------------------------------
+     * REDUCED MOTION
+     * -------------------------------------------------------
+     */
 
     if (
-      destroyed ||
-      !line
-    ) {
-      return;
-    }
-
-
-    draw(
-      1,
-      now / 700
-    );
-
-
-    raf =
-      requestAnimationFrame(
-        pulse
-      );
-  }
-
-
-  function animateReveal() {
-
-    stopAnimation();
-
-
-    if (!line) {
-      return;
-    }
-
-
-    if (
+      !animate ||
       !motionEnabled()
     ) {
 
-      draw(
-        1,
-        0
+      renderLine(
+        sx,
+        sy,
+        ex,
+        ey,
+        1
       );
 
       return;
     }
 
 
-    const started =
+    /*
+     * -------------------------------------------------------
+     * REVEAL ANIMATION
+     * -------------------------------------------------------
+     */
+
+    animationStart =
       performance.now();
 
-
     const duration =
-      520;
+      480;
 
 
     function frame(
@@ -939,178 +738,633 @@
 
       if (
         destroyed ||
-        !line
+        !lastWinningPath
       ) {
         return;
       }
 
-
-      const t =
+      const progress =
         Math.min(
           1,
           (
             now -
-            started
+            animationStart
           ) /
             duration
         );
 
-
-      /*
-       * cubic ease-out
-       */
-
       const eased =
         1 -
         Math.pow(
-          1 - t,
+          1 - progress,
           3
         );
 
-
-      draw(
-        eased,
-        t *
-          Math.PI *
-          4
+      renderLine(
+        sx,
+        sy,
+        sx +
+          (
+            ex -
+            sx
+          ) *
+            eased,
+        sy +
+          (
+            ey -
+            sy
+          ) *
+            eased,
+        progress
       );
 
-
       if (
-        t < 1
+        progress <
+        1
       ) {
 
-        raf =
+        animationFrame =
           requestAnimationFrame(
             frame
           );
 
       } else {
 
-        raf =
-          requestAnimationFrame(
-            pulse
-          );
+        startPulse();
       }
     }
 
 
-    raf =
+    animationFrame =
       requestAnimationFrame(
         frame
       );
   }
 
 
-  /* =========================================================
-     REFRESH
-     ========================================================= */
+  /*
+   * =========================================================
+   * RENDER
+   * =========================================================
+   */
 
-  function refresh() {
+  function renderLine(
+    x1,
+    y1,
+    x2,
+    y2,
+    progress
+  ) {
 
     if (
-      destroyed ||
-      !ensureOverlay()
+      !overlayContext ||
+      !overlay
+    ) {
+      return;
+    }
+
+    const rect =
+      board.getBoundingClientRect();
+
+    overlayContext.clearRect(
+      0,
+      0,
+      rect.width,
+      rect.height
+    );
+
+    const dx =
+      x2 -
+      x1;
+
+    const dy =
+      y2 -
+      y1;
+
+    const length =
+      Math.hypot(
+        dx,
+        dy
+      );
+
+    if (
+      length <= 0
     ) {
       return;
     }
 
 
-    const detected =
-      findRenderedLine();
+    /*
+     * -------------------------------------------------------
+     * GLOW
+     * -------------------------------------------------------
+     */
 
+    overlayContext.save();
 
-    const signature =
-      detected
-        ? detected.signature
-        : "";
+    overlayContext.lineCap =
+      "round";
+
+    overlayContext.lineJoin =
+      "round";
+
+    overlayContext.globalAlpha =
+      0.48;
+
+    overlayContext.strokeStyle =
+      "rgba(212,109,82,0.55)";
+
+    overlayContext.lineWidth =
+      Math.max(
+        9,
+        rect.width *
+          0.022
+      );
+
+    overlayContext.shadowColor =
+      "rgba(212,109,82,0.52)";
+
+    overlayContext.shadowBlur =
+      Math.max(
+        10,
+        rect.width *
+          0.035
+      );
+
+    overlayContext.beginPath();
+
+    overlayContext.moveTo(
+      x1,
+      y1
+    );
+
+    overlayContext.lineTo(
+      x2,
+      y2
+    );
+
+    overlayContext.stroke();
 
 
     /*
-     * 勝利線消失。
-     *
-     * 通常代表：
-     * - 重新開始
-     * - 返回首頁
-     * - 開始新棋局
+     * -------------------------------------------------------
+     * CORE
+     * -------------------------------------------------------
      */
 
-    if (!detected) {
+    overlayContext.globalAlpha =
+      0.95;
 
-      if (
-        lastSignature
-      ) {
+    overlayContext.shadowBlur =
+      0;
 
-        lastSignature =
-          "";
+    overlayContext.strokeStyle =
+      "#d46d52";
 
-        line =
-          null;
+    overlayContext.lineWidth =
+      Math.max(
+        3,
+        rect.width *
+          0.007
+      );
 
-        stopAnimation();
+    overlayContext.beginPath();
 
-        clear();
-      }
+    overlayContext.moveTo(
+      x1,
+      y1
+    );
 
-      return;
-    }
+    overlayContext.lineTo(
+      x2,
+      y2
+    );
 
-
-    line =
-      detected;
+    overlayContext.stroke();
 
 
     /*
-     * 只有新的勝利線出現時才重新播放。
+     * -------------------------------------------------------
+     * HIGHLIGHT
+     * -------------------------------------------------------
      */
 
-    if (
-      signature !==
-      lastSignature
-    ) {
+    overlayContext.globalAlpha =
+      0.48 *
+      Math.max(
+        0.6,
+        progress
+      );
 
-      lastSignature =
-        signature;
+    overlayContext.strokeStyle =
+      "rgba(255,255,255,0.78)";
 
-      animateReveal();
-    }
+    overlayContext.lineWidth =
+      Math.max(
+        1.3,
+        rect.width *
+          0.0025
+      );
+
+    overlayContext.beginPath();
+
+    overlayContext.moveTo(
+      x1,
+      y1
+    );
+
+    overlayContext.lineTo(
+      x2,
+      y2
+    );
+
+    overlayContext.stroke();
+
+    overlayContext.restore();
   }
 
 
-  /* =========================================================
-     RESIZE OBSERVER
-     ========================================================= */
+  /*
+   * =========================================================
+   * SOFT PULSE
+   * =========================================================
+   */
 
-  function observeCanvas() {
+  function startPulse() {
 
     if (
-      typeof ResizeObserver ===
-      "undefined"
+      !motionEnabled()
     ) {
       return;
     }
 
+    const pulseStart =
+      performance.now();
 
-    if (
-      resizeObserver
+
+    function frame(
+      now
     ) {
 
-      resizeObserver.disconnect();
+      if (
+        destroyed ||
+        !lastWinningPath
+      ) {
+        return;
+      }
+
+      const elapsed =
+        now -
+        pulseStart;
+
+      const phase =
+        (
+          elapsed %
+          1400
+        ) /
+        1400;
+
+      const alpha =
+        0.78 +
+        Math.sin(
+          phase *
+            Math.PI *
+            2
+        ) *
+          0.14;
+
+      renderPulse(
+        alpha
+      );
+
+      animationFrame =
+        requestAnimationFrame(
+          frame
+        );
     }
 
+
+    animationFrame =
+      requestAnimationFrame(
+        frame
+      );
+  }
+
+
+  /*
+   * =========================================================
+   * PULSE RENDER
+   * =========================================================
+   */
+
+  function renderPulse(
+    alpha
+  ) {
+
+    if (
+      !lastWinningPath ||
+      !overlayContext ||
+      !overlay
+    ) {
+      return;
+    }
+
+    const scale =
+      getScale();
+
+    const x1 =
+      lastWinningPath.x1 *
+      scale.x;
+
+    const y1 =
+      lastWinningPath.y1 *
+      scale.y;
+
+    const x2 =
+      lastWinningPath.x2 *
+      scale.x;
+
+    const y2 =
+      lastWinningPath.y2 *
+      scale.y;
+
+    const rect =
+      board.getBoundingClientRect();
+
+    const dx =
+      x2 -
+      x1;
+
+    const dy =
+      y2 -
+      y1;
+
+    const length =
+      Math.hypot(
+        dx,
+        dy
+      );
+
+    if (
+      !length
+    ) {
+      return;
+    }
+
+    const ux =
+      dx /
+      length;
+
+    const uy =
+      dy /
+      length;
+
+    const extend =
+      Math.min(
+        rect.width,
+        rect.height
+      ) *
+      0.018;
+
+    const sx =
+      x1 -
+      ux *
+        extend;
+
+    const sy =
+      y1 -
+      uy *
+        extend;
+
+    const ex =
+      x2 +
+      ux *
+        extend;
+
+    const ey =
+      y2 +
+      uy *
+        extend;
+
+    overlayContext.clearRect(
+      0,
+      0,
+      rect.width,
+      rect.height
+    );
+
+    overlayContext.save();
+
+    overlayContext.lineCap =
+      "round";
+
+    overlayContext.globalAlpha =
+      alpha;
+
+    overlayContext.strokeStyle =
+      "#d46d52";
+
+    overlayContext.lineWidth =
+      Math.max(
+        3,
+        rect.width *
+          0.007
+      );
+
+    overlayContext.shadowColor =
+      "rgba(212,109,82,0.55)";
+
+    overlayContext.shadowBlur =
+      Math.max(
+        7,
+        rect.width *
+          0.025
+      );
+
+    overlayContext.beginPath();
+
+    overlayContext.moveTo(
+      sx,
+      sy
+    );
+
+    overlayContext.lineTo(
+      ex,
+      ey
+    );
+
+    overlayContext.stroke();
+
+    overlayContext.restore();
+  }
+
+
+  /*
+   * =========================================================
+   * CLEAR WHEN GAME RESTARTS
+   * =========================================================
+   */
+
+  function watchBoard() {
+
+    if (!board) {
+      return;
+    }
+
+    /*
+     * app.js redraws the canvas frequently.
+     *
+     * If the board has been cleared after a new game,
+     * remove our previous winning line as well.
+     */
+
+    let previousHash = "";
+
+    function check() {
+
+      if (
+        destroyed
+      ) {
+        return;
+      }
+
+      const rect =
+        board.getBoundingClientRect();
+
+      if (
+        rect.width <= 0 ||
+        rect.height <= 0
+      ) {
+        requestAnimationFrame(
+          check
+        );
+
+        return;
+      }
+
+      /*
+       * Detect a new game by checking the
+       * canvas dimensions/state changes.
+       *
+       * We deliberately do NOT inspect pixels.
+       */
+
+      const hash =
+        [
+          board.width,
+          board.height,
+          Math.round(
+            rect.width
+          ),
+          Math.round(
+            rect.height
+          )
+        ].join("|");
+
+      if (
+        hash !==
+        previousHash
+      ) {
+
+        previousHash =
+          hash;
+
+        resizeOverlay();
+      }
+
+      requestAnimationFrame(
+        check
+      );
+    }
+
+    check();
+  }
+
+
+  /*
+   * =========================================================
+   * MOTION TOGGLE
+   * =========================================================
+   */
+
+  function setupMotionToggle() {
+
+    const toggle =
+      document.getElementById(
+        "motionToggle"
+      );
+
+    if (!toggle) {
+      return;
+    }
+
+    toggle.addEventListener(
+      "change",
+      () => {
+
+        if (
+          !motionEnabled()
+        ) {
+
+          cancelAnimationFrame(
+            animationFrame
+          );
+
+          animationFrame =
+            0;
+
+          if (
+            lastWinningPath
+          ) {
+            drawWinningLine(
+              false
+            );
+          }
+
+        } else if (
+          lastWinningPath
+        ) {
+
+          drawWinningLine(
+            true
+          );
+        }
+      }
+    );
+  }
+
+
+  /*
+   * =========================================================
+   * RESIZE OBSERVER
+   * =========================================================
+   */
+
+  function setupResizeObserver() {
+
+    if (
+      typeof ResizeObserver ===
+      "undefined" ||
+      !board
+    ) {
+      return;
+    }
 
     resizeObserver =
       new ResizeObserver(
         () => {
 
-          resize();
+          resizeOverlay();
 
-          requestAnimationFrame(
-            refresh
-          );
+          if (
+            lastWinningPath
+          ) {
+            drawWinningLine(
+              false
+            );
+          }
         }
       );
-
 
     resizeObserver.observe(
       board
@@ -1118,207 +1372,203 @@
   }
 
 
-  /* =========================================================
-     MOTION SETTING
-     ========================================================= */
+  /*
+   * =========================================================
+   * RESET DETECTION
+   * =========================================================
+   *
+   * When app.js starts a new game, it will redraw the
+   * board without a winning stroke.
+   *
+   * We keep the previous line only until the board is
+   * visibly redrawn. A lightweight canvas fingerprint
+   * is used only for reset detection, not for finding
+   * the winning line.
+   * =========================================================
+   */
 
-  function observeSettings() {
+  function setupResetObserver() {
 
-    const toggle =
-      document.getElementById(
-        "motionToggle"
-      );
+    let lastDrawTime =
+      performance.now();
 
-
-    if (!toggle) {
+    if (
+      !hookedContext
+    ) {
       return;
     }
 
+    const originalClearRect =
+      hookedContext.clearRect.bind(
+        hookedContext
+      );
 
-    toggle.addEventListener(
-      "change",
-      () => {
+    hookedContext.clearRect =
+      function (...args) {
 
-        if (!line) {
-          return;
-        }
+        const result =
+          originalClearRect(
+            ...args
+          );
 
+        /*
+         * app.js uses clearRect when resetting/redrawing
+         * the board. Clearing the full canvas means the
+         * previous winning line is no longer valid.
+         */
 
         if (
-          motionEnabled()
+          args.length >= 4 &&
+          args[0] <= 1 &&
+          args[1] <= 1 &&
+          args[2] >= board.width - 2 &&
+          args[3] >= board.height - 2
         ) {
 
-          animateReveal();
+          lastWinningPath =
+            null;
 
-        } else {
-
-          stopAnimation();
-
-          draw(
-            1,
-            0
+          cancelAnimationFrame(
+            animationFrame
           );
+
+          animationFrame =
+            0;
+
+          clearOverlay();
         }
-      }
-    );
+
+        lastDrawTime =
+          performance.now();
+
+        return result;
+      };
   }
 
 
-  /* =========================================================
-     START
-     ========================================================= */
+  /*
+   * =========================================================
+   * START
+   * =========================================================
+   */
 
   function start() {
 
     if (
-      !ensureOverlay()
+      destroyed
     ) {
       return;
     }
 
-
-    observeCanvas();
-
-    observeSettings();
-
-
-    /*
-     * app.js 是直接畫 Canvas。
-     *
-     * Canvas 內部變化不會觸發
-     * MutationObserver。
-     *
-     * 所以這裡使用低頻 polling。
-     *
-     * 180ms：
-     * - 足夠抓到勝利狀態
-     * - 不會每 frame 掃整張 canvas
-     * - 對 iPad 比較友善
-     */
-
-    const poll =
-      () => {
-
-        if (
-          destroyed
-        ) {
-          return;
-        }
-
-
-        refresh();
-
-
-        window.setTimeout(
-          poll,
-          180
-        );
-      };
-
-
-    poll();
-
-
-    window.addEventListener(
-      "resize",
-      () => {
-
-        requestAnimationFrame(
-          refresh
-        );
-
-      },
-      {
-        passive: true
-      }
-    );
-
-
-    window.addEventListener(
-      "orientationchange",
-      () => {
-
-        window.setTimeout(
-          () => {
-
-            resize();
-
-            refresh();
-
-          },
-          120
-        );
-
-      },
-      {
-        passive: true
-      }
-    );
-  }
-
-
-  /* =========================================================
-     DESTROY
-     ========================================================= */
-
-  function destroy() {
-
-    destroyed =
-      true;
-
-
-    stopAnimation();
-
-
     if (
-      resizeObserver
+      !findBoard()
     ) {
 
-      resizeObserver.disconnect();
+      window.setTimeout(
+        start,
+        100
+      );
 
-      resizeObserver =
-        null;
+      return;
     }
 
+    createOverlay();
 
-    if (overlay) {
+    installCanvasHook();
 
-      overlay.remove();
+    setupResetObserver();
 
-      overlay =
-        null;
-    }
+    setupMotionToggle();
 
+    setupResizeObserver();
 
-    ctx =
-      null;
-
-
-    line =
-      null;
-
-
-    lastSignature =
-      "";
+    watchBoard();
   }
 
 
-  /* =========================================================
-     PUBLIC API
-     ========================================================= */
+  /*
+   * =========================================================
+   * PUBLIC API
+   * =========================================================
+   */
 
   window.GomokuWinningLine = {
 
-    refresh,
+    refresh() {
 
-    destroy
+      if (
+        lastWinningPath
+      ) {
+        drawWinningLine(
+          false
+        );
+      }
+    },
 
+    clear() {
+
+      lastWinningPath =
+        null;
+
+      cancelAnimationFrame(
+        animationFrame
+      );
+
+      animationFrame =
+        0;
+
+      clearOverlay();
+    },
+
+    destroy() {
+
+      destroyed =
+        true;
+
+      cancelAnimationFrame(
+        animationFrame
+      );
+
+      animationFrame =
+        0;
+
+      if (
+        resizeObserver
+      ) {
+
+        resizeObserver.disconnect();
+
+        resizeObserver =
+          null;
+      }
+
+      if (
+        overlay
+      ) {
+
+        overlay.remove();
+
+        overlay =
+          null;
+      }
+
+      overlayContext =
+        null;
+
+      hookedContext =
+        null;
+
+      lastWinningPath =
+        null;
+    }
   };
 
 
-  /* =========================================================
-     BOOT
-     ========================================================= */
+  /*
+   * =========================================================
+   * BOOT
+   * =========================================================
+   */
 
   if (
     document.readyState ===
