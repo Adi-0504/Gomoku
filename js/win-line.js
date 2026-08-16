@@ -3,64 +3,20 @@
 
   /*
    * =========================================================
-   * GOMOKU — WINNING LINE VISUAL LAYER
+   * Gomoku — Winning Line Enhancement
    * =========================================================
    *
-   * 目的：
-   * - 不修改 app.js
-   * - 不修改棋盤規則
-   * - 不攔截玩家操作
-   * - 只負責顯示五連線
-   * - 玩家勝利 / AI 勝利皆可顯示
-   * - 支援動畫開關
-   * - 支援 iPad / Retina
+   * app.js is intentionally untouched.
    *
-   * 檔案：
-   * js/win-line.js
+   * app.js remains responsible for:
+   * - win detection
+   * - winningLine
+   * - drawing the actual winning line
+   *
+   * This file ONLY enhances the already-rendered winning line.
    *
    * =========================================================
    */
-
-  const BOARD_SIZE = 15;
-  const WIN_LENGTH = 5;
-
-  const CONFIG = {
-    animationDuration: 520,
-
-    /*
-     * 與 app.js 棋盤內距保持一致。
-     * 你的棋盤目前使用約 7.5% padding。
-     */
-    boardPaddingRatio: 0.075,
-
-    /*
-     * 五連線會稍微超出第一顆與最後一顆，
-     * 這樣視覺上不會像只畫在棋子中心。
-     */
-    extensionRatio: 0.13,
-
-    /*
-     * 主線粗細。
-     */
-    lineWidthRatio: 0.105,
-
-    /*
-     * 外圍光暈。
-     */
-    glowWidthRatio: 0.32,
-
-    /*
-     * 顏色。
-     */
-    lineColor: "#c96f52",
-    glowColor: "rgba(201, 111, 82, 0.34)",
-    highlightColor: "rgba(255, 255, 255, 0.78)",
-
-    /*
-     * 掃描棋子的取樣範圍。
-     */
-    sampleRadiusRatio: 0.035
-  };
 
   const board = document.getElementById("boardCanvas");
 
@@ -70,36 +26,60 @@
 
 
   /* =========================================================
+     CONFIG
+     ========================================================= */
+
+  const LINE = {
+    r: 212,
+    g: 109,
+    b: 82,
+
+    tolerance: 34,
+
+    minSamples: 10,
+
+    glow: "rgba(212, 109, 82, 0.30)",
+
+    highlight:
+      "rgba(255, 255, 255, 0.72)",
+
+    color:
+      "#d46d52"
+  };
+
+
+  /* =========================================================
      STATE
      ========================================================= */
 
   let overlay = null;
+
   let ctx = null;
+
+  let raf = 0;
 
   let resizeObserver = null;
 
-  let lastStateHash = "";
-  let lastLineHash = "";
+  let lastSignature = "";
 
-  let animationFrame = 0;
-
-  let resizeScheduled = false;
+  let line = null;
 
   let destroyed = false;
 
 
   /* =========================================================
-     UTILITIES
+     MOTION
      ========================================================= */
 
-  function isMotionEnabled() {
-    const root = document.documentElement;
+  function motionEnabled() {
 
     if (
-      root.dataset.motion === "off"
+      document.documentElement.dataset.motion ===
+      "off"
     ) {
       return false;
     }
+
 
     if (
       window.matchMedia &&
@@ -110,76 +90,21 @@
       return false;
     }
 
+
     const toggle =
-      document.getElementById("motionToggle");
+      document.getElementById(
+        "motionToggle"
+      );
+
 
     if (
-      toggle &&
       toggle instanceof HTMLInputElement
     ) {
       return toggle.checked;
     }
 
+
     return true;
-  }
-
-
-  function getBoardRect() {
-    return board.getBoundingClientRect();
-  }
-
-
-  function getGeometry() {
-    const rect = getBoardRect();
-
-    const width = rect.width;
-    const height = rect.height;
-
-    const size = Math.min(
-      width,
-      height
-    );
-
-    const padding =
-      size *
-      CONFIG.boardPaddingRatio;
-
-    const usable =
-      size -
-      padding * 2;
-
-    const cell =
-      usable /
-      (BOARD_SIZE - 1);
-
-    return {
-      rect,
-      size,
-      padding,
-      usable,
-      cell
-    };
-  }
-
-
-  function getPoint(
-    row,
-    col
-  ) {
-    const geometry =
-      getGeometry();
-
-    return {
-      x:
-        geometry.padding +
-        col *
-        geometry.cell,
-
-      y:
-        geometry.padding +
-        row *
-        geometry.cell
-    };
   }
 
 
@@ -187,71 +112,96 @@
      CREATE OVERLAY
      ========================================================= */
 
-  function createOverlay() {
+  function ensureOverlay() {
+
     if (overlay) {
-      return;
+      return true;
     }
 
-    const wrapper =
+
+    const parent =
       board.parentElement;
 
-    if (!wrapper) {
-      return;
+
+    if (!parent) {
+      return false;
     }
 
-    const wrapperStyle =
-      getComputedStyle(wrapper);
+
+    const style =
+      getComputedStyle(parent);
+
 
     if (
-      wrapperStyle.position ===
+      style.position ===
       "static"
     ) {
-      wrapper.style.position =
+      parent.style.position =
         "relative";
     }
+
 
     overlay =
       document.createElement(
         "canvas"
       );
 
+
     overlay.id =
       "gomokuWinningLineOverlay";
+
 
     overlay.setAttribute(
       "aria-hidden",
       "true"
     );
 
+
     Object.assign(
       overlay.style,
       {
         position: "absolute",
+
         inset: "0",
+
         width: "100%",
+
         height: "100%",
+
         display: "block",
+
         pointerEvents: "none",
-        zIndex: "20"
+
+        zIndex: "30"
       }
     );
 
-    wrapper.appendChild(
+
+    parent.appendChild(
       overlay
     );
+
 
     ctx =
       overlay.getContext(
         "2d"
       );
 
+
     if (!ctx) {
+
       overlay.remove();
+
       overlay = null;
-      return;
+
+      return false;
     }
 
+
     resize();
+
+
+    return true;
   }
 
 
@@ -260,16 +210,19 @@
      ========================================================= */
 
   function resize() {
+
     if (
-      destroyed ||
       !overlay ||
-      !ctx
+      !ctx ||
+      destroyed
     ) {
       return;
     }
 
+
     const rect =
-      getBoardRect();
+      board.getBoundingClientRect();
+
 
     if (
       rect.width <= 0 ||
@@ -277,6 +230,7 @@
     ) {
       return;
     }
+
 
     const dpr =
       Math.min(
@@ -288,15 +242,18 @@
         3
       );
 
+
     overlay.width =
       Math.round(
         rect.width * dpr
       );
 
+
     overlay.height =
       Math.round(
         rect.height * dpr
       );
+
 
     ctx.setTransform(
       dpr,
@@ -307,38 +264,6 @@
       0
     );
 
-    clear();
-  }
-
-
-  function scheduleResize() {
-    if (
-      resizeScheduled
-    ) {
-      return;
-    }
-
-    resizeScheduled = true;
-
-    requestAnimationFrame(
-      () => {
-        resizeScheduled = false;
-        resize();
-      }
-    );
-  }
-
-
-  function clear() {
-    if (
-      !ctx ||
-      !overlay
-    ) {
-      return;
-    }
-
-    const rect =
-      getBoardRect();
 
     ctx.clearRect(
       0,
@@ -350,10 +275,71 @@
 
 
   /* =========================================================
-     CANVAS SNAPSHOT
+     CLEAR
      ========================================================= */
 
-  function createSnapshot() {
+  function clear() {
+
+    if (
+      !ctx ||
+      !overlay
+    ) {
+      return;
+    }
+
+
+    const rect =
+      board.getBoundingClientRect();
+
+
+    ctx.clearRect(
+      0,
+      0,
+      rect.width,
+      rect.height
+    );
+  }
+
+
+  /* =========================================================
+     COLOR DISTANCE
+     ========================================================= */
+
+  function colorDistance(
+    r,
+    g,
+    b
+  ) {
+
+    return Math.sqrt(
+      (r - LINE.r) ** 2 +
+      (g - LINE.g) ** 2 +
+      (b - LINE.b) ** 2
+    );
+  }
+
+
+  /* =========================================================
+     FIND THE EXISTING WINNING LINE
+     =========================================================
+
+     IMPORTANT:
+
+     We do NOT inspect black stones.
+
+     We do NOT inspect white stones.
+
+     We do NOT calculate five-in-a-row.
+
+     We ONLY search for the winning line that
+     app.js has already rendered using:
+
+       #d46d52
+
+     ========================================================= */
+
+  function findRenderedLine() {
+
     if (
       !board.width ||
       !board.height
@@ -361,725 +347,655 @@
       return null;
     }
 
-    const canvas =
+
+    const source =
       document.createElement(
         "canvas"
       );
 
-    canvas.width =
+
+    source.width =
       board.width;
 
-    canvas.height =
+
+    source.height =
       board.height;
 
-    const snapshotCtx =
-      canvas.getContext(
+
+    const sourceCtx =
+      source.getContext(
         "2d",
         {
-          willReadFrequently: true
+          willReadFrequently:
+            true
         }
       );
 
-    if (!snapshotCtx) {
+
+    if (!sourceCtx) {
       return null;
     }
 
+
     try {
-      snapshotCtx.drawImage(
+
+      sourceCtx.drawImage(
         board,
         0,
         0
       );
+
     } catch {
+
       return null;
     }
 
+
+    const width =
+      board.width;
+
+
+    const height =
+      board.height;
+
+
+    let data;
+
+    try {
+
+      data =
+        sourceCtx
+          .getImageData(
+            0,
+            0,
+            width,
+            height
+          )
+          .data;
+
+    } catch {
+
+      return null;
+    }
+
+
+    let minX = width;
+
+    let minY = height;
+
+    let maxX = -1;
+
+    let maxY = -1;
+
+    let count = 0;
+
+
+    /*
+     * 每兩個像素取一次。
+     *
+     * 這樣在 iPad 上不會一直把整張
+     * 高 DPR canvas 全部掃一遍。
+     */
+
+    for (
+      let y = 0;
+      y < height;
+      y += 2
+    ) {
+
+      for (
+        let x = 0;
+        x < width;
+        x += 2
+      ) {
+
+        const index =
+          (
+            y * width +
+            x
+          ) * 4;
+
+
+        const r =
+          data[index];
+
+
+        const g =
+          data[index + 1];
+
+
+        const b =
+          data[index + 2];
+
+
+        const a =
+          data[index + 3];
+
+
+        if (
+          a > 180 &&
+          colorDistance(
+            r,
+            g,
+            b
+          ) <=
+            LINE.tolerance
+        ) {
+
+          minX =
+            Math.min(
+              minX,
+              x
+            );
+
+
+          minY =
+            Math.min(
+              minY,
+              y
+            );
+
+
+          maxX =
+            Math.max(
+              maxX,
+              x
+            );
+
+
+          maxY =
+            Math.max(
+              maxY,
+              y
+            );
+
+
+          count++;
+        }
+      }
+    }
+
+
+    if (
+      count <
+        LINE.minSamples ||
+      maxX < minX ||
+      maxY < minY
+    ) {
+      return null;
+    }
+
+
+    const rect =
+      board.getBoundingClientRect();
+
+
+    const scaleX =
+      rect.width /
+      width;
+
+
+    const scaleY =
+      rect.height /
+      height;
+
+
+    const x1 =
+      minX *
+      scaleX;
+
+
+    const y1 =
+      minY *
+      scaleY;
+
+
+    const x2 =
+      maxX *
+      scaleX;
+
+
+    const y2 =
+      maxY *
+      scaleY;
+
+
+    const dx =
+      x2 - x1;
+
+
+    const dy =
+      y2 - y1;
+
+
+    const length =
+      Math.hypot(
+        dx,
+        dy
+      );
+
+
+    /*
+     * 一個小色塊不能被當成勝利線。
+     */
+
+    if (
+      length <
+      rect.width * 0.12
+    ) {
+      return null;
+    }
+
+
     return {
-      canvas,
-      ctx: snapshotCtx
+
+      x1,
+
+      y1,
+
+      x2,
+
+      y2,
+
+      length,
+
+      signature: [
+        Math.round(x1),
+        Math.round(y1),
+        Math.round(x2),
+        Math.round(y2)
+      ].join(":")
     };
   }
 
 
   /* =========================================================
-     SAMPLE STONE
+     DRAW
      ========================================================= */
 
-  function sampleStone(
-    snapshot,
-    row,
-    col
+  function draw(
+    progress = 1,
+    glowPhase = 0
   ) {
-    const geometry =
-      getGeometry();
 
-    const point =
-      getPoint(
-        row,
-        col
-      );
-
-    const rect =
-      geometry.rect;
-
-    const scaleX =
-      board.width /
-      rect.width;
-
-    const scaleY =
-      board.height /
-      rect.height;
-
-    const centerX =
-      Math.round(
-        point.x *
-        scaleX
-      );
-
-    const centerY =
-      Math.round(
-        point.y *
-        scaleY
-      );
-
-    const radius =
-      Math.max(
-        2,
-        Math.round(
-          geometry.cell *
-          CONFIG.sampleRadiusRatio *
-          scaleX
-        )
-      );
-
-    const left =
-      Math.max(
-        0,
-        centerX - radius
-      );
-
-    const top =
-      Math.max(
-        0,
-        centerY - radius
-      );
-
-    const right =
-      Math.min(
-        board.width - 1,
-        centerX + radius
-      );
-
-    const bottom =
-      Math.min(
-        board.height - 1,
-        centerY + radius
-      );
-
-    const width =
-      right - left + 1;
-
-    const height =
-      bottom - top + 1;
-
-    if (
-      width <= 0 ||
-      height <= 0
-    ) {
-      return 0;
-    }
-
-    let pixels;
-
-    try {
-      pixels =
-        snapshot.ctx.getImageData(
-          left,
-          top,
-          width,
-          height
-        ).data;
-    } catch {
-      return 0;
-    }
-
-    let dark = 0;
-    let white = 0;
-    let total = 0;
-
-    for (
-      let i = 0;
-      i < pixels.length;
-      i += 4
-    ) {
-      const r =
-        pixels[i];
-
-      const g =
-        pixels[i + 1];
-
-      const b =
-        pixels[i + 2];
-
-      /*
-       * 黑棋。
-       *
-       * 棋盤線雖然也是深色，
-       * 但中心取樣範圍內通常不會佔
-       * 足夠比例。
-       */
-      if (
-        r < 85 &&
-        g < 85 &&
-        b < 85
-      ) {
-        dark++;
-      }
-
-      /*
-       * 白棋。
-       *
-       * 使用「接近白色」而不是單純亮度，
-       * 避免棋盤本身被判成白棋。
-       */
-      if (
-        r > 220 &&
-        g > 220 &&
-        b > 215
-      ) {
-        white++;
-      }
-
-      total++;
-    }
-
-    if (!total) {
-      return 0;
-    }
-
-    const darkRatio =
-      dark / total;
-
-    const whiteRatio =
-      white / total;
-
-    if (
-      darkRatio >= 0.25
-    ) {
-      return 1;
-    }
-
-    if (
-      whiteRatio >= 0.45
-    ) {
-      return 2;
-    }
-
-    return 0;
-  }
-
-
-  /* =========================================================
-     READ BOARD
-     ========================================================= */
-
-  function readBoard() {
-    const snapshot =
-      createSnapshot();
-
-    if (!snapshot) {
-      return null;
-    }
-
-    const state =
-      Array.from(
-        {
-          length:
-            BOARD_SIZE
-        },
-        () =>
-          Array(
-            BOARD_SIZE
-          ).fill(0)
-      );
-
-    for (
-      let row = 0;
-      row < BOARD_SIZE;
-      row++
-    ) {
-      for (
-        let col = 0;
-        col < BOARD_SIZE;
-        col++
-      ) {
-        state[row][col] =
-          sampleStone(
-            snapshot,
-            row,
-            col
-          );
-      }
-    }
-
-    return state;
-  }
-
-
-  /* =========================================================
-     HASH
-     ========================================================= */
-
-  function stateHash(
-    state
-  ) {
-    return state
-      .map(
-        row =>
-          row.join("")
-      )
-      .join("|");
-  }
-
-
-  function lineHash(
-    line
-  ) {
-    return line
-      .map(
-        ([row, col]) =>
-          `${row},${col}`
-      )
-      .join("|");
-  }
-
-
-  /* =========================================================
-     FIND FIVE
-     ========================================================= */
-
-  function findWinningLine(
-    state
-  ) {
-    const directions = [
-      [0, 1],
-      [1, 0],
-      [1, 1],
-      [1, -1]
-    ];
-
-    for (
-      let row = 0;
-      row < BOARD_SIZE;
-      row++
-    ) {
-      for (
-        let col = 0;
-        col < BOARD_SIZE;
-        col++
-      ) {
-        const player =
-          state[row][col];
-
-        if (!player) {
-          continue;
-        }
-
-        for (
-          const [
-            dr,
-            dc
-          ]
-          of directions
-        ) {
-          /*
-           * 確認前一格是不是同色。
-           *
-           * 這樣同一串六連、七連時，
-           * 不會從中間重複開始。
-           */
-          const beforeRow =
-            row - dr;
-
-          const beforeCol =
-            col - dc;
-
-          if (
-            beforeRow >= 0 &&
-            beforeRow < BOARD_SIZE &&
-            beforeCol >= 0 &&
-            beforeCol < BOARD_SIZE &&
-            state[
-              beforeRow
-            ][
-              beforeCol
-            ] === player
-          ) {
-            continue;
-          }
-
-          const cells = [];
-
-          let currentRow =
-            row;
-
-          let currentCol =
-            col;
-
-          while (
-            currentRow >= 0 &&
-            currentRow < BOARD_SIZE &&
-            currentCol >= 0 &&
-            currentCol < BOARD_SIZE &&
-            state[
-              currentRow
-            ][
-              currentCol
-            ] === player
-          ) {
-            cells.push([
-              currentRow,
-              currentCol
-            ]);
-
-            currentRow += dr;
-            currentCol += dc;
-          }
-
-          if (
-            cells.length >=
-            WIN_LENGTH
-          ) {
-            /*
-             * 如果超過五顆，
-             * 顯示中央最漂亮的五顆。
-             */
-            if (
-              cells.length ===
-              WIN_LENGTH
-            ) {
-              return cells;
-            }
-
-            const middle =
-              Math.floor(
-                cells.length / 2
-              );
-
-            const start =
-              Math.max(
-                0,
-                middle -
-                Math.floor(
-                  WIN_LENGTH / 2
-                )
-              );
-
-            return cells.slice(
-              start,
-              start +
-                WIN_LENGTH
-            );
-          }
-        }
-      }
-    }
-
-    return null;
-  }
-
-
-  /* =========================================================
-     DRAW WINNING LINE
-     ========================================================= */
-
-  function drawLine(
-    line,
-    progress
-  ) {
     if (
       !ctx ||
-      !line ||
-      line.length <
-        WIN_LENGTH
+      !overlay ||
+      !line
     ) {
       return;
     }
+
+
+    const rect =
+      board.getBoundingClientRect();
+
 
     clear();
 
-    const geometry =
-      getGeometry();
-
-    const first =
-      getPoint(
-        line[0][0],
-        line[0][1]
-      );
-
-    const last =
-      getPoint(
-        line[
-          line.length - 1
-        ][0],
-        line[
-          line.length - 1
-        ][1]
-      );
 
     const dx =
-      last.x -
-      first.x;
+      line.x2 -
+      line.x1;
+
 
     const dy =
-      last.y -
-      first.y;
+      line.y2 -
+      line.y1;
 
-    const extension =
-      Math.sqrt(
-        dx * dx +
-        dy * dy
-      ) *
-      CONFIG.extensionRatio;
 
     const length =
-      Math.sqrt(
-        dx * dx +
-        dy * dy
+      Math.hypot(
+        dx,
+        dy
       );
 
-    if (
-      length <= 0
-    ) {
+
+    if (!length) {
       return;
     }
 
-    const nx =
-      dx / length;
 
-    const ny =
-      dy / length;
+    const ux =
+      dx /
+      length;
+
+
+    const uy =
+      dy /
+      length;
+
+
+    /*
+     * 讓線稍微超出兩端。
+     */
+
+    const extend =
+      Math.min(
+        rect.width,
+        rect.height
+      ) * 0.018;
+
 
     const startX =
-      first.x -
-      nx *
-      extension;
+      line.x1 -
+      ux *
+        extend;
+
 
     const startY =
-      first.y -
-      ny *
-      extension;
+      line.y1 -
+      uy *
+        extend;
 
-    const fullEndX =
-      last.x +
-      nx *
-      extension;
-
-    const fullEndY =
-      last.y +
-      ny *
-      extension;
 
     const endX =
-      startX +
-      (
-        fullEndX -
-        startX
-      ) *
-      progress;
+      line.x1 +
+      dx *
+        progress +
+      ux *
+        extend;
+
 
     const endY =
-      startY +
-      (
-        fullEndY -
-        startY
+      line.y1 +
+      dy *
+        progress +
+      uy *
+        extend;
+
+
+    const pulse =
+      0.82 +
+      Math.sin(
+        glowPhase
       ) *
-      progress;
+        0.18;
 
-
-    /* -------------------------------------------------------
-       GLOW
-       ------------------------------------------------------- */
 
     ctx.save();
 
-    ctx.beginPath();
-
-    ctx.moveTo(
-      startX,
-      startY
-    );
-
-    ctx.lineTo(
-      endX,
-      endY
-    );
 
     ctx.lineCap =
       "round";
+
+
+    ctx.lineJoin =
+      "round";
+
+
+    /* =====================================================
+       OUTER GLOW
+       ===================================================== */
+
+    ctx.globalAlpha =
+      0.72 *
+      pulse;
+
+
+    ctx.strokeStyle =
+      LINE.glow;
+
 
     ctx.lineWidth =
       Math.max(
         10,
-        geometry.cell *
-        CONFIG.glowWidthRatio
+        rect.width *
+          0.025
       );
 
-    ctx.strokeStyle =
-      CONFIG.glowColor;
 
     ctx.shadowColor =
-      CONFIG.glowColor;
+      LINE.glow;
+
 
     ctx.shadowBlur =
-      geometry.cell *
-      0.38;
+      Math.max(
+        10,
+        rect.width *
+          0.035
+      );
 
-    ctx.stroke();
-
-    ctx.restore();
-
-
-    /* -------------------------------------------------------
-       MAIN LINE
-       ------------------------------------------------------- */
-
-    ctx.save();
 
     ctx.beginPath();
+
 
     ctx.moveTo(
       startX,
       startY
     );
 
+
     ctx.lineTo(
       endX,
       endY
     );
 
-    ctx.lineCap =
-      "round";
+
+    ctx.stroke();
+
+
+    /* =====================================================
+       CRISP CORE
+       ===================================================== */
+
+    ctx.globalAlpha =
+      0.78;
+
+
+    ctx.shadowBlur =
+      0;
+
+
+    ctx.strokeStyle =
+      LINE.color;
+
 
     ctx.lineWidth =
       Math.max(
         3,
-        geometry.cell *
-        CONFIG.lineWidthRatio
+        rect.width *
+          0.008
       );
 
-    ctx.strokeStyle =
-      CONFIG.lineColor;
-
-    ctx.shadowColor =
-      "rgba(0,0,0,0.18)";
-
-    ctx.shadowBlur =
-      geometry.cell *
-      0.08;
-
-    ctx.stroke();
-
-    ctx.restore();
-
-
-    /* -------------------------------------------------------
-       INNER HIGHLIGHT
-       ------------------------------------------------------- */
-
-    ctx.save();
 
     ctx.beginPath();
+
 
     ctx.moveTo(
       startX,
       startY
     );
 
+
     ctx.lineTo(
       endX,
       endY
     );
 
-    ctx.lineCap =
-      "round";
+
+    ctx.stroke();
+
+
+    /* =====================================================
+       WHITE HIGHLIGHT
+       ===================================================== */
+
+    ctx.globalAlpha =
+      0.38 *
+      pulse;
+
+
+    ctx.strokeStyle =
+      LINE.highlight;
+
 
     ctx.lineWidth =
       Math.max(
-        1,
-        geometry.cell *
-        0.025
+        1.5,
+        rect.width *
+          0.0028
       );
 
-    ctx.strokeStyle =
-      CONFIG.highlightColor;
 
-    ctx.globalAlpha =
-      0.65;
+    ctx.beginPath();
+
+
+    ctx.moveTo(
+      startX,
+      startY
+    );
+
+
+    ctx.lineTo(
+      endX,
+      endY
+    );
+
 
     ctx.stroke();
+
 
     ctx.restore();
   }
 
 
   /* =========================================================
-     ANIMATION
+     ANIMATION CONTROL
      ========================================================= */
 
-  function animate(
-    line
+  function stopAnimation() {
+
+    if (raf) {
+
+      cancelAnimationFrame(
+        raf
+      );
+
+      raf = 0;
+    }
+  }
+
+
+  function pulse(
+    now
   ) {
-    cancelAnimationFrame(
-      animationFrame
+
+    if (
+      destroyed ||
+      !line
+    ) {
+      return;
+    }
+
+
+    draw(
+      1,
+      now / 700
     );
 
-    const start =
+
+    raf =
+      requestAnimationFrame(
+        pulse
+      );
+  }
+
+
+  function animateReveal() {
+
+    stopAnimation();
+
+
+    if (!line) {
+      return;
+    }
+
+
+    if (
+      !motionEnabled()
+    ) {
+
+      draw(
+        1,
+        0
+      );
+
+      return;
+    }
+
+
+    const started =
       performance.now();
+
+
+    const duration =
+      520;
+
 
     function frame(
       now
     ) {
-      if (destroyed) {
+
+      if (
+        destroyed ||
+        !line
+      ) {
         return;
       }
 
-      const elapsed =
-        now - start;
 
-      const raw =
+      const t =
         Math.min(
           1,
-          elapsed /
-          CONFIG.animationDuration
+          (
+            now -
+            started
+          ) /
+            duration
         );
 
+
       /*
-       * easeOutCubic
+       * cubic ease-out
        */
-      const progress =
+
+      const eased =
         1 -
         Math.pow(
-          1 - raw,
+          1 - t,
           3
         );
 
-      drawLine(
-        line,
-        progress
+
+      draw(
+        eased,
+        t *
+          Math.PI *
+          4
       );
 
+
       if (
-        raw < 1
+        t < 1
       ) {
-        animationFrame =
+
+        raf =
           requestAnimationFrame(
             frame
+          );
+
+      } else {
+
+        raf =
+          requestAnimationFrame(
+            pulse
           );
       }
     }
 
-    animationFrame =
+
+    raf =
       requestAnimationFrame(
         frame
       );
@@ -1087,230 +1003,114 @@
 
 
   /* =========================================================
-     RESULT SCREEN DETECTION
+     REFRESH
      ========================================================= */
 
-  function isResultScreenVisible() {
-    const result =
-      document.getElementById(
-        "resultScreen"
-      );
+  function refresh() {
 
-    if (!result) {
-      return false;
-    }
-
-    return (
-      result.classList.contains(
-        "active"
-      ) &&
-      !result.hidden
-    );
-  }
-
-
-  /* =========================================================
-     INSPECT
-     ========================================================= */
-
-  function inspect() {
     if (
-      destroyed
+      destroyed ||
+      !ensureOverlay()
     ) {
       return;
     }
+
+
+    const detected =
+      findRenderedLine();
+
+
+    const signature =
+      detected
+        ? detected.signature
+        : "";
+
 
     /*
-     * 只在結果畫面顯示勝利線。
+     * 勝利線消失。
      *
-     * 這點很重要：
-     * 遊戲進行中不會一直掃棋盤。
+     * 通常代表：
+     * - 重新開始
+     * - 返回首頁
+     * - 開始新棋局
      */
-    if (
-      !isResultScreenVisible()
-    ) {
-      clear();
 
-      lastStateHash = "";
-      lastLineHash = "";
+    if (!detected) {
 
-      return;
-    }
+      if (
+        lastSignature
+      ) {
 
-    const state =
-      readBoard();
+        lastSignature =
+          "";
 
-    if (!state) {
-      return;
-    }
+        line =
+          null;
 
-    const hash =
-      stateHash(state);
+        stopAnimation();
 
-    if (
-      hash ===
-      lastStateHash &&
-      lastLineHash
-    ) {
-      return;
-    }
-
-    lastStateHash =
-      hash;
-
-    const line =
-      findWinningLine(
-        state
-      );
-
-    if (!line) {
-      clear();
-
-      lastLineHash = "";
+        clear();
+      }
 
       return;
     }
 
-    const currentLineHash =
-      lineHash(line);
+
+    line =
+      detected;
+
+
+    /*
+     * 只有新的勝利線出現時才重新播放。
+     */
 
     if (
-      currentLineHash ===
-      lastLineHash
+      signature !==
+      lastSignature
     ) {
-      return;
-    }
 
-    lastLineHash =
-      currentLineHash;
+      lastSignature =
+        signature;
 
-    if (
-      isMotionEnabled()
-    ) {
-      animate(line);
-    } else {
-      drawLine(
-        line,
-        1
-      );
+      animateReveal();
     }
   }
 
 
   /* =========================================================
-     RESULT OBSERVER
+     RESIZE OBSERVER
      ========================================================= */
 
-  const resultScreen =
-    document.getElementById(
-      "resultScreen"
-    );
+  function observeCanvas() {
 
-  if (
-    resultScreen &&
-    "MutationObserver" in window
-  ) {
-    const observer =
-      new MutationObserver(
+    if (
+      typeof ResizeObserver ===
+      "undefined"
+    ) {
+      return;
+    }
+
+
+    if (
+      resizeObserver
+    ) {
+
+      resizeObserver.disconnect();
+    }
+
+
+    resizeObserver =
+      new ResizeObserver(
         () => {
-          /*
-           * 等 app.js 完成畫面切換與
-           * 最後一次 canvas 繪製。
-           */
+
+          resize();
+
           requestAnimationFrame(
-            () => {
-              requestAnimationFrame(
-                inspect
-              );
-            }
+            refresh
           );
         }
       );
 
-    observer.observe(
-      resultScreen,
-      {
-        attributes: true,
-        attributeFilter: [
-          "class",
-          "hidden"
-        ]
-      }
-    );
-  }
-
-
-  /* =========================================================
-     GENERAL OBSERVER
-     ========================================================= */
-
-  /*
-   * 有些情況 app.js 可能不透過
-   * MutationObserver 能觀察到的方式切換畫面。
-   *
-   * 所以只做非常輕量的低頻檢查。
-   *
-   * 不掃棋盤。
-   * 只有結果畫面才會真的讀 canvas。
-   */
-
-  let fallbackTimer =
-    window.setInterval(
-      () => {
-        if (
-          isResultScreenVisible()
-        ) {
-          inspect();
-        }
-      },
-      300
-    );
-
-
-  /* =========================================================
-     RESIZE
-     ========================================================= */
-
-  window.addEventListener(
-    "resize",
-    scheduleResize,
-    {
-      passive: true
-    }
-  );
-
-  window.addEventListener(
-    "orientationchange",
-    () => {
-      window.setTimeout(
-        () => {
-          resize();
-          inspect();
-        },
-        120
-      );
-    },
-    {
-      passive: true
-    }
-  );
-
-
-  if (
-    "ResizeObserver" in window
-  ) {
-    resizeObserver =
-      new ResizeObserver(
-        () => {
-          resize();
-
-          if (
-            isResultScreenVisible()
-          ) {
-            inspect();
-          }
-        }
-      );
 
     resizeObserver.observe(
       board
@@ -1319,103 +1119,223 @@
 
 
   /* =========================================================
-     CLEAR WHEN STARTING A NEW GAME
+     MOTION SETTING
      ========================================================= */
 
-  const startButtons = [
-    "startButton",
-    "beginGameButton",
-    "playAgainButton",
-    "restartButton",
-    "resumeButton"
-  ];
+  function observeSettings() {
 
-  for (
-    const id of startButtons
-  ) {
-    const button =
+    const toggle =
       document.getElementById(
-        id
+        "motionToggle"
       );
 
-    if (!button) {
-      continue;
+
+    if (!toggle) {
+      return;
     }
 
-    button.addEventListener(
-      "click",
+
+    toggle.addEventListener(
+      "change",
       () => {
-        cancelAnimationFrame(
-          animationFrame
-        );
 
-        clear();
+        if (!line) {
+          return;
+        }
 
-        lastStateHash =
-          "";
 
-        lastLineHash =
-          "";
-      },
-      {
-        capture: false
+        if (
+          motionEnabled()
+        ) {
+
+          animateReveal();
+
+        } else {
+
+          stopAnimation();
+
+          draw(
+            1,
+            0
+          );
+        }
       }
     );
   }
 
 
   /* =========================================================
-     INITIALIZATION
+     START
      ========================================================= */
 
-  createOverlay();
+  function start() {
 
-  /*
-   * 初始狀態不要畫線。
-   */
-  clear();
+    if (
+      !ensureOverlay()
+    ) {
+      return;
+    }
+
+
+    observeCanvas();
+
+    observeSettings();
+
+
+    /*
+     * app.js 是直接畫 Canvas。
+     *
+     * Canvas 內部變化不會觸發
+     * MutationObserver。
+     *
+     * 所以這裡使用低頻 polling。
+     *
+     * 180ms：
+     * - 足夠抓到勝利狀態
+     * - 不會每 frame 掃整張 canvas
+     * - 對 iPad 比較友善
+     */
+
+    const poll =
+      () => {
+
+        if (
+          destroyed
+        ) {
+          return;
+        }
+
+
+        refresh();
+
+
+        window.setTimeout(
+          poll,
+          180
+        );
+      };
+
+
+    poll();
+
+
+    window.addEventListener(
+      "resize",
+      () => {
+
+        requestAnimationFrame(
+          refresh
+        );
+
+      },
+      {
+        passive: true
+      }
+    );
+
+
+    window.addEventListener(
+      "orientationchange",
+      () => {
+
+        window.setTimeout(
+          () => {
+
+            resize();
+
+            refresh();
+
+          },
+          120
+        );
+
+      },
+      {
+        passive: true
+      }
+    );
+  }
 
 
   /* =========================================================
-     CLEANUP
+     DESTROY
      ========================================================= */
 
-  window.addEventListener(
-    "pagehide",
-    () => {
-      destroyed = true;
+  function destroy() {
 
-      cancelAnimationFrame(
-        animationFrame
-      );
+    destroyed =
+      true;
 
-      if (
-        fallbackTimer
-      ) {
-        clearInterval(
-          fallbackTimer
-        );
 
-        fallbackTimer = 0;
-      }
+    stopAnimation();
 
-      if (
-        resizeObserver
-      ) {
-        resizeObserver.disconnect();
-        resizeObserver = null;
-      }
 
-      if (overlay) {
-        overlay.remove();
-        overlay = null;
-      }
+    if (
+      resizeObserver
+    ) {
 
-      ctx = null;
-    },
-    {
-      once: true
+      resizeObserver.disconnect();
+
+      resizeObserver =
+        null;
     }
-  );
+
+
+    if (overlay) {
+
+      overlay.remove();
+
+      overlay =
+        null;
+    }
+
+
+    ctx =
+      null;
+
+
+    line =
+      null;
+
+
+    lastSignature =
+      "";
+  }
+
+
+  /* =========================================================
+     PUBLIC API
+     ========================================================= */
+
+  window.GomokuWinningLine = {
+
+    refresh,
+
+    destroy
+
+  };
+
+
+  /* =========================================================
+     BOOT
+     ========================================================= */
+
+  if (
+    document.readyState ===
+    "loading"
+  ) {
+
+    document.addEventListener(
+      "DOMContentLoaded",
+      start,
+      {
+        once: true
+      }
+    );
+
+  } else {
+
+    start();
+  }
 
 })();
