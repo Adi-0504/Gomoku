@@ -322,6 +322,10 @@
         </div>
 
 
+        <!-- =================================================
+             AI CHARACTER
+             ================================================= -->
+
         <div
           class="settings-group"
           id="characterGroup"
@@ -409,6 +413,10 @@
         </div>
 
 
+        <!-- =================================================
+             PLAYER SIDE
+             ================================================= -->
+
         <div class="settings-group">
 
           <h3>
@@ -488,6 +496,10 @@
 
       <div class="game-layout">
 
+        <!-- =================================================
+             TURN STATUS
+             ================================================= -->
+
         <div class="game-status">
 
           <div class="player-indicator">
@@ -538,15 +550,22 @@
         </div>
 
 
-        <!-- AI OS -->
+        <!-- =================================================
+             AI OS
+             ================================================= -->
 
         <div
           class="ai-os"
           id="aiOS"
           hidden
+          aria-live="polite"
+          aria-atomic="true"
         >
 
-          <div class="ai-os-avatar">
+          <div
+            class="ai-os-avatar"
+            aria-hidden="true"
+          >
 
             <span id="aiOSAvatar">
               M
@@ -579,9 +598,14 @@
         </div>
 
 
-        <!-- BOARD -->
+        <!-- =================================================
+             BOARD
+             ================================================= -->
 
-        <div class="board-wrapper">
+        <div
+          class="board-wrapper"
+          aria-label="Gomoku board area"
+        >
 
           <canvas
             id="boardCanvas"
@@ -634,10 +658,6 @@
 
           </button>
 
-
-          <!-- ===============================================
-               MUSIC BUTTON
-               =============================================== -->
 
           <button
             class="game-action"
@@ -1072,8 +1092,8 @@
 
 
 <!-- =======================================================
-     WINNING LINE OVERLAY
-     不修改 app.js
+     WINNING LINE
+     獨立模組，不修改 app.js
      ======================================================= -->
 
 <script
