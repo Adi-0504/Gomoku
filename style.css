@@ -1708,3 +1708,473 @@ and (max-height: 620px) {
 html.gomoku-polish-ready {
   text-rendering: optimizeLegibility;
 }
+/* =========================================================
+   GOMOKU — AI OS PERSONALITY LAYER
+   ========================================================= */
+
+.ai-os {
+  position: relative;
+  isolation: isolate;
+
+  width: min(100%, 760px);
+  margin: 0 auto;
+
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+
+  padding: 11px 14px;
+
+  border: 1px solid var(--line);
+  border-radius: 16px;
+
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(
+        in srgb,
+        var(--surface-solid) 88%,
+        transparent
+      ),
+      color-mix(
+        in srgb,
+        var(--surface) 92%,
+        transparent
+      )
+    );
+
+  box-shadow:
+    0 8px 28px
+    rgba(30, 24, 16, 0.07);
+
+  overflow: hidden;
+
+  animation:
+    aiOSIn 280ms
+    cubic-bezier(
+      0.2,
+      0.8,
+      0.2,
+      1
+    );
+}
+
+.ai-os::before {
+  content: "";
+
+  position: absolute;
+  inset: 0;
+
+  z-index: -1;
+
+  opacity: 0.55;
+
+  background:
+    radial-gradient(
+      circle at 0% 50%,
+      var(--ai-glow),
+      transparent 42%
+    );
+}
+
+.ai-os-avatar {
+  width: 42px;
+  height: 42px;
+
+  display: grid;
+  place-items: center;
+
+  border-radius: 13px;
+
+  background:
+    linear-gradient(
+      145deg,
+      var(--ai-primary),
+      var(--ai-secondary)
+    );
+
+  color: white;
+
+  font-weight: 800;
+  font-size: 15px;
+
+  box-shadow:
+    0 5px 14px
+    var(--ai-shadow);
+}
+
+.ai-os-content {
+  min-width: 0;
+}
+
+.ai-os-header {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+
+  margin-bottom: 2px;
+}
+
+.ai-os-header strong {
+  color: var(--ai-primary);
+
+  font-size: 13px;
+  font-weight: 800;
+
+  letter-spacing: -0.01em;
+}
+
+.ai-os-header span {
+  color: var(--muted);
+
+  font-size: 9px;
+  font-weight: 700;
+
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.ai-os-content p {
+  margin: 0;
+
+  color: var(--text);
+
+  font-size: 13px;
+  line-height: 1.45;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+/* =========================================================
+   MIO
+   ========================================================= */
+
+.ai-os[data-character="mio"] {
+  --ai-primary: #6f8f82;
+  --ai-secondary: #9db9a9;
+  --ai-glow: rgba(111, 143, 130, 0.18);
+  --ai-shadow: rgba(111, 143, 130, 0.20);
+}
+
+.ai-os[data-character="mio"] .ai-os-avatar {
+  border-radius: 50%;
+}
+
+.ai-os[data-character="mio"]::after {
+  content: "";
+
+  position: absolute;
+
+  right: 14px;
+  top: 50%;
+
+  width: 5px;
+  height: 5px;
+
+  border-radius: 50%;
+
+  background:
+    var(--ai-primary);
+
+  box-shadow:
+    0 0 0 5px
+    rgba(111, 143, 130, 0.08);
+
+  transform:
+    translateY(-50%);
+}
+
+
+/* =========================================================
+   RIN
+   ========================================================= */
+
+.ai-os[data-character="rin"] {
+  --ai-primary: #b75e50;
+  --ai-secondary: #e08a72;
+  --ai-glow: rgba(183, 94, 80, 0.20);
+  --ai-shadow: rgba(183, 94, 80, 0.24);
+}
+
+.ai-os[data-character="rin"] .ai-os-avatar {
+  border-radius: 11px;
+}
+
+.ai-os[data-character="rin"]::after {
+  content: "";
+
+  position: absolute;
+
+  right: 14px;
+  top: 50%;
+
+  width: 22px;
+  height: 2px;
+
+  background:
+    var(--ai-primary);
+
+  transform:
+    translateY(-50%)
+    rotate(-18deg);
+
+  transform-origin: right center;
+
+  opacity: 0.7;
+}
+
+
+/* =========================================================
+   SORA
+   ========================================================= */
+
+.ai-os[data-character="sora"] {
+  --ai-primary: #657a9a;
+  --ai-secondary: #91a7c7;
+  --ai-glow: rgba(101, 122, 154, 0.18);
+  --ai-shadow: rgba(101, 122, 154, 0.20);
+}
+
+.ai-os[data-character="sora"] .ai-os-avatar {
+  border-radius: 9px;
+
+  background:
+    linear-gradient(
+      145deg,
+      var(--ai-primary),
+      var(--ai-secondary)
+    );
+}
+
+.ai-os[data-character="sora"]::after {
+  content: "";
+
+  position: absolute;
+
+  right: 14px;
+  top: 50%;
+
+  width: 20px;
+  height: 6px;
+
+  border-top:
+    1px solid
+    var(--ai-primary);
+
+  border-bottom:
+    1px solid
+    var(--ai-primary);
+
+  transform:
+    translateY(-50%);
+
+  opacity: 0.5;
+}
+
+
+/* =========================================================
+   KURO
+   ========================================================= */
+
+.ai-os[data-character="kuro"] {
+  --ai-primary: #7a687f;
+  --ai-secondary: #a88fae;
+  --ai-glow: rgba(122, 104, 127, 0.20);
+  --ai-shadow: rgba(122, 104, 127, 0.24);
+}
+
+.ai-os[data-character="kuro"] .ai-os-avatar {
+  border-radius: 15px 7px 15px 7px;
+}
+
+.ai-os[data-character="kuro"]::after {
+  content: "";
+
+  position: absolute;
+
+  right: 14px;
+  top: 50%;
+
+  width: 6px;
+  height: 6px;
+
+  border-radius: 50%;
+
+  background:
+    var(--ai-primary);
+
+  box-shadow:
+    9px 0 0
+    color-mix(
+      in srgb,
+      var(--ai-primary) 65%,
+      transparent
+    );
+
+  transform:
+    translateY(-50%);
+}
+
+
+/* =========================================================
+   AI STATE
+   ========================================================= */
+
+.ai-os.ai-thinking {
+  animation:
+    aiThinking 1.4s
+    ease-in-out
+    infinite;
+}
+
+.ai-os.ai-danger {
+  box-shadow:
+    0 8px 28px
+    var(--ai-shadow),
+    inset 0 0 0 1px
+    color-mix(
+      in srgb,
+      var(--ai-primary) 30%,
+      transparent
+    );
+}
+
+.ai-os.ai-win {
+  animation:
+    aiWin 520ms
+    cubic-bezier(
+      0.2,
+      0.8,
+      0.2,
+      1
+    );
+}
+
+.ai-os.ai-player-mistake {
+  animation:
+    aiMistake 360ms
+    ease-out;
+}
+
+
+/* =========================================================
+   ANIMATIONS
+   ========================================================= */
+
+@keyframes aiOSIn {
+  from {
+    opacity: 0;
+    transform:
+      translateY(6px)
+      scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform:
+      translateY(0)
+      scale(1);
+  }
+}
+
+@keyframes aiThinking {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+
+  50% {
+    filter: brightness(1.045);
+  }
+}
+
+@keyframes aiWin {
+  0% {
+    transform:
+      scale(1);
+  }
+
+  45% {
+    transform:
+      scale(1.025);
+  }
+
+  100% {
+    transform:
+      scale(1);
+  }
+}
+
+@keyframes aiMistake {
+  0% {
+    transform:
+      translateX(0);
+  }
+
+  25% {
+    transform:
+      translateX(-2px);
+  }
+
+  50% {
+    transform:
+      translateX(2px);
+  }
+
+  75% {
+    transform:
+      translateX(-1px);
+  }
+
+  100% {
+    transform:
+      translateX(0);
+  }
+}
+
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 520px) {
+
+  .ai-os {
+    grid-template-columns:
+      38px minmax(0, 1fr);
+
+    padding:
+      9px 11px;
+
+    border-radius: 14px;
+  }
+
+  .ai-os-avatar {
+    width: 38px;
+    height: 38px;
+  }
+
+  .ai-os-content p {
+    font-size: 12px;
+  }
+}
+
+
+/* =========================================================
+   REDUCED MOTION
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+
+  .ai-os,
+  .ai-os.ai-thinking,
+  .ai-os.ai-win,
+  .ai-os.ai-player-mistake {
+    animation: none !important;
+  }
+
+}
