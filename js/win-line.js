@@ -3,28 +3,39 @@
 
   /*
    * =========================================================
-   * GOMOKU — WINNING LINE OVERLAY
+   * GOMOKU — WIN LINE VISUAL LAYER
    * =========================================================
    *
-   * 不修改 app.js。
+   * app.js 不修改。
    *
-   * 功能：
-   * - 在原本 boardCanvas 上方建立透明 overlay
-   * - 自動觀察棋盤畫面
-   * - 偵測終局後找出最後形成的五子
-   * - 畫出精緻勝利線
-   * - 支援 iPad / touch / DPR / responsive board
-   * - 不攔截任何棋盤操作
+   * 這個模組不負責判斷勝負。
+   * app.js 已經負責真正的五連判定與繪製。
+   *
+   * 本模組只負責：
+   * - 建立獨立視覺層
+   * - 偵測遊戲進入結果畫面
+   * - 從棋盤畫面推算最後五子
+   * - 播放精緻勝利線動畫
+   * - 不攔截棋盤操作
+   *
    * =========================================================
    */
 
   const BOARD_SIZE = 15;
   const WIN_LENGTH = 5;
 
-  const COLORS = {
-    line: "#d46d52",
-    glow: "rgba(212, 109, 82, 0.28)",
-    soft: "rgba(255, 255, 255, 0.82)"
+  const CONFIG = {
+    duration: 520,
+    lineWidthRatio: 0.105,
+    glowWidthRatio: 0.30,
+    extensionRatio: 0.10,
+    scanInterval: 120,
+
+    colors: {
+      line: "#c96f52",
+      glow: "rgba(201, 111, 82, 0.32)",
+      highlight: "rgba(255, 255, 255, 0.78)"
+    }
   };
 
   const board = document.getElementById("boardCanvas");
@@ -34,79 +45,119 @@
   }
 
   /*
-   * ---------------------------------------------------------
-   * Overlay
-   * ---------------------------------------------------------
+   * =========================================================
+   * OVERLAY
+   * =========================================================
    */
 
-  const wrapper =
-    board.parentElement || document.body;
+  const wrapper = board.parentElement || board;
 
-  wrapper.style.position =
-    wrapper.style.position || "relative";
+  if (wrapper !== board) {
+    const computed = getComputedStyle(wrapper);
 
-  const overlay =
-    document.createElement("canvas");
-
-  overlay.id =
-    "gomokuWinningLineOverlay";
-
-  overlay.setAttribute(
-    "aria-hidden",
-    "true"
-  );
-
-  Object.assign(
-    overlay.style,
-    {
-      position: "absolute",
-      inset: "0",
-      width: "100%",
-      height: "100%",
-      pointerEvents: "none",
-      zIndex: "10",
-      display: "block"
+    if (computed.position === "static") {
+      wrapper.style.position = "relative";
     }
-  );
+  }
+
+  const overlay = document.createElement("canvas");
+
+  overlay.id = "gomokuWinningLineOverlay";
+  overlay.setAttribute("aria-hidden", "true");
+
+  Object.assign(overlay.style, {
+    position: "absolute",
+    inset: "0",
+    width: "100%",
+    height: "100%",
+    display: "block",
+    pointerEvents: "none",
+    zIndex: "20"
+  });
+
+  if (wrapper === board) {
+    overlay.style.position = "fixed";
+    overlay.style.left = "0";
+    overlay.style.top = "0";
+  }
 
   wrapper.appendChild(overlay);
 
-  const ctx =
-    overlay.getContext("2d");
+  const ctx = overlay.getContext("2d");
 
   if (!ctx) {
     return;
   }
 
   /*
-   * ---------------------------------------------------------
-   * State
-   * ---------------------------------------------------------
+   * =========================================================
+   * STATE
+   * =========================================================
    */
 
-  let lastBoardImage = null;
-
-  let previousHash = "";
-
-  let candidateFrames = 0;
-
-  let visible = false;
-
+  let lastBoardHash = "";
+  let lastWinningHash = "";
+  let scanTimer = 0;
   let animationFrame = 0;
-
-  let resizeObserver = null;
-
+  let currentLine = null;
 
   /*
-   * ---------------------------------------------------------
-   * Resize
-   * ---------------------------------------------------------
+   * =========================================================
+   * GEOMETRY
+   * =========================================================
    */
 
-  function resizeOverlay() {
+  function getGeometry() {
+    const rect = board.getBoundingClientRect();
 
-    const rect =
-      board.getBoundingClientRect();
+    const size = Math.min(
+      rect.width,
+      rect.height
+    );
+
+    /*
+     * 和 app.js 的棋盤內距保持一致。
+     *
+     * app.js：
+     * boardPadding = size * 0.075
+     */
+
+    const padding = size * 0.075;
+
+    const usable = size - padding * 2;
+
+    const cell = usable / (BOARD_SIZE - 1);
+
+    return {
+      rect,
+      size,
+      padding,
+      cell
+    };
+  }
+
+  function boardPoint(row, col) {
+    const geometry = getGeometry();
+
+    return {
+      x:
+        geometry.padding +
+        col * geometry.cell,
+
+      y:
+        geometry.padding +
+        row * geometry.cell
+    };
+  }
+
+  /*
+   * =========================================================
+   * RESIZE
+   * =========================================================
+   */
+
+  function resize() {
+    const rect = board.getBoundingClientRect();
 
     if (
       rect.width <= 0 ||
@@ -115,28 +166,25 @@
       return;
     }
 
-    const dpr =
+    const dpr = Math.min(
       Math.max(
-        1,
-        Math.min(
-          window.devicePixelRatio || 1,
-          3
-        )
-      );
+        window.devicePixelRatio || 1,
+        1
+      ),
+      3
+    );
 
-    const width =
+    overlay.width =
       Math.round(rect.width * dpr);
 
-    const height =
+    overlay.height =
       Math.round(rect.height * dpr);
 
-    if (
-      overlay.width !== width ||
-      overlay.height !== height
-    ) {
-      overlay.width = width;
-      overlay.height = height;
-    }
+    overlay.style.width =
+      `${rect.width}px`;
+
+    overlay.style.height =
+      `${rect.height}px`;
 
     ctx.setTransform(
       dpr,
@@ -150,11 +198,8 @@
     clear();
   }
 
-
   function clear() {
-
-    const rect =
-      board.getBoundingClientRect();
+    const rect = board.getBoundingClientRect();
 
     ctx.clearRect(
       0,
@@ -164,250 +209,34 @@
     );
   }
 
+  if ("ResizeObserver" in window) {
+    const observer =
+      new ResizeObserver(resize);
 
-  if (
-    "ResizeObserver" in window
-  ) {
-
-    resizeObserver =
-      new ResizeObserver(
-        resizeOverlay
-      );
-
-    resizeObserver.observe(board);
-
-  } else {
-
-    window.addEventListener(
-      "resize",
-      resizeOverlay
-    );
-
+    observer.observe(board);
   }
 
+  window.addEventListener(
+    "resize",
+    resize,
+    { passive: true }
+  );
 
-  resizeOverlay();
-
+  resize();
 
   /*
-   * ---------------------------------------------------------
-   * Board geometry
-   * ---------------------------------------------------------
+   * =========================================================
+   * CANVAS SNAPSHOT
+   * =========================================================
    */
 
-  function getBoardGeometry() {
-
-    const rect =
-      board.getBoundingClientRect();
-
-    const size =
-      Math.min(
-        rect.width,
-        rect.height
-      );
-
-    /*
-     * app.js 的棋盤本身會留出內距。
-     * 這裡使用棋盤的內部安全區，
-     * 避免線碰到圓角。
-     */
-
-    const padding =
-      size * 0.066;
-
-    const usable =
-      size - padding * 2;
-
-    const gap =
-      usable / (BOARD_SIZE - 1);
-
-    return {
-      width: rect.width,
-      height: rect.height,
-      padding,
-      gap
-    };
-  }
-
-
-  function point(
-    row,
-    col
-  ) {
-
-    const g =
-      getBoardGeometry();
-
-    return {
-      x:
-        g.padding +
-        col * g.gap,
-
-      y:
-        g.padding +
-        row * g.gap
-    };
-  }
-
-
-  /*
-   * ---------------------------------------------------------
-   * Pixel sampling
-   *
-   * 用畫面像素判斷棋子位置。
-   *
-   * 黑棋：
-   * 深色
-   *
-   * 白棋：
-   * 明亮
-   *
-   * 棋盤：
-   * 木色
-   * ---------------------------------------------------------
-   */
-
-  function sampleCell(
-    source,
-    row,
-    col
-  ) {
-
-    const rect =
-      board.getBoundingClientRect();
-
-    const g =
-      getBoardGeometry();
-
-    const p =
-      point(row, col);
-
-    const sx =
-      Math.max(
-        0,
-        Math.min(
-          rect.width - 1,
-          p.x
-        )
-      );
-
-    const sy =
-      Math.max(
-        0,
-        Math.min(
-          rect.height - 1,
-          p.y
-        )
-      );
-
-    const scaleX =
-      source.width /
-      rect.width;
-
-    const scaleY =
-      source.height /
-      rect.height;
-
-    const x =
-      Math.round(
-        sx * scaleX
-      );
-
-    const y =
-      Math.round(
-        sy * scaleY
-      );
-
-    const size =
-      Math.max(
-        3,
-        Math.round(
-          source.width *
-          0.012
-        )
-      );
-
-    const half =
-      Math.floor(
-        size / 2
-      );
-
-    const data =
-      source.getImageData(
-        Math.max(0, x - half),
-        Math.max(0, y - half),
-        size,
-        size
-      ).data;
-
-    let dark = 0;
-    let light = 0;
-
-    for (
-      let i = 0;
-      i < data.length;
-      i += 4
-    ) {
-
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
-
-      const brightness =
-        (r + g + b) / 3;
-
-      if (
-        brightness < 80
-      ) {
-        dark++;
-      }
-
-      if (
-        brightness > 205
-      ) {
-        light++;
-      }
-    }
-
-    const total =
-      data.length / 4;
-
-    if (
-      dark / total > 0.35
-    ) {
-      return 1;
-    }
-
-    if (
-      light / total > 0.55
-    ) {
-      return 2;
-    }
-
-    return 0;
-  }
-
-
-  /*
-   * ---------------------------------------------------------
-   * Capture board
-   * ---------------------------------------------------------
-   */
-
-  function captureBoard() {
-
+  function snapshot() {
     try {
-
       const source =
-        document.createElement(
-          "canvas"
-        );
+        document.createElement("canvas");
 
-      source.width =
-        board.width;
-
-      source.height =
-        board.height;
+      source.width = board.width;
+      source.height = board.height;
 
       const sourceCtx =
         source.getContext(
@@ -434,23 +263,160 @@
     }
   }
 
+  /*
+   * =========================================================
+   * SAMPLE STONE
+   * =========================================================
+   *
+   * 這裡只用來找「最後五顆」。
+   *
+   * 不是拿來判斷遊戲規則。
+   */
+
+  function sampleCell(
+    source,
+    row,
+    col
+  ) {
+    const geometry = getGeometry();
+
+    const point =
+      boardPoint(row, col);
+
+    const rect = geometry.rect;
+
+    const scaleX =
+      source.canvas.width /
+      rect.width;
+
+    const scaleY =
+      source.canvas.height /
+      rect.height;
+
+    const x = Math.round(
+      point.x * scaleX
+    );
+
+    const y = Math.round(
+      point.y * scaleY
+    );
+
+    /*
+     * 只取中心附近。
+     *
+     * 避免把棋盤線本身算進去。
+     */
+
+    const radius =
+      Math.max(
+        3,
+        Math.round(
+          source.canvas.width *
+          0.009
+        )
+      );
+
+    const left =
+      Math.max(
+        0,
+        x - radius
+      );
+
+    const top =
+      Math.max(
+        0,
+        y - radius
+      );
+
+    const width =
+      Math.min(
+        source.canvas.width - left,
+        radius * 2 + 1
+      );
+
+    const height =
+      Math.min(
+        source.canvas.height - top,
+        radius * 2 + 1
+      );
+
+    if (
+      width <= 0 ||
+      height <= 0
+    ) {
+      return 0;
+    }
+
+    const data =
+      source.getImageData(
+        left,
+        top,
+        width,
+        height
+      ).data;
+
+    let dark = 0;
+    let light = 0;
+    let count = 0;
+
+    for (
+      let i = 0;
+      i < data.length;
+      i += 4
+    ) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+
+      const brightness =
+        (r + g + b) / 3;
+
+      if (brightness < 90) {
+        dark++;
+      }
+
+      if (brightness > 210) {
+        light++;
+      }
+
+      count++;
+    }
+
+    if (!count) {
+      return 0;
+    }
+
+    if (
+      dark / count >
+      0.32
+    ) {
+      return 1;
+    }
+
+    if (
+      light / count >
+      0.55
+    ) {
+      return 2;
+    }
+
+    return 0;
+  }
 
   /*
-   * ---------------------------------------------------------
-   * Detect board
-   * ---------------------------------------------------------
+   * =========================================================
+   * READ BOARD
+   * =========================================================
    */
 
   function readBoard() {
-
-    const source =
-      captureBoard();
+    const source = snapshot();
 
     if (!source) {
       return null;
     }
 
-    const boardState =
+    const state =
       Array.from(
         {
           length: BOARD_SIZE
@@ -466,95 +432,45 @@
       row < BOARD_SIZE;
       row++
     ) {
-
       for (
         let col = 0;
         col < BOARD_SIZE;
         col++
       ) {
-
-        boardState[row][col] =
+        state[row][col] =
           sampleCell(
             source,
             row,
             col
           );
-
       }
     }
 
-    return boardState;
+    return state;
   }
-
 
   /*
-   * ---------------------------------------------------------
-   * Find winning lines
-   * ---------------------------------------------------------
+   * =========================================================
+   * HASH
+   * =========================================================
    */
 
-  function getLine(
-    boardState,
-    row,
-    col,
-    dr,
-    dc,
-    player
-  ) {
-
-    const cells = [];
-
-    let r = row;
-    let c = col;
-
-    while (
-      r >= 0 &&
-      r < BOARD_SIZE &&
-      c >= 0 &&
-      c < BOARD_SIZE &&
-      boardState[r][c] === player
-    ) {
-
-      cells.unshift([
-        r,
-        c
-      ]);
-
-      r -= dr;
-      c -= dc;
-    }
-
-    r = row + dr;
-    c = col + dc;
-
-    while (
-      r >= 0 &&
-      r < BOARD_SIZE &&
-      c >= 0 &&
-      c < BOARD_SIZE &&
-      boardState[r][c] === player
-    ) {
-
-      cells.push([
-        r,
-        c
-      ]);
-
-      r += dr;
-      c += dc;
-    }
-
-    return cells;
+  function hash(state) {
+    return state
+      .map(row => row.join(""))
+      .join("|");
   }
 
+  /*
+   * =========================================================
+   * FIND WINNING LINE
+   * =========================================================
+   */
 
-  function findWinningLine(
-    boardState
-  ) {
-
+  function findLine(state) {
     const directions = [
-      [1, 0],
       [0, 1],
+      [1, 0],
       [1, 1],
       [1, -1]
     ];
@@ -564,43 +480,48 @@
       row < BOARD_SIZE;
       row++
     ) {
-
       for (
         let col = 0;
         col < BOARD_SIZE;
         col++
       ) {
-
         const player =
-          boardState[row][col];
+          state[row][col];
 
         if (!player) {
           continue;
         }
 
         for (
-          const [
-            dr,
-            dc
-          ] of directions
+          const [dr, dc]
+          of directions
         ) {
+          const cells = [];
 
-          const line =
-            getLine(
-              boardState,
-              row,
-              col,
-              dr,
-              dc,
-              player
-            );
+          let r = row;
+          let c = col;
+
+          while (
+            r >= 0 &&
+            r < BOARD_SIZE &&
+            c >= 0 &&
+            c < BOARD_SIZE &&
+            state[r][c] === player
+          ) {
+            cells.push([
+              r,
+              c
+            ]);
+
+            r += dr;
+            c += dc;
+          }
 
           if (
-            line.length >=
+            cells.length >=
             WIN_LENGTH
           ) {
-
-            return line;
+            return cells;
           }
         }
       }
@@ -609,60 +530,35 @@
     return null;
   }
 
-
   /*
-   * ---------------------------------------------------------
-   * Hash
-   * ---------------------------------------------------------
+   * =========================================================
+   * DRAW
+   * =========================================================
    */
 
-  function hashBoard(
-    boardState
-  ) {
-
-    return boardState
-      .map(row =>
-        row.join("")
-      )
-      .join("|");
-  }
-
-
-  /*
-   * ---------------------------------------------------------
-   * Draw
-   * ---------------------------------------------------------
-   */
-
-  function drawLine(
-    line,
-    progress = 1
-  ) {
+  function draw(line, progress) {
+    clear();
 
     if (
       !line ||
-      line.length <
-      WIN_LENGTH
+      line.length < WIN_LENGTH
     ) {
       return;
     }
 
-    const g =
-      getBoardGeometry();
+    const geometry =
+      getGeometry();
 
     const first =
-      point(
+      boardPoint(
         line[0][0],
         line[0][1]
       );
 
-    const lastIndex =
-      line.length - 1;
-
     const last =
-      point(
-        line[lastIndex][0],
-        line[lastIndex][1]
+      boardPoint(
+        line[line.length - 1][0],
+        line[line.length - 1][1]
       );
 
     const dx =
@@ -673,26 +569,38 @@
 
     const startX =
       first.x -
-      dx * 0.08;
+      dx * CONFIG.extensionRatio;
 
     const startY =
       first.y -
-      dy * 0.08;
+      dy * CONFIG.extensionRatio;
 
     const endX =
       first.x +
-      dx * (0.08 + 0.92 * progress);
+      dx *
+      (
+        CONFIG.extensionRatio +
+        (1 -
+          CONFIG.extensionRatio * 2) *
+        progress
+      );
 
     const endY =
       first.y +
-      dy * (0.08 + 0.92 * progress);
+      dy *
+      (
+        CONFIG.extensionRatio +
+        (1 -
+          CONFIG.extensionRatio * 2) *
+        progress
+      );
+
+    /*
+     * GLOW
+     */
 
     ctx.save();
 
-    /*
-     * 外層柔光
-     */
-
     ctx.beginPath();
 
     ctx.moveTo(
@@ -705,31 +613,29 @@
       endY
     );
 
-    ctx.lineCap = "round";
+    ctx.lineCap =
+      "round";
 
     ctx.lineWidth =
       Math.max(
-        10,
-        g.gap * 0.28
+        9,
+        geometry.cell *
+        CONFIG.glowWidthRatio
       );
 
     ctx.strokeStyle =
-      COLORS.glow;
+      CONFIG.colors.glow;
 
     ctx.shadowColor =
-      COLORS.glow;
+      CONFIG.colors.glow;
 
     ctx.shadowBlur =
-      Math.max(
-        8,
-        g.gap * 0.3
-      );
+      geometry.cell * 0.35;
 
     ctx.stroke();
 
-
     /*
-     * 主線
+     * MAIN LINE
      */
 
     ctx.beginPath();
@@ -744,31 +650,29 @@
       endY
     );
 
-    ctx.lineCap = "round";
+    ctx.lineCap =
+      "round";
 
     ctx.lineWidth =
       Math.max(
         3,
-        g.gap * 0.10
+        geometry.cell *
+        CONFIG.lineWidthRatio
       );
 
     ctx.strokeStyle =
-      COLORS.line;
+      CONFIG.colors.line;
 
     ctx.shadowColor =
-      "rgba(0,0,0,0.14)";
+      "rgba(0,0,0,0.16)";
 
     ctx.shadowBlur =
-      Math.max(
-        2,
-        g.gap * 0.08
-      );
+      geometry.cell * 0.08;
 
     ctx.stroke();
 
-
     /*
-     * 中心高光
+     * HIGHLIGHT
      */
 
     ctx.beginPath();
@@ -786,62 +690,47 @@
     ctx.lineWidth =
       Math.max(
         1,
-        g.gap * 0.025
+        geometry.cell * 0.025
       );
 
     ctx.strokeStyle =
-      COLORS.soft;
+      CONFIG.colors.highlight;
 
     ctx.shadowBlur = 0;
 
-    ctx.globalAlpha =
-      0.62;
+    ctx.globalAlpha = 0.65;
 
     ctx.stroke();
 
     ctx.restore();
   }
 
-
   /*
-   * ---------------------------------------------------------
-   * Animation
-   * ---------------------------------------------------------
+   * =========================================================
+   * ANIMATE
+   * =========================================================
    */
 
-  function animateLine(
-    line
-  ) {
-
+  function animate(line) {
     cancelAnimationFrame(
       animationFrame
     );
 
-    visible = true;
+    currentLine = line;
 
-    const start =
+    const started =
       performance.now();
 
-    const duration =
-      460;
-
-    function frame(
-      now
-    ) {
-
+    function frame(now) {
       const elapsed =
-        now - start;
+        now - started;
 
       const raw =
         Math.min(
           1,
           elapsed /
-          duration
+          CONFIG.duration
         );
-
-      /*
-       * cubic ease-out
-       */
 
       const progress =
         1 -
@@ -850,24 +739,17 @@
           3
         );
 
-      clear();
-
-      drawLine(
+      draw(
         line,
         progress
       );
 
-      if (
-        raw < 1
-      ) {
-
+      if (raw < 1) {
         animationFrame =
           requestAnimationFrame(
             frame
           );
-
       }
-
     }
 
     animationFrame =
@@ -876,223 +758,121 @@
       );
   }
 
-
   /*
-   * ---------------------------------------------------------
-   * Main watcher
-   * ---------------------------------------------------------
+   * =========================================================
+   * RESULT DETECTION
+   * =========================================================
+   *
+   * 不依賴 app.js 的 DOM 結構。
+   *
+   * 只要棋盤上真的出現五連，
+   * 就播放一次。
    */
 
   function inspect() {
-
-    if (
-      !document.body.contains(board)
-    ) {
-      return;
-    }
-
-    const boardState =
+    const state =
       readBoard();
 
-    if (!boardState) {
+    if (!state) {
       return;
     }
 
-    const hash =
-      hashBoard(
-        boardState
-      );
-
-    /*
-     * 棋盤完全沒變，
-     * 不需要重新處理。
-     */
+    const currentHash =
+      hash(state);
 
     if (
-      hash === previousHash
+      currentHash ===
+      lastBoardHash
     ) {
       return;
     }
 
-    previousHash =
-      hash;
+    lastBoardHash =
+      currentHash;
 
     const line =
-      findWinningLine(
-        boardState
-      );
+      findLine(state);
+
+    if (!line) {
+      return;
+    }
+
+    const lineHash =
+      line
+        .map(
+          ([r, c]) =>
+            `${r},${c}`
+        )
+        .join("|");
 
     if (
-      line &&
-      line.length >=
-      WIN_LENGTH
+      lineHash ===
+      lastWinningHash
     ) {
-
-      /*
-       * 防止普通五子棋局中
-       * 尚未結束時誤觸。
-       *
-       * 只有當棋盤出現五連，
-       * 才顯示。
-       */
-
-      animateLine(
-        line
-      );
-
       return;
     }
 
-    if (visible) {
+    lastWinningHash =
+      lineHash;
 
-      visible =
-        false;
-
-      cancelAnimationFrame(
-        animationFrame
-      );
-
-      clear();
-    }
+    animate(line);
   }
 
-
   /*
-   * ---------------------------------------------------------
-   * Mutation observer
-   *
-   * app.js 每次 redraw Canvas 時，
-   * DOM 本身可能不變，所以再搭配
-   * requestAnimationFrame polling。
-   * ---------------------------------------------------------
+   * =========================================================
+   * CLEAR WHEN GAME RESTARTS
+   * =========================================================
    */
 
-  let running = true;
-
-  function loop() {
-
-    if (!running) {
-      return;
-    }
-
+  function monitor() {
     inspect();
 
-    window.requestAnimationFrame(
-      loop
-    );
+    scanTimer =
+      window.setTimeout(
+        monitor,
+        CONFIG.scanInterval
+      );
   }
 
-  window.requestAnimationFrame(
-    loop
-  );
-
-
   /*
-   * ---------------------------------------------------------
-   * Screen changes
-   * ---------------------------------------------------------
-   */
-
-  document.addEventListener(
-    "visibilitychange",
-    () => {
-
-      if (
-        document.hidden
-      ) {
-
-        cancelAnimationFrame(
-          animationFrame
-        );
-
-      }
-
-    }
-  );
-
-
-  /*
-   * ---------------------------------------------------------
-   * Reset overlay when game screen
-   * disappears.
-   * ---------------------------------------------------------
-   */
-
-  const observer =
-    new MutationObserver(
-      () => {
-
-        const gameScreen =
-          document.getElementById(
-            "gameScreen"
-          );
-
-        if (
-          gameScreen &&
-          !gameScreen.classList.contains(
-            "active"
-          )
-        ) {
-
-          visible =
-            false;
-
-          previousHash =
-            "";
-
-          clear();
-
-        }
-
-      }
-    );
-
-  observer.observe(
-    document.body,
-    {
-      attributes: true,
-      subtree: true,
-      attributeFilter: [
-        "class",
-        "hidden"
-      ]
-    }
-  );
-
-
-  /*
-   * ---------------------------------------------------------
-   * Public debug API
+   * 當使用者重新開始 / 離開棋局，
+   * 棋盤會變化。
    *
-   * 不影響 app.js。
-   * ---------------------------------------------------------
+   * 新棋局沒有五連時自動清除 overlay。
    */
 
-  window.GomokuWinLine = {
-    clear() {
+  function clearIfNoWin() {
+    const state =
+      readBoard();
 
-      visible =
-        false;
+    if (!state) {
+      return;
+    }
 
-      previousHash =
-        "";
+    const line =
+      findLine(state);
 
+    if (!line) {
+      lastWinningHash = "";
+      currentLine = null;
       cancelAnimationFrame(
         animationFrame
       );
-
       clear();
-
-    },
-
-    redraw() {
-
-      previousHash =
-        "";
-
-      inspect();
-
     }
-  };
+  }
+
+  window.addEventListener(
+    "pageshow",
+    clearIfNoWin
+  );
+
+  /*
+   * =========================================================
+   * START
+   * =========================================================
+   */
+
+  monitor();
 
 })();
