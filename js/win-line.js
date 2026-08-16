@@ -3,59 +3,88 @@
 
   /*
    * =========================================================
-   * GOMOKU — WINNING LINE POLISH
+   * GOMOKU — WINNING LINE
+   * Storage-driven visual feedback layer
    * =========================================================
    *
-   * IMPORTANT:
-   * - app.js is NOT modified.
-   * - We hook the board Canvas drawing API.
-   * - We detect the winning-line stroke directly.
-   * - No pixel recognition.
-   * - No game-state duplication.
+   * IMPORTANT
+   * ---------------------------------------------------------
+   * app.js is NOT modified.
    *
-   * app.js remains the source of truth.
+   * This module:
+   * - reads the existing game state from localStorage
+   * - uses winningLine as the source of truth
+   * - never intercepts Canvas drawing
+   * - never recalculates Gomoku rules
+   * - never modifies the board state
+   *
+   * Storage:
+   *   gomoku-active-game-v5
+   *
+   * The board remains owned by app.js.
+   * This module only draws a transparent visual overlay.
    * =========================================================
    */
 
-  const WINNING_COLOR = "#d46d52";
+  const STORAGE_KEY = "gomoku-active-game-v5";
 
   const BOARD_ID = "boardCanvas";
 
-  const OVERLAY_ID =
-    "gomoku-winning-line-overlay";
+  const OVERLAY_ID = "gomoku-winning-line-overlay";
+
+  const SIZE = 15;
+
+  const WIN = 5;
+
+  const COLORS = {
+    line: "#d46d52",
+    glow: "rgba(212,109,82,0.48)",
+    highlight: "rgba(255,255,255,0.34)"
+  };
+
+  const POLL_MS = 120;
+
+  const ANIMATION_MS = 520;
+
+  const EXTENSION_RATIO = 0.035;
+
+  const LINE_RATIO = 0.009;
 
   let board = null;
 
   let overlay = null;
 
-  let overlayContext = null;
+  let context = null;
 
-  let hookedContext = null;
+  let pollTimer = 0;
 
-  let currentPath = [];
+  let resizeObserver = null;
 
-  let lastWinningPath = null;
+  let mutationObserver = null;
 
   let animationFrame = 0;
 
   let animationStart = 0;
 
-  let resizeObserver = null;
-
   let destroyed = false;
 
+  let lastSignature = "";
 
-  /*
-   * =========================================================
-   * MOTION
-   * =========================================================
-   */
+  let currentWinningLine = null;
+
+  let currentWinner = 0;
+
+
+  /* ========================================================
+     MOTION
+     ======================================================== */
 
   function motionEnabled() {
+    const root = document.documentElement;
 
     if (
-      document.documentElement.dataset.motion ===
-      "off"
+      root &&
+      root.dataset.motion === "off"
     ) {
       return false;
     }
@@ -84,14 +113,11 @@
   }
 
 
-  /*
-   * =========================================================
-   * FIND BOARD
-   * =========================================================
-   */
+  /* ========================================================
+     FIND BOARD
+     ======================================================== */
 
   function findBoard() {
-
     board =
       document.getElementById(
         BOARD_ID
@@ -101,17 +127,14 @@
   }
 
 
-  /*
-   * =========================================================
-   * OVERLAY
-   * =========================================================
-   */
+  /* ========================================================
+     CREATE OVERLAY
+     ======================================================== */
 
   function createOverlay() {
-
     if (
-      overlay ||
-      !board
+      !board ||
+      overlay
     ) {
       return;
     }
@@ -151,20 +174,13 @@
       overlay.style,
       {
         position: "absolute",
-
-        left: "0",
-
-        top: "0",
-
-        width: "100%",
-
-        height: "100%",
-
         pointerEvents: "none",
-
-        zIndex: "100",
-
-        display: "block"
+        display: "block",
+        zIndex: "20",
+        left: "0",
+        top: "0",
+        width: "0",
+        height: "0"
       }
     );
 
@@ -172,7 +188,7 @@
       overlay
     );
 
-    overlayContext =
+    context =
       overlay.getContext(
         "2d"
       );
@@ -181,20 +197,474 @@
   }
 
 
-  /*
-   * =========================================================
-   * RESIZE
-   * =========================================================
-   */
+  /* ========================================================
+     RESIZE
+     ======================================================== */
 
   function resizeOverlay() {
-
     if (
+      !board ||
       !overlay ||
-      !overlayContext ||
-      !board
+      !context
     ) {
       return;
+    }
+
+    const boardRect =
+      board.getBoundingClientRect();
+
+    const parent =
+      board.parentElement;
+
+    if (!parent) {
+      return;
+    }
+
+    const parentRect =
+      parent.getBoundingClientRect();
+
+    if (
+      boardRect.width <= 0 ||
+      boardRect.height <= 0
+    ) {
+      overlay.style.display =
+        "none";
+
+      return;
+    }
+
+    overlay.style.display =
+      "block";
+
+    overlay.style.left =
+      `${boardRect.left - parentRect.left}px`;
+
+    overlay.style.top =
+      `${boardRect.top - parentRect.top}px`;
+
+    overlay.style.width =
+      `${boardRect.width}px`;
+
+    overlay.style.height =
+      `${boardRect.height}px`;
+
+    const dpr =
+      Math.min(
+        Math.max(
+          window.devicePixelRatio || 1,
+          1
+        ),
+        3
+      );
+
+    overlay.width =
+      Math.round(
+        boardRect.width * dpr
+      );
+
+    overlay.height =
+      Math.round(
+        boardRect.height * dpr
+      );
+
+    context.setTransform(
+      dpr,
+      0,
+      0,
+      dpr,
+      0,
+      0
+    );
+
+    redraw();
+  }
+
+
+  /* ========================================================
+     CLEAR
+     ======================================================== */
+
+  function clear() {
+    if (
+      !context ||
+      !overlay
+    ) {
+      return;
+    }
+
+    const rect =
+      overlay.getBoundingClientRect();
+
+    context.clearRect(
+      0,
+      0,
+      rect.width,
+      rect.height
+    );
+  }
+
+
+  /* ========================================================
+     READ STORAGE
+     ======================================================== */
+
+  function readGameState() {
+    let raw = null;
+
+    try {
+      raw =
+        localStorage.getItem(
+          STORAGE_KEY
+        );
+    } catch {
+      return null;
+    }
+
+    if (!raw) {
+      return null;
+    }
+
+    try {
+      const state =
+        JSON.parse(raw);
+
+      if (
+        !state ||
+        typeof state !== "object"
+      ) {
+        return null;
+      }
+
+      return state;
+
+    } catch {
+      return null;
+    }
+  }
+
+
+  /* ========================================================
+     NORMALIZE WINNING LINE
+     ========================================================
+     
+     We intentionally support several possible shapes.
+
+     Examples:
+
+       [{ row: 7, col: 3 }, ... ]
+
+       [{ r: 7, c: 3 }, ... ]
+
+       [[7, 3], [7, 4], ...]
+
+       {
+         start: { row: 7, col: 3 },
+         end:   { row: 7, col: 7 }
+       }
+
+     This makes the visual layer tolerant without
+     changing app.js.
+     ======================================================== */
+
+  function normalizePoint(point) {
+    if (
+      Array.isArray(point) &&
+      point.length >= 2
+    ) {
+      const row =
+        Number(point[0]);
+
+      const col =
+        Number(point[1]);
+
+      if (
+        Number.isFinite(row) &&
+        Number.isFinite(col)
+      ) {
+        return {
+          row,
+          col
+        };
+      }
+    }
+
+    if (
+      point &&
+      typeof point === "object"
+    ) {
+      const row =
+        Number(
+          point.row ??
+          point.r ??
+          point.y
+        );
+
+      const col =
+        Number(
+          point.col ??
+          point.c ??
+          point.x
+        );
+
+      if (
+        Number.isFinite(row) &&
+        Number.isFinite(col)
+      ) {
+        return {
+          row,
+          col
+        };
+      }
+    }
+
+    return null;
+  }
+
+
+  function normalizeWinningLine(value) {
+    if (!value) {
+      return null;
+    }
+
+    /*
+     * Array of points
+     */
+
+    if (
+      Array.isArray(value)
+    ) {
+      const points =
+        value
+          .map(
+            normalizePoint
+          )
+          .filter(Boolean);
+
+      if (
+        points.length >= 2
+      ) {
+        return points;
+      }
+
+      return null;
+    }
+
+
+    /*
+     * Object containing points
+     */
+
+    if (
+      typeof value ===
+      "object"
+    ) {
+      if (
+        Array.isArray(
+          value.points
+        )
+      ) {
+        const points =
+          value.points
+            .map(
+              normalizePoint
+            )
+            .filter(Boolean);
+
+        if (
+          points.length >= 2
+        ) {
+          return points;
+        }
+      }
+
+
+      /*
+       * start / end
+       */
+
+      const start =
+        normalizePoint(
+          value.start
+        );
+
+      const end =
+        normalizePoint(
+          value.end
+        );
+
+      if (
+        start &&
+        end
+      ) {
+        return [
+          start,
+          end
+        ];
+      }
+    }
+
+    return null;
+  }
+
+
+  /* ========================================================
+     GAME STATE EXTRACTION
+     ======================================================== */
+
+  function extractWinningLine(state) {
+    if (!state) {
+      return null;
+    }
+
+    /*
+     * Primary source.
+     */
+
+    const direct =
+      normalizeWinningLine(
+        state.winningLine
+      );
+
+    if (direct) {
+      return direct;
+    }
+
+
+    /*
+     * A few harmless fallbacks for old saved games.
+     */
+
+    const result =
+      state.result;
+
+    if (
+      result &&
+      typeof result === "object"
+    ) {
+      const resultLine =
+        normalizeWinningLine(
+          result.winningLine
+        );
+
+      if (resultLine) {
+        return resultLine;
+      }
+    }
+
+    return null;
+  }
+
+
+  /* ========================================================
+     SIGNATURE
+     ======================================================== */
+
+  function createSignature(state) {
+    if (!state) {
+      return "empty";
+    }
+
+    const line =
+      extractWinningLine(
+        state
+      );
+
+    let lineSignature =
+      "none";
+
+    if (line) {
+      lineSignature =
+        line
+          .map(
+            point =>
+              `${point.row},${point.col}`
+          )
+          .join("|");
+    }
+
+    return [
+      state.winner ?? "",
+      state.status ?? "",
+      state.gameOver ?? "",
+      lineSignature
+    ].join("::");
+  }
+
+
+  /* ========================================================
+     CHECK STORAGE
+     ======================================================== */
+
+  function checkStorage() {
+    if (destroyed) {
+      return;
+    }
+
+    const state =
+      readGameState();
+
+    const signature =
+      createSignature(
+        state
+      );
+
+    if (
+      signature ===
+      lastSignature
+    ) {
+      return;
+    }
+
+    lastSignature =
+      signature;
+
+    const line =
+      extractWinningLine(
+        state
+      );
+
+    const winner =
+      Number(
+        state?.winner ?? 0
+      );
+
+    currentWinner =
+      Number.isFinite(winner)
+        ? winner
+        : 0;
+
+    if (
+      !line ||
+      line.length < 2
+    ) {
+      currentWinningLine =
+        null;
+
+      cancelAnimationFrame(
+        animationFrame
+      );
+
+      clear();
+
+      return;
+    }
+
+    currentWinningLine =
+      line;
+
+    drawWinningLine(
+      motionEnabled()
+    );
+  }
+
+
+  /* ========================================================
+     BOARD COORDINATES
+     ======================================================== */
+
+  function boardGeometry() {
+    if (!board) {
+      return null;
     }
 
     const rect =
@@ -204,413 +674,121 @@
       rect.width <= 0 ||
       rect.height <= 0
     ) {
-      return;
+      return null;
     }
 
-    const parentRect =
-      board.parentElement.getBoundingClientRect();
-
-    const left =
-      rect.left -
-      parentRect.left;
-
-    const top =
-      rect.top -
-      parentRect.top;
-
-    overlay.style.left =
-      `${left}px`;
-
-    overlay.style.top =
-      `${top}px`;
-
-    overlay.style.width =
-      `${rect.width}px`;
-
-    overlay.style.height =
-      `${rect.height}px`;
-
-    const dpr =
-      Math.min(
-        Math.max(
-          window.devicePixelRatio ||
-          1,
-          1
-        ),
-        3
-      );
-
-    overlay.width =
-      Math.round(
-        rect.width *
-        dpr
-      );
-
-    overlay.height =
-      Math.round(
-        rect.height *
-        dpr
-      );
-
-    overlayContext.setTransform(
-      dpr,
-      0,
-      0,
-      dpr,
-      0,
-      0
-    );
-
-    clearOverlay();
-  }
-
-
-  /*
-   * =========================================================
-   * CLEAR
-   * =========================================================
-   */
-
-  function clearOverlay() {
-
-    if (
-      !overlayContext ||
-      !overlay
-    ) {
-      return;
-    }
-
-    const rect =
-      overlay.getBoundingClientRect();
-
-    overlayContext.clearRect(
-      0,
-      0,
-      rect.width,
-      rect.height
-    );
-  }
-
-
-  /*
-   * =========================================================
-   * COLOR NORMALIZATION
-   * =========================================================
-   */
-
-  function normalizeColor(
-    color
-  ) {
-
-    if (
-      typeof color !==
-      "string"
-    ) {
-      return "";
-    }
-
-    return color
-      .replace(
-        /\s+/g,
-        ""
-      )
-      .toLowerCase();
-  }
-
-
-  function isWinningColor(
-    color
-  ) {
-
-    const normalized =
-      normalizeColor(
-        color
-      );
-
-    return (
-      normalized ===
-      WINNING_COLOR
-    );
-  }
-
-
-  /*
-   * =========================================================
-   * PATH TRACKING
-   * =========================================================
-   *
-   * We intercept:
-   *
-   *   beginPath()
-   *   moveTo()
-   *   lineTo()
-   *   stroke()
-   *
-   * This lets us know exactly where app.js drew
-   * the winning line.
-   *
-   * No screenshot analysis.
-   * No board-state duplication.
-   * =========================================================
-   */
-
-  function installCanvasHook() {
-
-    if (
-      hookedContext ||
-      !board
-    ) {
-      return;
-    }
-
-    const context =
-      board.getContext(
-        "2d"
-      );
-
-    if (!context) {
-      return;
-    }
-
-    hookedContext =
-      context;
-
-    const originalBeginPath =
-      context.beginPath.bind(
-        context
-      );
-
-    const originalMoveTo =
-      context.moveTo.bind(
-        context
-      );
-
-    const originalLineTo =
-      context.lineTo.bind(
-        context
-      );
-
-    const originalStroke =
-      context.stroke.bind(
-        context
-      );
-
-    context.beginPath =
-      function () {
-
-        currentPath = [];
-
-        return originalBeginPath();
-      };
-
-
-    context.moveTo =
-      function (
-        x,
-        y
-      ) {
-
-        currentPath.push({
-          type: "move",
-
-          x,
-
-          y
-        });
-
-        return originalMoveTo(
-          x,
-          y
-        );
-      };
-
-
-    context.lineTo =
-      function (
-        x,
-        y
-      ) {
-
-        currentPath.push({
-          type: "line",
-
-          x,
-
-          y
-        });
-
-        return originalLineTo(
-          x,
-          y
-        );
-      };
-
-
-    context.stroke =
-      function (...args) {
-
-        const color =
-          context.strokeStyle;
-
-        const path =
-          currentPath.slice();
-
-        const result =
-          originalStroke(
-            ...args
-          );
-
-        if (
-          isWinningColor(
-            color
-          ) &&
-          path.length >= 2
-        ) {
-
-          captureWinningPath(
-            path
-          );
-        }
-
-        return result;
-      };
-  }
-
-
-  /*
-   * =========================================================
-   * CAPTURE WINNING PATH
-   * =========================================================
-   */
-
-  function captureWinningPath(
-    path
-  ) {
-
-    if (
-      destroyed
-    ) {
-      return;
-    }
-
-    const points =
-      path.filter(
-        item =>
-          item &&
-          (
-            item.type ===
-              "move" ||
-            item.type ===
-              "line"
-          )
-      );
-
-    if (
-      points.length <
-      2
-    ) {
-      return;
-    }
-
-    const start =
-      points[0];
-
-    const end =
-      points[
-        points.length - 1
-      ];
-
-    const dx =
-      end.x -
-      start.x;
-
-    const dy =
-      end.y -
-      start.y;
-
-    const length =
-      Math.hypot(
-        dx,
-        dy
-      );
-
-    if (
-      length <
-      10
-    ) {
-      return;
-    }
-
-    lastWinningPath = {
-
-      x1: start.x,
-
-      y1: start.y,
-
-      x2: end.x,
-
-      y2: end.y,
-
-      length
-    };
-
-    drawWinningLine(
-      true
-    );
-  }
-
-
-  /*
-   * =========================================================
-   * COORDINATE CONVERSION
-   * =========================================================
-   *
-   * app.js Canvas coordinates can differ from CSS pixels
-   * on Retina displays.
-   * =========================================================
-   */
-
-  function getScale() {
-
-    if (
-      !board
-    ) {
-      return {
-        x: 1,
-        y: 1
-      };
-    }
-
-    const rect =
-      board.getBoundingClientRect();
+    /*
+     * The game board uses a square 15x15 grid.
+     *
+     * Grid intersections span:
+     *   0 ... SIZE - 1
+     *
+     * We therefore map:
+     *
+     *   col → x
+     *   row → y
+     */
+
+    const padding =
+      rect.width *
+      0.055;
+
+    const usableWidth =
+      rect.width -
+      padding * 2;
+
+    const usableHeight =
+      rect.height -
+      padding * 2;
 
     return {
-
-      x:
-        rect.width /
-        board.width,
-
-      y:
-        rect.height /
-        board.height
+      width: rect.width,
+      height: rect.height,
+      padding,
+      cellX:
+        usableWidth /
+        (SIZE - 1),
+      cellY:
+        usableHeight /
+        (SIZE - 1)
     };
   }
 
 
-  /*
-   * =========================================================
-   * DRAW WINNING LINE
-   * =========================================================
-   */
+  function pointToCanvas(
+    point
+  ) {
+    const geometry =
+      boardGeometry();
+
+    if (
+      !geometry ||
+      !point
+    ) {
+      return null;
+    }
+
+    return {
+      x:
+        geometry.padding +
+        point.col *
+          geometry.cellX,
+
+      y:
+        geometry.padding +
+        point.row *
+          geometry.cellY
+    };
+  }
+
+
+  /* ========================================================
+     GET ENDPOINTS
+     ======================================================== */
+
+  function getEndpoints(line) {
+    if (
+      !Array.isArray(line) ||
+      line.length < 2
+    ) {
+      return null;
+    }
+
+    const first =
+      pointToCanvas(
+        line[0]
+      );
+
+    const last =
+      pointToCanvas(
+        line[line.length - 1]
+      );
+
+    if (
+      !first ||
+      !last
+    ) {
+      return null;
+    }
+
+    return {
+      start: first,
+      end: last
+    };
+  }
+
+
+  /* ========================================================
+     DRAW
+     ======================================================== */
 
   function drawWinningLine(
     animate
   ) {
-
     if (
-      !overlayContext ||
-      !overlay ||
-      !lastWinningPath
+      !currentWinningLine ||
+      !context ||
+      !overlay
     ) {
       return;
     }
@@ -619,126 +797,86 @@
       animationFrame
     );
 
-    const scale =
-      getScale();
+    const endpoints =
+      getEndpoints(
+        currentWinningLine
+      );
 
-    const x1 =
-      lastWinningPath.x1 *
-      scale.x;
+    if (!endpoints) {
+      return;
+    }
 
-    const y1 =
-      lastWinningPath.y1 *
-      scale.y;
-
-    const x2 =
-      lastWinningPath.x2 *
-      scale.x;
-
-    const y2 =
-      lastWinningPath.y2 *
-      scale.y;
+    const rect =
+      overlay.getBoundingClientRect();
 
     const dx =
-      x2 -
-      x1;
+      endpoints.end.x -
+      endpoints.start.x;
 
     const dy =
-      y2 -
-      y1;
+      endpoints.end.y -
+      endpoints.start.y;
 
-    const length =
+    const distance =
       Math.hypot(
         dx,
         dy
       );
 
     if (
-      length <= 0
+      distance <= 0
     ) {
       return;
     }
 
     const ux =
-      dx /
-      length;
+      dx / distance;
 
     const uy =
-      dy /
-      length;
+      dy / distance;
 
-    const rect =
-      board.getBoundingClientRect();
-
-    const extend =
+    const extension =
       Math.min(
         rect.width,
         rect.height
-      ) * 0.018;
+      ) *
+      EXTENSION_RATIO;
 
-    const sx =
-      x1 -
-      ux *
-        extend;
+    const x1 =
+      endpoints.start.x -
+      ux * extension;
 
-    const sy =
-      y1 -
-      uy *
-        extend;
+    const y1 =
+      endpoints.start.y -
+      uy * extension;
 
-    const ex =
-      x2 +
-      ux *
-        extend;
+    const x2 =
+      endpoints.end.x +
+      ux * extension;
 
-    const ey =
-      y2 +
-      uy *
-        extend;
+    const y2 =
+      endpoints.end.y +
+      uy * extension;
 
-
-    /*
-     * -------------------------------------------------------
-     * REDUCED MOTION
-     * -------------------------------------------------------
-     */
-
-    if (
-      !animate ||
-      !motionEnabled()
-    ) {
-
-      renderLine(
-        sx,
-        sy,
-        ex,
-        ey,
+    if (!animate) {
+      render(
+        x1,
+        y1,
+        x2,
+        y2,
         1
       );
 
       return;
     }
 
-
-    /*
-     * -------------------------------------------------------
-     * REVEAL ANIMATION
-     * -------------------------------------------------------
-     */
-
     animationStart =
       performance.now();
 
-    const duration =
-      480;
-
-
-    function frame(
-      now
-    ) {
-
+    function frame(now) {
       if (
         destroyed ||
-        !lastWinningPath
+        !currentWinningLine
       ) {
         return;
       }
@@ -750,8 +888,12 @@
             now -
             animationStart
           ) /
-            duration
+          ANIMATION_MS
         );
+
+      /*
+       * Smooth deceleration.
+       */
 
       const eased =
         1 -
@@ -760,40 +902,33 @@
           3
         );
 
-      renderLine(
-        sx,
-        sy,
-        sx +
-          (
-            ex -
-            sx
-          ) *
-            eased,
-        sy +
-          (
-            ey -
-            sy
-          ) *
-            eased,
+      const currentX =
+        x1 +
+        (x2 - x1) *
+          eased;
+
+      const currentY =
+        y1 +
+        (y2 - y1) *
+          eased;
+
+      render(
+        x1,
+        y1,
+        currentX,
+        currentY,
         progress
       );
 
       if (
-        progress <
-        1
+        progress < 1
       ) {
-
         animationFrame =
           requestAnimationFrame(
             frame
           );
-
-      } else {
-
-        startPulse();
       }
     }
-
 
     animationFrame =
       requestAnimationFrame(
@@ -802,670 +937,339 @@
   }
 
 
-  /*
-   * =========================================================
-   * RENDER
-   * =========================================================
-   */
+  /* ========================================================
+     RENDER LINE
+     ======================================================== */
 
-  function renderLine(
+  function render(
     x1,
     y1,
     x2,
     y2,
     progress
   ) {
-
     if (
-      !overlayContext ||
+      !context ||
       !overlay
     ) {
       return;
     }
 
     const rect =
-      board.getBoundingClientRect();
+      overlay.getBoundingClientRect();
 
-    overlayContext.clearRect(
+    context.clearRect(
       0,
       0,
       rect.width,
       rect.height
     );
 
-    const dx =
-      x2 -
-      x1;
-
-    const dy =
-      y2 -
-      y1;
-
-    const length =
-      Math.hypot(
-        dx,
-        dy
-      );
-
-    if (
-      length <= 0
-    ) {
-      return;
-    }
-
-
-    /*
-     * -------------------------------------------------------
-     * GLOW
-     * -------------------------------------------------------
-     */
-
-    overlayContext.save();
-
-    overlayContext.lineCap =
-      "round";
-
-    overlayContext.lineJoin =
-      "round";
-
-    overlayContext.globalAlpha =
-      0.48;
-
-    overlayContext.strokeStyle =
-      "rgba(212,109,82,0.55)";
-
-    overlayContext.lineWidth =
-      Math.max(
-        9,
-        rect.width *
-          0.022
-      );
-
-    overlayContext.shadowColor =
-      "rgba(212,109,82,0.52)";
-
-    overlayContext.shadowBlur =
-      Math.max(
-        10,
-        rect.width *
-          0.035
-      );
-
-    overlayContext.beginPath();
-
-    overlayContext.moveTo(
-      x1,
-      y1
-    );
-
-    overlayContext.lineTo(
-      x2,
-      y2
-    );
-
-    overlayContext.stroke();
-
-
-    /*
-     * -------------------------------------------------------
-     * CORE
-     * -------------------------------------------------------
-     */
-
-    overlayContext.globalAlpha =
-      0.95;
-
-    overlayContext.shadowBlur =
-      0;
-
-    overlayContext.strokeStyle =
-      "#d46d52";
-
-    overlayContext.lineWidth =
+    const width =
       Math.max(
         3,
         rect.width *
-          0.007
+          LINE_RATIO
       );
-
-    overlayContext.beginPath();
-
-    overlayContext.moveTo(
-      x1,
-      y1
-    );
-
-    overlayContext.lineTo(
-      x2,
-      y2
-    );
-
-    overlayContext.stroke();
 
 
     /*
-     * -------------------------------------------------------
-     * HIGHLIGHT
-     * -------------------------------------------------------
+     * -----------------------------------------------
+     * Outer glow
+     * -----------------------------------------------
      */
 
-    overlayContext.globalAlpha =
-      0.48 *
-      Math.max(
-        0.6,
-        progress
-      );
+    context.save();
 
-    overlayContext.strokeStyle =
-      "rgba(255,255,255,0.78)";
+    context.lineCap =
+      "round";
 
-    overlayContext.lineWidth =
-      Math.max(
-        1.3,
-        rect.width *
-          0.0025
-      );
+    context.lineJoin =
+      "round";
 
-    overlayContext.beginPath();
+    context.globalAlpha =
+      0.75;
 
-    overlayContext.moveTo(
+    context.strokeStyle =
+      COLORS.glow;
+
+    context.lineWidth =
+      width * 3.2;
+
+    context.shadowColor =
+      COLORS.glow;
+
+    context.shadowBlur =
+      width * 4;
+
+    context.beginPath();
+
+    context.moveTo(
       x1,
       y1
     );
 
-    overlayContext.lineTo(
+    context.lineTo(
       x2,
       y2
     );
 
-    overlayContext.stroke();
+    context.stroke();
 
-    overlayContext.restore();
-  }
+    context.restore();
 
 
-  /*
-   * =========================================================
-   * SOFT PULSE
-   * =========================================================
-   */
+    /*
+     * -----------------------------------------------
+     * Main line
+     * -----------------------------------------------
+     */
 
-  function startPulse() {
+    context.save();
+
+    context.lineCap =
+      "round";
+
+    context.lineJoin =
+      "round";
+
+    context.globalAlpha =
+      0.96;
+
+    context.strokeStyle =
+      COLORS.line;
+
+    context.lineWidth =
+      width;
+
+    context.beginPath();
+
+    context.moveTo(
+      x1,
+      y1
+    );
+
+    context.lineTo(
+      x2,
+      y2
+    );
+
+    context.stroke();
+
+    context.restore();
+
+
+    /*
+     * -----------------------------------------------
+     * Subtle highlight
+     * -----------------------------------------------
+     */
 
     if (
-      !motionEnabled()
+      progress > 0.15
     ) {
-      return;
-    }
+      context.save();
 
-    const pulseStart =
-      performance.now();
+      context.lineCap =
+        "round";
 
-
-    function frame(
-      now
-    ) {
-
-      if (
-        destroyed ||
-        !lastWinningPath
-      ) {
-        return;
-      }
-
-      const elapsed =
-        now -
-        pulseStart;
-
-      const phase =
-        (
-          elapsed %
-          1400
-        ) /
-        1400;
-
-      const alpha =
-        0.78 +
-        Math.sin(
-          phase *
-            Math.PI *
-            2
-        ) *
-          0.14;
-
-      renderPulse(
-        alpha
-      );
-
-      animationFrame =
-        requestAnimationFrame(
-          frame
+      context.globalAlpha =
+        0.34 *
+        Math.min(
+          1,
+          progress * 1.5
         );
-    }
 
+      context.strokeStyle =
+        COLORS.highlight;
 
-    animationFrame =
-      requestAnimationFrame(
-        frame
+      context.lineWidth =
+        Math.max(
+          1,
+          width * 0.26
+        );
+
+      context.beginPath();
+
+      context.moveTo(
+        x1,
+        y1
       );
+
+      context.lineTo(
+        x2,
+        y2
+      );
+
+      context.stroke();
+
+      context.restore();
+    }
   }
 
 
-  /*
-   * =========================================================
-   * PULSE RENDER
-   * =========================================================
-   */
+  /* ========================================================
+     REDRAW
+     ======================================================== */
 
-  function renderPulse(
-    alpha
-  ) {
-
+  function redraw() {
     if (
-      !lastWinningPath ||
-      !overlayContext ||
-      !overlay
+      !currentWinningLine
     ) {
+      clear();
       return;
     }
 
-    const scale =
-      getScale();
-
-    const x1 =
-      lastWinningPath.x1 *
-      scale.x;
-
-    const y1 =
-      lastWinningPath.y1 *
-      scale.y;
-
-    const x2 =
-      lastWinningPath.x2 *
-      scale.x;
-
-    const y2 =
-      lastWinningPath.y2 *
-      scale.y;
-
-    const rect =
-      board.getBoundingClientRect();
-
-    const dx =
-      x2 -
-      x1;
-
-    const dy =
-      y2 -
-      y1;
-
-    const length =
-      Math.hypot(
-        dx,
-        dy
-      );
-
-    if (
-      !length
-    ) {
-      return;
-    }
-
-    const ux =
-      dx /
-      length;
-
-    const uy =
-      dy /
-      length;
-
-    const extend =
-      Math.min(
-        rect.width,
-        rect.height
-      ) *
-      0.018;
-
-    const sx =
-      x1 -
-      ux *
-        extend;
-
-    const sy =
-      y1 -
-      uy *
-        extend;
-
-    const ex =
-      x2 +
-      ux *
-        extend;
-
-    const ey =
-      y2 +
-      uy *
-        extend;
-
-    overlayContext.clearRect(
-      0,
-      0,
-      rect.width,
-      rect.height
+    drawWinningLine(
+      false
     );
-
-    overlayContext.save();
-
-    overlayContext.lineCap =
-      "round";
-
-    overlayContext.globalAlpha =
-      alpha;
-
-    overlayContext.strokeStyle =
-      "#d46d52";
-
-    overlayContext.lineWidth =
-      Math.max(
-        3,
-        rect.width *
-          0.007
-      );
-
-    overlayContext.shadowColor =
-      "rgba(212,109,82,0.55)";
-
-    overlayContext.shadowBlur =
-      Math.max(
-        7,
-        rect.width *
-          0.025
-      );
-
-    overlayContext.beginPath();
-
-    overlayContext.moveTo(
-      sx,
-      sy
-    );
-
-    overlayContext.lineTo(
-      ex,
-      ey
-    );
-
-    overlayContext.stroke();
-
-    overlayContext.restore();
   }
 
 
-  /*
-   * =========================================================
-   * CLEAR WHEN GAME RESTARTS
-   * =========================================================
-   */
+  /* ========================================================
+     OBSERVE BOARD
+     ======================================================== */
 
-  function watchBoard() {
-
+  function observeBoard() {
     if (!board) {
       return;
     }
 
-    /*
-     * app.js redraws the canvas frequently.
-     *
-     * If the board has been cleared after a new game,
-     * remove our previous winning line as well.
-     */
-
-    let previousHash = "";
-
-    function check() {
-
-      if (
-        destroyed
-      ) {
-        return;
-      }
-
-      const rect =
-        board.getBoundingClientRect();
-
-      if (
-        rect.width <= 0 ||
-        rect.height <= 0
-      ) {
-        requestAnimationFrame(
-          check
+    if (
+      "ResizeObserver" in window
+    ) {
+      resizeObserver =
+        new ResizeObserver(
+          () => {
+            resizeOverlay();
+          }
         );
 
-        return;
-      }
-
-      /*
-       * Detect a new game by checking the
-       * canvas dimensions/state changes.
-       *
-       * We deliberately do NOT inspect pixels.
-       */
-
-      const hash =
-        [
-          board.width,
-          board.height,
-          Math.round(
-            rect.width
-          ),
-          Math.round(
-            rect.height
-          )
-        ].join("|");
+      resizeObserver.observe(
+        board
+      );
 
       if (
-        hash !==
-        previousHash
+        board.parentElement
       ) {
-
-        previousHash =
-          hash;
-
-        resizeOverlay();
+        resizeObserver.observe(
+          board.parentElement
+        );
       }
-
-      requestAnimationFrame(
-        check
-      );
     }
 
-    check();
-  }
+    window.addEventListener(
+      "resize",
+      resizeOverlay,
+      {
+        passive: true
+      }
+    );
 
-
-  /*
-   * =========================================================
-   * MOTION TOGGLE
-   * =========================================================
-   */
-
-  function setupMotionToggle() {
-
-    const toggle =
-      document.getElementById(
-        "motionToggle"
-      );
-
-    if (!toggle) {
-      return;
-    }
-
-    toggle.addEventListener(
-      "change",
-      () => {
-
-        if (
-          !motionEnabled()
-        ) {
-
-          cancelAnimationFrame(
-            animationFrame
-          );
-
-          animationFrame =
-            0;
-
-          if (
-            lastWinningPath
-          ) {
-            drawWinningLine(
-              false
-            );
-          }
-
-        } else if (
-          lastWinningPath
-        ) {
-
-          drawWinningLine(
-            true
-          );
-        }
+    window.addEventListener(
+      "orientationchange",
+      resizeOverlay,
+      {
+        passive: true
       }
     );
   }
 
 
-  /*
-   * =========================================================
-   * RESIZE OBSERVER
-   * =========================================================
-   */
+  /* ========================================================
+     OBSERVE UI CHANGES
+     ======================================================== */
 
-  function setupResizeObserver() {
-
-    if (
-      typeof ResizeObserver ===
-      "undefined" ||
-      !board
-    ) {
-      return;
-    }
-
-    resizeObserver =
-      new ResizeObserver(
+  function observeDOM() {
+    mutationObserver =
+      new MutationObserver(
         () => {
-
-          resizeOverlay();
+          if (
+            !board
+          ) {
+            findBoard();
+          }
 
           if (
-            lastWinningPath
+            board &&
+            !overlay
           ) {
-            drawWinningLine(
-              false
-            );
+            createOverlay();
           }
         }
       );
 
-    resizeObserver.observe(
-      board
+    mutationObserver.observe(
+      document.body,
+      {
+        childList: true,
+        subtree: true
+      }
     );
   }
 
 
-  /*
-   * =========================================================
-   * RESET DETECTION
-   * =========================================================
-   *
-   * When app.js starts a new game, it will redraw the
-   * board without a winning stroke.
-   *
-   * We keep the previous line only until the board is
-   * visibly redrawn. A lightweight canvas fingerprint
-   * is used only for reset detection, not for finding
-   * the winning line.
-   * =========================================================
-   */
+  /* ========================================================
+     STORAGE EVENT
+     ======================================================== */
 
-  function setupResetObserver() {
-
-    let lastDrawTime =
-      performance.now();
-
-    if (
-      !hookedContext
-    ) {
-      return;
-    }
-
-    const originalClearRect =
-      hookedContext.clearRect.bind(
-        hookedContext
-      );
-
-    hookedContext.clearRect =
-      function (...args) {
-
-        const result =
-          originalClearRect(
-            ...args
-          );
-
-        /*
-         * app.js uses clearRect when resetting/redrawing
-         * the board. Clearing the full canvas means the
-         * previous winning line is no longer valid.
-         */
-
+  function observeStorage() {
+    window.addEventListener(
+      "storage",
+      event => {
         if (
-          args.length >= 4 &&
-          args[0] <= 1 &&
-          args[1] <= 1 &&
-          args[2] >= board.width - 2 &&
-          args[3] >= board.height - 2
+          event.key ===
+          STORAGE_KEY
         ) {
-
-          lastWinningPath =
-            null;
-
-          cancelAnimationFrame(
-            animationFrame
-          );
-
-          animationFrame =
-            0;
-
-          clearOverlay();
+          checkStorage();
         }
-
-        lastDrawTime =
-          performance.now();
-
-        return result;
-      };
+      }
+    );
   }
 
 
-  /*
-   * =========================================================
-   * START
-   * =========================================================
-   */
+  /* ========================================================
+     POLLING
+     ======================================================== */
 
-  function start() {
+  function startPolling() {
+    stopPolling();
 
+    pollTimer =
+      window.setInterval(
+        checkStorage,
+        POLL_MS
+      );
+  }
+
+
+  function stopPolling() {
     if (
-      destroyed
+      pollTimer
     ) {
+      window.clearInterval(
+        pollTimer
+      );
+
+      pollTimer = 0;
+    }
+  }
+
+
+  /* ========================================================
+     INITIALIZE
+     ======================================================== */
+
+  function init() {
+    if (destroyed) {
       return;
     }
 
-    if (
-      !findBoard()
-    ) {
+    findBoard();
 
+    if (!board) {
       window.setTimeout(
-        start,
+        init,
         100
       );
 
@@ -1474,118 +1278,109 @@
 
     createOverlay();
 
-    installCanvasHook();
+    observeBoard();
 
-    setupResetObserver();
+    observeDOM();
 
-    setupMotionToggle();
+    observeStorage();
 
-    setupResizeObserver();
+    startPolling();
 
-    watchBoard();
+    checkStorage();
   }
 
 
-  /*
-   * =========================================================
-   * PUBLIC API
-   * =========================================================
-   */
+  /* ========================================================
+     CLEANUP
+     ======================================================== */
+
+  function destroy() {
+    destroyed = true;
+
+    stopPolling();
+
+    cancelAnimationFrame(
+      animationFrame
+    );
+
+    if (
+      resizeObserver
+    ) {
+      resizeObserver.disconnect();
+
+      resizeObserver = null;
+    }
+
+    if (
+      mutationObserver
+    ) {
+      mutationObserver.disconnect();
+
+      mutationObserver = null;
+    }
+
+    window.removeEventListener(
+      "resize",
+      resizeOverlay
+    );
+
+    window.removeEventListener(
+      "orientationchange",
+      resizeOverlay
+    );
+
+    if (
+      overlay
+    ) {
+      overlay.remove();
+
+      overlay = null;
+      context = null;
+    }
+  }
+
+
+  /* ========================================================
+     PUBLIC DEBUG API
+     ======================================================== */
 
   window.GomokuWinningLine = {
-
     refresh() {
-
-      if (
-        lastWinningPath
-      ) {
-        drawWinningLine(
-          false
-        );
-      }
+      checkStorage();
     },
 
     clear() {
-
-      lastWinningPath =
+      currentWinningLine =
         null;
 
-      cancelAnimationFrame(
-        animationFrame
-      );
+      currentWinner = 0;
 
-      animationFrame =
-        0;
+      lastSignature = "";
 
-      clearOverlay();
+      clear();
     },
 
-    destroy() {
-
-      destroyed =
-        true;
-
-      cancelAnimationFrame(
-        animationFrame
-      );
-
-      animationFrame =
-        0;
-
-      if (
-        resizeObserver
-      ) {
-
-        resizeObserver.disconnect();
-
-        resizeObserver =
-          null;
-      }
-
-      if (
-        overlay
-      ) {
-
-        overlay.remove();
-
-        overlay =
-          null;
-      }
-
-      overlayContext =
-        null;
-
-      hookedContext =
-        null;
-
-      lastWinningPath =
-        null;
-    }
+    destroy
   };
 
 
-  /*
-   * =========================================================
-   * BOOT
-   * =========================================================
-   */
+  /* ========================================================
+     START
+     ======================================================== */
 
   if (
     document.readyState ===
     "loading"
   ) {
-
     document.addEventListener(
       "DOMContentLoaded",
-      start,
+      init,
       {
         once: true
       }
     );
-
   } else {
-
-    start();
+    init();
   }
 
 })();
